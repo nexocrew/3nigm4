@@ -104,13 +104,12 @@ func xorKeys(keys [][]byte, maxlen int) ([]byte, error) {
 
 // AesEncrypt encrypt data with AES256 using a key.
 // Salt and IV will be passed in the encrypted message.
-func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode, iterations int) ([]byte, error) {
+func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode) ([]byte, error) {
 	// check input values
 	if len(key) < 1 ||
 		len(plaintext) < 1 ||
-		plaintext == nil ||
-		iterations < 1 {
-		return nil, fmt.Errorf("Invalid arguments: passcodes, plaintext and iterations should be not null or empty.")
+		plaintext == nil {
+		return nil, fmt.Errorf("Invalid arguments: should be not null or empty.")
 	}
 
 	// pad plain text
@@ -157,13 +156,12 @@ func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode, iterati
 
 // AesDecrypt decrypt data with AES256 using a key
 // Salt and IV are passed in the encrypted message.
-func AesDecrypt(key []byte, ciphertext []byte, mode AesMode, iterations int) ([]byte, error) {
+func AesDecrypt(key []byte, ciphertext []byte, mode AesMode) ([]byte, error) {
 	// check input values
 	if len(key) < 1 ||
 		len(ciphertext) < 1 ||
-		ciphertext == nil ||
-		iterations < 1 {
-		return nil, fmt.Errorf("Invalid arguments: passcodes, ciphertext and iterations should be not null or empty.")
+		ciphertext == nil {
+		return nil, fmt.Errorf("Invalid arguments: should be not null or empty.")
 	}
 
 	// get packed values
@@ -200,6 +198,7 @@ func AesDecrypt(key []byte, ciphertext []byte, mode AesMode, iterations int) ([]
 	return unpadded, nil
 }
 
+// Get a specific key from an email address
 func getKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 	for _, entity := range keyring {
 		for _, ident := range entity.Identities {
@@ -211,6 +210,7 @@ func getKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 	return nil
 }
 
+// Encrypt using pgp
 func OpenPgpEncrypt(data []byte, privateKr []byte, publicKr []byte, signerEmail string) ([]byte, error) {
 	// get private key
 	rpv := bytes.NewReader(privateKr)
