@@ -211,27 +211,10 @@ func getKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 }
 
 // Encrypt using pgp
-func OpenPgpEncrypt(data []byte, privateKr []byte, publicKr []byte, signerEmail string) ([]byte, error) {
-	// get private key
-	rpv := bytes.NewReader(privateKr)
-	privring, err := openpgp.ReadKeyRing(rpv)
-	if err != nil {
-		return nil, err
-	}
-	privateKey := getKeyByEmail(privring, signerEmail)
-	if privateKey == nil {
-		return nil, fmt.Errorf("Private key for user %s not found, unable to sign the message and proceeding.", signerEmail)
-	}
-
-	// extract recipients keys
-	rpb := bytes.NewReader(publicKr)
-	pubring, err := openpgp.ReadArmoredKeyRing(rpb)
-	if err != nil {
-		return nil, err
-	}
+func OpenPgpEncrypt(data []byte, privatek *openpgp.Entity, publick openpgp.EntityList) ([]byte, error) {
 	// encrypt message
 	buf := new(bytes.Buffer)
-	w, err := openpgp.Encrypt(buf, pubring, privateKey, nil, nil)
+	w, err := openpgp.Encrypt(buf, publick, privatek, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -245,4 +228,28 @@ func OpenPgpEncrypt(data []byte, privateKr []byte, publicKr []byte, signerEmail 
 	}
 
 	return buf.Bytes(), nil
+}
+
+func GetPrivateKeyFromKeyring(privateKr []byte, id string) (*openpgp.Entity, error) {
+	// get private key
+	rpv := bytes.NewReader(privateKr)
+	privring, err := openpgp.ReadKeyRing(rpv)
+	if err != nil {
+		return nil, err
+	}
+	privateKey := getKeyByEmail(privring, id)
+	if privateKey == nil {
+		return nil, fmt.Errorf("Private key for user %s not found, unable to sign the message and proceeding.", id)
+	}
+	return privateKey, nil
+}
+
+func GetPublicKeysFromKeyring(publicKr []byte) (openpgp.EntityList, error) {
+	// extract recipients keys
+	rpb := bytes.NewReader(publicKr)
+	pubring, err := openpgp.ReadArmoredKeyRing(rpb) // ReadArmoredKeyRing
+	if err != nil {
+		return nil, err
+	}
+	return pubring, nil
 }
