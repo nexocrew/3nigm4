@@ -211,10 +211,10 @@ func getKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 }
 
 // Encrypt using pgp
-func OpenPgpEncrypt(data []byte, privatek *openpgp.Entity, publick openpgp.EntityList) ([]byte, error) {
+func OpenPgpEncrypt(data []byte, recipients openpgp.EntityList, signer *openpgp.Entity) ([]byte, error) {
 	// encrypt message
 	buf := new(bytes.Buffer)
-	w, err := openpgp.Encrypt(buf, publick, privatek, nil, nil)
+	w, err := openpgp.Encrypt(buf, recipients, signer, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -230,26 +230,31 @@ func OpenPgpEncrypt(data []byte, privatek *openpgp.Entity, publick openpgp.Entit
 	return buf.Bytes(), nil
 }
 
-func GetPrivateKeyFromKeyring(privateKr []byte, id string) (*openpgp.Entity, error) {
-	// get private key
-	rpv := bytes.NewReader(privateKr)
-	privring, err := openpgp.ReadKeyRing(rpv)
+func ReadAndUnlockArmoredKeyRing(privateKr []byte, passphrase []byte) (openpgp.EntityList, error) {
+	// Read armored private key into type EntityList
+	// An EntityList contains one or more Entities.
+	// This assumes there is only one Entity involved
+	kring, err := openpgp.ReadArmoredKeyRing(bytes.NewBuffer(privateKr))
 	if err != nil {
 		return nil, err
 	}
-	privateKey := getKeyByEmail(privring, id)
-	if privateKey == nil {
-		return nil, fmt.Errorf("Private key for user %s not found, unable to sign the message and proceeding.", id)
-	}
-	return privateKey, nil
-}
 
-func GetPublicKeysFromKeyring(publicKr []byte) (openpgp.EntityList, error) {
-	// extract recipients keys
-	rpb := bytes.NewReader(publicKr)
-	pubring, err := openpgp.ReadArmoredKeyRing(rpb) // ReadArmoredKeyRing
-	if err != nil {
-		return nil, err
+	for _, entity := range kring {
+		if entity.PrivateKey != nil &&
+			entity.PrivateKey.Encrypted {
+			err := entity.PrivateKey.Decrypt(passphrase)
+			if err != nil {
+				return nil, err
+			}
+		}
+		for _, subkey := range entity.Subkeys {
+			if subkey.PrivateKey != nil && subkey.PrivateKey.Encrypted {
+				err := subkey.PrivateKey.Decrypt(passphrase)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
-	return pubring, nil
+	return kring, nil
 }

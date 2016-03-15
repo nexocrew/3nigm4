@@ -15,7 +15,7 @@ GOCMD=go
 GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOINSTALL=$(GOCMD) install
-GOTEST=$(GOCMD) test
+GOTEST=$(GOCMD) test -v
 GODEP=$(GOTEST) -i
 GOFMT=gofmt -w
 
