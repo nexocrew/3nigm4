@@ -216,7 +216,8 @@ func getKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 	return nil
 }
 
-// Encrypt using pgp
+// Encrypt using pgp and the passed recipients list
+// and signer entity.
 func OpenPgpEncrypt(data []byte, recipients openpgp.EntityList, signer *openpgp.Entity) ([]byte, error) {
 	// encrypt message
 	buf := new(bytes.Buffer)
@@ -236,7 +237,45 @@ func OpenPgpEncrypt(data []byte, recipients openpgp.EntityList, signer *openpgp.
 	return buf.Bytes(), nil
 }
 
-func ReadAndUnlockArmoredKeyRing(privateKr []byte, passphrase []byte) (openpgp.EntityList, error) {
+// OpenPgpDecrypt decrypt a message using the argument
+// keyring as source to get required keys.
+func OpenPgpDecrypt(data []byte, keyring openpgp.EntityList) ([]byte, error) {
+	md, err := openpgp.ReadMessage(bytes.NewBuffer(data), keyring, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := ioutil.ReadAll(md.UnverifiedBody)
+	if err != nil {
+		return nil, err
+	}
+	return plaintext, nil
+}
+
+// Iterate on keys decrypting all encrypted
+// entities.
+func unlockKeyRing(entity *openpgp.Entity, passphrase []byte) error {
+	if entity.PrivateKey != nil &&
+		entity.PrivateKey.Encrypted {
+		err := entity.PrivateKey.Decrypt(passphrase)
+		if err != nil {
+			return err
+		}
+	}
+	for _, subkey := range entity.Subkeys {
+		if subkey.PrivateKey != nil && subkey.PrivateKey.Encrypted {
+			err := subkey.PrivateKey.Decrypt(passphrase)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// ReadArmoredKeyRing read keys in an armored keyring
+// and returns openpgp entities. If a passphrase is passed
+// it will be used to decrypt keys.
+func ReadArmoredKeyRing(privateKr []byte, passphrase []byte) (openpgp.EntityList, error) {
 	// Read armored private key into type EntityList
 	// An EntityList contains one or more Entities.
 	// This assumes there is only one Entity involved
@@ -244,21 +283,11 @@ func ReadAndUnlockArmoredKeyRing(privateKr []byte, passphrase []byte) (openpgp.E
 	if err != nil {
 		return nil, err
 	}
-
-	for _, entity := range kring {
-		if entity.PrivateKey != nil &&
-			entity.PrivateKey.Encrypted {
-			err := entity.PrivateKey.Decrypt(passphrase)
+	if passphrase != nil {
+		for _, entity := range kring {
+			err := unlockKeyRing(entity, passphrase)
 			if err != nil {
 				return nil, err
-			}
-		}
-		for _, subkey := range entity.Subkeys {
-			if subkey.PrivateKey != nil && subkey.PrivateKey.Encrypted {
-				err := subkey.PrivateKey.Decrypt(passphrase)
-				if err != nil {
-					return nil, err
-				}
 			}
 		}
 	}

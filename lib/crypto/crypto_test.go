@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"golang.org/x/crypto/openpgp"
-	"io/ioutil"
 	"testing"
 )
 
@@ -30,27 +29,32 @@ var (
 	salt = "i93ie93e"
 )
 
-// pub   1024R/7F98BBCE 2014-01-04
-// uid                  Golang Test (Private key password is 'golang') <golangtest@test.com>
-// sub   1024R/5F34A320 2014-01-04
+// https://raw.githubusercontent.com/golang/crypto/master/openpgp/keys_test.go
 const publicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v1.4.15 (Darwin)
-mI0EUsdthgEEAMKOAoeY+bAHEjdzcM9WhJ27T4QmX8SxLYcRo3rd2cuQawwCz7jf
-bCzLCYyvMqoIvjSxuElVgFx97RyEv5yvLg7ngNfv6ADRlJXMVQ3YQahyeRofPJJ+
-5S0F0JOahZlkAYWIHCUhLtoT/zpI7IeSwWjwtEL1b8YhZBLY9txp29TLABEBAAG0
-REdvbGFuZyBUZXN0IChQcml2YXRlIGtleSBwYXNzd29yZCBpcyAnZ29sYW5nJykg
-PGdvbGFuZ3Rlc3RAdGVzdC5jb20+iLgEEwECACIFAlLHbYYCGwMGCwkIBwMCBhUI
-AgkKCwQWAgMBAh4BAheAAAoJEFVKIId/mLvOookD+wVQzZN8vZVkpYLsTU3XDBly
-0H0F/vtJ4A9JWkYJnRyJRggV3DAajAq2OgOuxtiA+n5QY7JgwPq0bNYpomtBCgPJ
-pCpVVGFs1cHsnPslPZqoocPW3tzHkV9TMMwE2i7dM5YeiYNfJAYMBQsBmeNo6Pz+
-kN7qmjHIGW5KMwlTN8OmuI0EUsdthgEEAK1DA6pBp4PQqaZO91AVgXe44YW7ZNHm
-kUIf4KFB4SiXq2eCzENtSCsiF/hkG7HA6XHKVzCOnk4V8ay/g/BuHDW+HsL09M3N
-tPk/dc7YE/QP+FYn3BD0AhK06mP6GaYQM2TNaerEXp3NtnuNok9CIm3eYArNsJ0j
-XlM8mw3LkIthABEBAAGInwQYAQIACQUCUsdthgIbDAAKCRBVSiCHf5i7zrpRA/9r
-lIf6ozk+OvF6Cul7fN+8OOSUD6S6ohh/SiYKha1MSTMNWyBNhutOjmOoQoHhPmAv
-Kp8tvYULV4SiKrlCP9ANait2gmYcKsqk/kI7xel4tIvx64EMAsgaKWN7hp3TG77Y
-cVNCjtHerHjGZbRw6/GGlNSbw8DRQ0FbsPkasuexEw==
-=jr2t
+Version: GnuPG v1
+
+mI0EVUqeVwEEAMufHRrMPWK3gyvi0O0tABCs/oON9zV9KDZlr1a1M91ShCSFwCPo
+7r80PxdWVWcj0V5h50/CJYtpN3eE/mUIgW2z1uDYQF1OzrQ8ubrksfsJvpAhENom
+lTQEppv9mV8qhcM278teb7TX0pgrUHLYF5CfPdp1L957JLLXoQR/lwLVABEBAAG0
+E2dvb2Qtc2lnbmluZy1zdWJrZXmIuAQTAQIAIgUCVUqeVwIbAwYLCQgHAwIGFQgC
+CQoLBBYCAwECHgECF4AACgkQNRjL95IRWP69XQQAlH6+eyXJN4DZTLX78KGjHrsw
+6FCvxxClEPtPUjcJy/1KCRQmtLAt9PbbA78dvgzjDeZMZqRAwdjyJhjyg/fkU2OH
+7wq4ktjUu+dLcOBb+BFMEY+YjKZhf6EJuVfxoTVr5f82XNPbYHfTho9/OABKH6kv
+X70PaKZhbwnwij8Nts65AaIEVUqftREEAJ3WxZfqAX0bTDbQPf2CMT2IVMGDfhK7
+GyubOZgDFFjwUJQvHNvsrbeGLZ0xOBumLINyPO1amIfTgJNm1iiWFWfmnHReGcDl
+y5mpYG60Mb79Whdcer7CMm3AqYh/dW4g6IB02NwZMKoUHo3PXmFLxMKXnWyJ0clw
+R0LI/Qn509yXAKDh1SO20rqrBM+EAP2c5bfI98kyNwQAi3buu94qo3RR1ZbvfxgW
+CKXDVm6N99jdZGNK7FbRifXqzJJDLcXZKLnstnC4Sd3uyfyf1uFhmDLIQRryn5m+
+LBYHfDBPN3kdm7bsZDDq9GbTHiFZUfm/tChVKXWxkhpAmHhU/tH6GGzNSMXuIWSO
+aOz3Rqq0ED4NXyNKjdF9MiwD/i83S0ZBc0LmJYt4Z10jtH2B6tYdqnAK29uQaadx
+yZCX2scE09UIm32/w7pV77CKr1Cp/4OzAXS1tmFzQ+bX7DR+Gl8t4wxr57VeEMvl
+BGw4Vjh3X8//m3xynxycQU18Q1zJ6PkiMyPw2owZ/nss3hpSRKFJsxMLhW3fKmKr
+Ey2KiOcEGAECAAkFAlVKn7UCGwIAUgkQNRjL95IRWP5HIAQZEQIABgUCVUqftQAK
+CRD98VjDN10SqkWrAKDTpEY8D8HC02E/KVC5YUI01B30wgCgurpILm20kXEDCeHp
+C5pygfXw1DJrhAP+NyPJ4um/bU1I+rXaHHJYroYJs8YSweiNcwiHDQn0Engh/mVZ
+SqLHvbKh2dL/RXymC3+rjPvQf5cup9bPxNMa6WagdYBNAfzWGtkVISeaQW+cTEp/
+MtgVijRGXR/lGLGETPg2X3Afwn9N9bLMBkBprKgbBqU7lpaoPupxT61bL70=
+=vtbN
 -----END PGP PUBLIC KEY BLOCK-----`
 
 // pub   1024R/7F98BBCE 2014-01-04
@@ -189,13 +193,7 @@ func TestOpenPgpEncryption(t *testing.T) {
 	encoded, _ := EncodePgpArmored(encrypted)
 	t.Logf("Encrypted blob: %s.\n", string(encoded))
 
-	md, err := openpgp.ReadMessage(bytes.NewBuffer(encrypted), keyr, nil, nil)
-	if err != nil {
-		t.Fatalf("Unable to read message: %s.\n", err.Error())
-	}
-
-	t.Logf("Message: %v.\n", md)
-	plaintdata, err := ioutil.ReadAll(md.UnverifiedBody)
+	plaintdata, err := OpenPgpDecrypt(encrypted, keyr)
 	if err != nil {
 		t.Fatalf("Unable to access body: %s.\n", err.Error())
 	}
@@ -203,5 +201,14 @@ func TestOpenPgpEncryption(t *testing.T) {
 		t.Fatalf("Unexpected result are different\n")
 	}
 	t.Logf("Plaintext: %s.\n", string(plaintdata))
+}
 
+func TestOpenPgpArmoredKeys(t *testing.T) {
+	entityList, err := ReadArmoredKeyRing([]byte(publicKey), nil)
+	if err != nil {
+		t.Fatalf("Unable to access public armored key: %s.\n", err.Error())
+	}
+	if len(entityList) != 1 {
+		t.Fatalf("Unexpected size having %d expecting %d.\n", len(entityList), 1)
+	}
 }
