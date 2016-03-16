@@ -24,11 +24,10 @@ var (
 	This is a test message, it will be encrypted. 
 	This is a test message, it will be encrypted. 
 	This is a test message, it will be encrypted.`
-	key1          = "key12345a293bf93key12345a293bf93"
-	key2          = "this.is.a.test.key"
-	key3          = "R39eie93oe0903i9e£eoo093"
-	salt          = "i93ie93e"
-	pgpPrivateKey = "/home/dyst0ni3/.gnupg/secring.gpg"
+	key1 = "key12345a293bf93key12345a293bf93"
+	key2 = "this.is.a.test.key"
+	key3 = "R39eie93oe0903i9e£eoo093"
+	salt = "i93ie93e"
 )
 
 // pub   1024R/7F98BBCE 2014-01-04
@@ -187,7 +186,8 @@ func TestOpenPgpEncryption(t *testing.T) {
 		t.Fatalf("Unexpected error: %s.\n", err.Error())
 	}
 
-	t.Logf("Encrypted blob: %v.\n", encrypted)
+	encoded, _ := EncodePgpArmored(encrypted)
+	t.Logf("Encrypted blob: %s.\n", string(encoded))
 
 	md, err := openpgp.ReadMessage(bytes.NewBuffer(encrypted), keyr, nil, nil)
 	if err != nil {

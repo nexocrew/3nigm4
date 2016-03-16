@@ -15,9 +15,15 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/pbkdf2"
 	"io"
+	"io/ioutil"
+)
+
+// extended crypto lib
+import (
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 // AesMode defines a enum type for available
@@ -257,4 +263,44 @@ func ReadAndUnlockArmoredKeyRing(privateKr []byte, passphrase []byte) (openpgp.E
 		}
 	}
 	return kring, nil
+}
+
+const (
+	kEn1gm4Type    = "EN1GM4 HANDSHAKE"              // message type;
+	kEn1gm4Version = "En1gm4 v1.0.0 (GnuPG v1.4.10)" // Message version.
+)
+
+// EncodePgpArmored encode a pgp message in armored
+// ASCII format.
+func EncodePgpArmored(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	header := map[string]string{
+		"Version": kEn1gm4Version,
+	}
+	w, err := armor.Encode(buf, kEn1gm4Type, header)
+	if err != nil {
+		return nil, err
+	}
+	_, err = w.Write(data)
+	if err != nil {
+		return nil, err
+	}
+	w.Close()
+
+	return buf.Bytes(), nil
+}
+
+// DecodePgpArmored decode pgp armored messages from
+// ASCII armored format.
+func DecodePgpArmored(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(data)
+	result, err := armor.Decode(buf)
+	if err != nil {
+		return nil, err
+	}
+	decoded, err := ioutil.ReadAll(result.Body)
+	if err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }
