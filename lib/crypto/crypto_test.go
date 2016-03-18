@@ -211,4 +211,17 @@ func TestOpenPgpArmoredKeys(t *testing.T) {
 	if len(entityList) != 1 {
 		t.Fatalf("Unexpected size having %d expecting %d.\n", len(entityList), 1)
 	}
+	pvkList, err := ReadArmoredKeyRing([]byte(privateKey), []byte("golang"))
+	if err != nil {
+		t.Fatalf("Unable to access private armored key: %s.\n", err.Error())
+	}
+	if len(pvkList) != 1 {
+		t.Fatalf("Unexpected size having %d expecting %d.\n", len(entityList), 1)
+	}
+	entityList = append(entityList, pvkList...)
+	plainbytes := []byte(plaintex)
+	_, err = OpenPgpEncrypt(plainbytes, entityList, pvkList[0])
+	if err != nil {
+		t.Fatalf("Unexpected error: %s.\n", err.Error())
+	}
 }
