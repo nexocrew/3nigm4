@@ -275,11 +275,11 @@ func unlockKeyRing(entity *openpgp.Entity, passphrase []byte) error {
 // ReadArmoredKeyRing read keys in an armored keyring
 // and returns openpgp entities. If a passphrase is passed
 // it will be used to decrypt keys.
-func ReadArmoredKeyRing(privateKr []byte, passphrase []byte) (openpgp.EntityList, error) {
+func ReadArmoredKeyRing(kr []byte, passphrase []byte) (openpgp.EntityList, error) {
 	// Read armored private key into type EntityList
 	// An EntityList contains one or more Entities.
 	// This assumes there is only one Entity involved
-	kring, err := openpgp.ReadArmoredKeyRing(bytes.NewBuffer(privateKr))
+	kring, err := openpgp.ReadArmoredKeyRing(bytes.NewBuffer(kr))
 	if err != nil {
 		return nil, err
 	}

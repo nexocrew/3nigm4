@@ -9,17 +9,6 @@ import (
 	"time"
 )
 
-// Struct that contains all required keys to
-// participate to a chat session. This structure will be
-// encrypted using pgp before being inserted in a Recipient
-// keys struct for being sent to the server.
-type SessionKeys struct {
-	MainSymmetricKey   []byte `json:"maink" xml:"maink"`           // main random generated symmetric key;
-	ServerSymmetricKey []byte `json:"serverk" xml:"serverk"`       // server symmetric key;
-	PreSharedFlag      bool   `json:"presharedf" xml:"presharedf"` // is there also a pre-shared key in use;
-	PreSharedKey       []byte `json:"-" xml:"-"`                   // pre shared key (only available in the client).
-}
-
 // RecipientsKys is replicated for each recipient and
 // used in handshake flow to exchange, in encrypted form,
 // all required symmetric keys.
@@ -52,5 +41,25 @@ type HandshakeRes struct {
 	SessionId []byte `json:"session" xml:"session"` // the id of the session.
 }
 
+// EnrollmentRes is passed by the server to clients when they
+// require pending messages to the service.
+type EnrollmentRes struct {
+	SessionId            []byte `json:"session" xml:"session"`   // the id of the session;
+	EncryptedSessionKeys []byte `json:"sessionk" xml:"sessionk"` // encrypted SessionKeys json encoded struct.
+}
+
+// Request for an encrypted message using pre-sared keys.
 type Message struct {
+	SessionId     []byte    `json:"session" xml:"session"`     // the id of the session;
+	EncryptedBody []byte    `json:"body" xml:"body"`           // the actual encrypted message;
+	TimeStamp     time.Time `json:"timestamp" xml:"timestamp"` // message op timestamp;
+	Counter       uint64    `json:"counter" xml:"counter"`     // message idx.
+}
+
+// StandardResponse is a generic response message
+// used to pass non specific messages like everything
+// is OK or an error occurred.
+type StandardResponse struct {
+	Status string `json:"status"` // Status string
+	Error  string `json:"error"`  // Error description
 }
