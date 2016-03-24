@@ -251,6 +251,31 @@ func OpenPgpDecrypt(data []byte, keyring openpgp.EntityList) ([]byte, error) {
 	return plaintext, nil
 }
 
+// OpenPgpSignMessage creates a signature for a message.
+func OpenPgpSignMessage(msg []byte, signer *openpgp.Entity) ([]byte, error) {
+	out := bytes.NewBuffer(nil)
+	message := bytes.NewBuffer(msg)
+	err := openpgp.DetachSign(out, signer, message, nil)
+	if err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+func OpenPgpVerifySignature(signature []byte, message []byte, keyring openpgp.EntityList, signer *openpgp.Entity) (bool, err) {
+	sig := bytes.NewBuffer(signature)
+	msg := bytes.NewBuffer(message)
+	sigId, err := openpgp.CheckDetachedSignature(keyring, sig, msg)
+	if err != nil {
+		return false, err
+	}
+	if sigId == nil {
+		return false, fmt.Errorf("invalid signer identity, should not be nil")
+	}
+	if signer.PrimaryKey.KeyId != expectedSignerKeyId {
+	}
+}
+
 // Iterate on keys decrypting all encrypted
 // entities.
 func unlockKeyRing(entity *openpgp.Entity, passphrase []byte) error {

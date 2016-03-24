@@ -48,19 +48,6 @@ type EnrollmentRes struct {
 	EncryptedSessionKeys []byte `json:"sessionk" xml:"sessionk"` // encrypted SessionKeys json encoded struct.
 }
 
-// Request for an encrypted message using pre-sared keys.
-type Message struct {
-	SessionId     []byte    `json:"session" xml:"session"`     // the id of the session;
-	EncryptedBody []byte    `json:"body" xml:"body"`           // the actual encrypted message;
-	TimeStamp     time.Time `json:"timestamp" xml:"timestamp"` // message op timestamp;
-	Counter       uint64    `json:"counter" xml:"counter"`     // message idx.
-}
-
-type SignedMessage struct {
-	Message   Message `json:"message" xml:"message"`     // the message;
-	Signature []byte  `json:"signature" xml:"signature"` // signature on json coded message.
-}
-
 // StandardResponse is a generic response message
 // used to pass non specific messages like everything
 // is OK or an error occurred.

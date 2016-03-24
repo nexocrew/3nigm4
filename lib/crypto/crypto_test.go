@@ -267,7 +267,7 @@ func TestOpenPgpArmoredKeys(t *testing.T) {
 		t.Fatalf("Unable to access private armored key: %s.\n", err.Error())
 	}
 	if len(pvkList) != 1 {
-		t.Fatalf("Unexpected size having %d expecting %d.\n", len(entityList), 1)
+		t.Fatalf("Unexpected size having %d expecting %d.\n", len(pvkList), 1)
 	}
 	entityList = append(entityList, pvkList...)
 	plainbytes := []byte(plaintex)
@@ -275,4 +275,23 @@ func TestOpenPgpArmoredKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %s.\n", err.Error())
 	}
+}
+
+func TestOpenPgpSignature(t *testing.T) {
+	pvkList, err := ReadArmoredKeyRing([]byte(privateKey), []byte("golang"))
+	if err != nil {
+		t.Fatalf("Unable to access private armored key: %s.\n", err.Error())
+	}
+	if len(pvkList) != 1 {
+		t.Fatalf("Unexpected size having %d expecting %d.\n", len(pvkList), 1)
+	}
+	msg := []byte(plaintex)
+	signature, err := OpenPgpSignMessage(msg, pvkList[0])
+	if err != nil {
+		t.Fatalf("Unable to sign the message: %s.\n", signature)
+	}
+	if len(signature) == 0 {
+		t.Fatalf("Invalid signature len should be not 0.\n")
+	}
+	t.Logf("Signature: %v.\n", signature)
 }
