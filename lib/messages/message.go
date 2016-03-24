@@ -56,6 +56,11 @@ type Message struct {
 	Counter       uint64    `json:"counter" xml:"counter"`     // message idx.
 }
 
+type SignedMessage struct {
+	Message   Message `json:"message" xml:"message"`     // the message;
+	Signature []byte  `json:"signature" xml:"signature"` // signature on json coded message.
+}
+
 // StandardResponse is a generic response message
 // used to pass non specific messages like everything
 // is OK or an error occurred.

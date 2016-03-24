@@ -89,12 +89,12 @@ func DeriveKeyWithPbkdf2(password []byte, salt []byte, iter int) []byte {
 
 // XOR given keys (passed in a slice)
 // returning an unique key.
-func xorKeys(keys [][]byte, maxlen int) ([]byte, error) {
+func XorKeys(keys [][]byte, maxlen int) ([]byte, error) {
 	// xor passcodesb
 	buffeXored := make([]byte, maxlen)
 	for counter, key := range keys {
 		if len(key) != maxlen {
-			return nil, fmt.Errorf("Invalid passcodes: argument passcodes are too short, should be min 32 byte long.")
+			return nil, fmt.Errorf("Invalid passcodes: argument passcodes are too short, should be min %d byte long.", maxlen)
 		}
 		// copy or xor
 		if counter == 0 {

@@ -160,13 +160,13 @@ func TestXorKeys(t *testing.T) {
 	shaedK3 := sha256.Sum256([]byte(key3))
 
 	keys := [][]byte{shaedK1[:], shaedK2[:], shaedK3[:]}
-	_, err := xorKeys(keys, kRequiredMaxKeySize)
+	_, err := XorKeys(keys, kRequiredMaxKeySize)
 	if err != nil {
 		t.Fatalf("Unable to xor keys that's strange: %s.\n", err.Error())
 	}
 
 	keys = [][]byte{shaedK1[:], shaedK2[:], []byte(key3)}
-	_, err = xorKeys(keys, kRequiredMaxKeySize)
+	_, err = XorKeys(keys, kRequiredMaxKeySize)
 	if err == nil {
 		t.Fatalf("In this case xor should return an error key3 is too short.\n")
 	}
@@ -178,7 +178,7 @@ func generateAesKey() ([]byte, error) {
 	shaedK3 := sha256.Sum256([]byte(key3))
 
 	keys := [][]byte{shaedK1[:], shaedK2[:], shaedK3[:]}
-	aesk, err := xorKeys(keys, kRequiredMaxKeySize)
+	aesk, err := XorKeys(keys, kRequiredMaxKeySize)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to xor keys that's strange: %s.\n", err.Error())
 	}
