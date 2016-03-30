@@ -112,7 +112,7 @@ lw1nIDx1uwkeAfXXcViFBg==
 -----END PGP PUBLIC KEY BLOCK-----`
 
 // pub   1024R/7F98BBCE 2014-01-04
-// uid                  Golang Test (Private key password is 'golang') <golangtest@test.com>
+// uid   Golang Test (Private key password is 'golang') <golangtest@test.com>
 // sub   1024R/5F34A320 2014-01-04
 const privateKey = `-----BEGIN PGP PRIVATE KEY BLOCK-----
 Version: GnuPG v1
@@ -297,12 +297,21 @@ func TestOpenPgpSignature(t *testing.T) {
 		t.Fatalf("Invalid signature len should be not 0.\n")
 	}
 	t.Logf("Signature: %v (%d).\n", signature, len(signature))
-	/*
-		signer, err := OpenPgpVerifySignature(signature, msg, pvkList)
-		if err != nil {
-			t.Fatalf("Unable to verify signature: %s.\n", err.Error())
-		}
-
-		t.Logf("Signer: %v.\n", signer)
-	*/
+	// test valid signer key
+	err = OpenPgpVerifySignature(signature, msg, pvkList[0])
+	if err != nil {
+		t.Fatalf("Unable to verify signature: %s.\n", err.Error())
+	}
+	// test other user's keys
+	entityList, err := ReadArmoredKeyRing([]byte(publicKey), nil)
+	if err != nil {
+		t.Fatalf("Unable to access public armored key: %s.\n", err.Error())
+	}
+	if len(entityList) == 0 {
+		t.Fatalf("Expected at least a public key.\n")
+	}
+	err = OpenPgpVerifySignature(signature, msg, entityList[0])
+	if err == nil {
+		t.Fatalf("This user should not be able to verify the signature.\n")
+	}
 }

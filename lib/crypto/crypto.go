@@ -289,31 +289,32 @@ func OpenPgpSignMessage(msg []byte, signer *openpgp.Entity) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func OpenPgpVerifySignature(signature []byte, message []byte, publicKey *openpgp.Entity) (bool, error) {
-	/*
-		// create signature
-		sig := new(packet.Signature)
-		sig.SigType = packet.SigTypeBinary
-		sig.PubKeyAlgo = signer.PrivateKey.PubKeyAlgo
-		sig.IssuerKeyId = &signer.PrivateKey.KeyId
-		sig.Hash = crypto.SHA256
+func OpenPgpVerifySignature(signature []byte, message []byte, publicKey *openpgp.Entity) error {
+	// load signature
+	pack, err := packet.Read(bytes.NewBuffer(signature))
+	if err != nil {
+		return err
+	}
+	sign, ok := pack.(*packet.Signature)
+	if !ok {
+		return fmt.Errorf("unexpected signature format")
+	}
 
-		// generate data hash
-		hash := sha256.New()
-		io.WriteString(hash, string(message))
-		// user publickey properties
-		sig := bytes.NewBuffer(signature)
-		msg := bytes.NewBuffer(message)
-		err := publicKey.PrimaryKey.VerifySignature(hash)
-		if err != nil {
-			return nil, err
-		}
-		if signer == nil {
-			return nil, fmt.Errorf("invalid signer identity, should not be nil")
-		}
-		return signer, nil
-	*/
-	return true, nil
+	// get signature hash
+	hash := sign.Hash.New()
+
+	// hash message content
+	_, err = hash.Write(message)
+	if err != nil {
+		return err
+	}
+
+	err = publicKey.PrimaryKey.VerifySignature(hash, sign)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Iterate on keys decrypting all encrypted

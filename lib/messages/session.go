@@ -214,14 +214,11 @@ func checkSignatures(signature []byte, msg Message, senderId string, participant
 		return fmt.Errorf("unable to find sender id in participant's keys")
 	}
 	// check it out
-	ok, err := crypto3n.OpenPgpVerifySignature(signature, jsonmsg, entity)
+	err = crypto3n.OpenPgpVerifySignature(signature, jsonmsg, entity)
 	if err != nil {
 		return err
 	}
-	if ok {
-		return nil
-	}
-	return fmt.Errorf("unable to verify message signature")
+	return nil
 }
 
 // DecryptMessage decrypt messages using symmetric

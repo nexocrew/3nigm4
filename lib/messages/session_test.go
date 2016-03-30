@@ -21,7 +21,11 @@ const (
 	kTestMessage = "This is my super-secret message that should never be intercepted and readed by anyone."
 	kSessionName = "000000000001"
 	kServerKey   = "serverkey000001"
-	kPrivateKey  = `-----BEGIN PGP PRIVATE KEY BLOCK-----
+	kSenderId    = "golangtest@test.com"
+	// pub   1024R/7F98BBCE 2014-01-04
+	// uid   Golang Test (Private key password is 'golang') <golangtest@test.com>
+	// sub   1024R/5F34A320 2014-01-04
+	kPrivateKey = `-----BEGIN PGP PRIVATE KEY BLOCK-----
 Version: GnuPG v1
  
 lQH+BFLHbYYBBADCjgKHmPmwBxI3c3DPVoSdu0+EJl/EsS2HEaN63dnLkGsMAs+4
@@ -59,7 +63,7 @@ rUxJMw1bIE2G606OY6hCgeE+YC8qny29hQtXhKIquUI/0A1qK3aCZhwqyqT+QjvF
 -----END PGP PRIVATE KEY BLOCK-----`
 )
 
-func TestEncryptMessage(t *testing.T) {
+func TestEncryptMessageNotSigned(t *testing.T) {
 	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))
 	if err != nil {
 		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
@@ -78,6 +82,7 @@ func TestEncryptMessage(t *testing.T) {
 	// set manually elements
 	sk.SessionId = []byte(kSessionName)
 	sk.ServerSymmetricKey = []byte(kServerKey)
+	sk.UserId = kSenderId
 	encrypted, err := sk.EncryptMessage([]byte(kTestMessage), entities[0])
 	if err != nil {
 		t.Fatalf("Unable to encrypt the message: %s.\n", err.Error())
@@ -91,8 +96,81 @@ func TestEncryptMessage(t *testing.T) {
 		t.Fatalf("Unexpected object type unable to unmarshal: %s.\n", err.Error())
 	}
 
+	// check message struct
+	if len(message.Signature) == 0 {
+		t.Fatalf("Signature must be not empty.\n")
+	}
+	if len(message.Message.EncryptedBody) == 0 {
+		t.Fatalf("Encrypted body should be not empty.\n")
+	}
+	if message.Message.SenderId != kSenderId {
+		t.Fatalf("%s should be equal to %s.\n", message.Message.SenderId, kSenderId)
+	}
+	if bytes.Compare(message.Message.SessionId, []byte(kSessionName)) != 0 {
+		t.Fatalf("Session id is different from expected %s, having %s.\n", kSessionName, string(message.Message.SenderId))
+	}
+
 	// decrypt message
 	decrypted, _, _, err := sk.DecryptMessage(encrypted, nil, false)
+	if err != nil {
+		t.Fatalf("Unable to decrypt message: %s.\n", err.Error())
+	}
+	t.Logf("Decrypted: %s.\n", string(decrypted))
+
+	if bytes.Compare(decrypted, []byte(kTestMessage)) != 0 {
+		t.Fatalf("Decrypted data is different from the original message.\n")
+	}
+}
+
+func TestEncryptMessageSigned(t *testing.T) {
+	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))
+	if err != nil {
+		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
+	}
+	if sk == nil {
+		t.Fatalf("Returned object must never be nil.\n")
+	}
+	// get entity
+	entities, err := crypto3n.ReadArmoredKeyRing([]byte(kPrivateKey), []byte("golang"))
+	if err != nil {
+		t.Fatalf("Unable to read private key: %s.\n", err.Error())
+	}
+	if len(entities) == 0 {
+		t.Fatalf("Expecting at least 1 entity having %d.\n", len(entities))
+	}
+	// set manually elements
+	sk.SessionId = []byte(kSessionName)
+	sk.ServerSymmetricKey = []byte(kServerKey)
+	sk.UserId = kSenderId
+	encrypted, err := sk.EncryptMessage([]byte(kTestMessage), entities[0])
+	if err != nil {
+		t.Fatalf("Unable to encrypt the message: %s.\n", err.Error())
+	}
+	t.Logf("Message: %s.\n", string(encrypted))
+
+	// decode message
+	var message SignedMessage
+	err = json.Unmarshal(encrypted, &message)
+	if err != nil {
+		t.Fatalf("Unexpected object type unable to unmarshal: %s.\n", err.Error())
+	}
+
+	// check message struct
+	if len(message.Signature) == 0 {
+		t.Fatalf("Signature must be not empty.\n")
+	}
+	if len(message.Message.EncryptedBody) == 0 {
+		t.Fatalf("Encrypted body should be not empty.\n")
+	}
+	if message.Message.SenderId != kSenderId {
+		t.Fatalf("%s should be equal to %s.\n", message.Message.SenderId, kSenderId)
+	}
+	if bytes.Compare(message.Message.SessionId, []byte(kSessionName)) != 0 {
+		t.Fatalf("Session id is different from expected %s, having %s.\n", kSessionName, string(message.Message.SenderId))
+	}
+
+	// decrypt message
+	decrypted, _, _, err := sk.DecryptMessage(encrypted, entities, true)
 	if err != nil {
 		t.Fatalf("Unable to decrypt message: %s.\n", err.Error())
 	}
