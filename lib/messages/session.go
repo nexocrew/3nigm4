@@ -36,7 +36,7 @@ type SessionKeys struct {
 }
 
 const (
-	kSharedKeySize = 128
+	kSharedKeySize = 128 // Shared key size.
 )
 
 // randomBytesForLen creates a random data blob
@@ -96,11 +96,14 @@ type Message struct {
 	Counter       uint64    `json:"counter" xml:"counter"`     // message idx.
 }
 
+// Wrapping message containing message signature.
 type SignedMessage struct {
 	Message   Message `json:"message" xml:"message"`     // the message;
 	Signature []byte  `json:"signature" xml:"signature"` // signature on json coded message.
 }
 
+// xoredKey xor all session keys to obtain the final
+// AES key.
 func (sk *SessionKeys) xoredKey() ([]byte, error) {
 	keys := make([][]byte, 0)
 	// main key
@@ -202,6 +205,9 @@ func (sk *SessionKeys) EncryptMessage(message []byte, signer *openpgp.Entity) ([
 	return data, nil
 }
 
+// checkSignatures verify signature validity using available
+// recipients public keys and the sender id to check the right
+// user.
 func checkSignatures(signature []byte, msg Message, senderId string, participants openpgp.EntityList) error {
 	// check for signature on the wrapper package
 	jsonmsg, err := json.Marshal(msg)
@@ -259,6 +265,8 @@ func (sk *SessionKeys) DecryptMessage(chipered []byte, participants openpgp.Enti
 	return decrypted, wrapper.Message.Counter, wrapper.Message.TimeStamp, nil
 }
 
+// deriveAesKey returns a SHAed key from the original
+// raw random data.
 func deriveAesKey(longKey []byte) [32]byte {
 	return sha256.Sum256(longKey)
 }
