@@ -32,6 +32,7 @@ type SessionKeys struct {
 	SessionId          []byte `json:"-" xml:"-"`                   // session id returned by the server after creating the session;
 	ServerTmpKey       []byte `json:"-" xml:"-"`                   // server generated in memory key (shoul never be stored anywhere);
 	IncrementalCounter uint64 `json:"-" xml:"-"`                   // incremental counter of exchanged messages;
+	UserId             string `json:"-" xml:"-"`                   // the user that is interacting with the session.
 }
 
 const (
@@ -89,6 +90,7 @@ func (sk *SessionKeys) EncryptForRecipients(recipients openpgp.EntityList, signe
 // Request for an encrypted message using pre-sared keys.
 type Message struct {
 	SessionId     []byte    `json:"session" xml:"session"`     // the id of the session;
+	SenderId      string    `json:"senderid" xml:"senderid"`   // the message sender;
 	EncryptedBody []byte    `json:"body" xml:"body"`           // the actual encrypted message;
 	TimeStamp     time.Time `json:"timestamp" xml:"timestamp"` // message op timestamp;
 	Counter       uint64    `json:"counter" xml:"counter"`     // message idx.
@@ -171,6 +173,7 @@ func (sk *SessionKeys) EncryptMessage(message []byte, signer *openpgp.Entity) ([
 		EncryptedBody: encrypted,
 		TimeStamp:     time.Now(),
 		Counter:       sk.IncrementalCounter + 1,
+		SenderId:      sk.UserId,
 	}
 	// create wrapper
 	wrapper := SignedMessage{
@@ -199,27 +202,26 @@ func (sk *SessionKeys) EncryptMessage(message []byte, signer *openpgp.Entity) ([
 	return data, nil
 }
 
-func checkSignatures(signature []byte, msg Message, participants openpgp.EntityList) (bool, error) {
+func checkSignatures(signature []byte, msg Message, senderId string, participants openpgp.EntityList) error {
 	// check for signature on the wrapper package
 	jsonmsg, err := json.Marshal(msg)
 	if err != nil {
-		return false, err
+		return err
 	}
-	var confirmed uint
-	for _, entity := range participants {
-		// check it out
-		ok, err := crypto3n.OpenPgpVerifySignature(signature, jsonmsg, entity)
-		if err != nil {
-			return false, err
-		}
-		if ok {
-			confirmed++
-		}
+	// get key for sender id
+	entity := crypto3n.GetKeyByEmail(participants, senderId)
+	if entity == nil {
+		return fmt.Errorf("unable to find sender id in participant's keys")
 	}
-	if confirmed > 0 {
-		return true, nil
+	// check it out
+	ok, err := crypto3n.OpenPgpVerifySignature(signature, jsonmsg, entity)
+	if err != nil {
+		return err
 	}
-	return false, nil
+	if ok {
+		return nil
+	}
+	return fmt.Errorf("unable to verify message signature")
 }
 
 // DecryptMessage decrypt messages using symmetric
@@ -235,12 +237,9 @@ func (sk *SessionKeys) DecryptMessage(chipered []byte, participants openpgp.Enti
 	}
 	// if signature is enabled
 	if signed {
-		ok, err := checkSignatures(wrapper.Signature, wrapper.Message, participants)
+		err := checkSignatures(wrapper.Signature, wrapper.Message, wrapper.Message.SenderId, participants)
 		if err != nil {
 			return nil, 0, time.Time{}, err
-		}
-		if ok != true {
-			return nil, 0, time.Time{}, fmt.Errorf("invalid signature unable to find a correspondance with participants")
 		}
 	}
 

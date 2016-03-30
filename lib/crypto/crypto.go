@@ -216,7 +216,7 @@ func AesDecrypt(key []byte, ciphertext []byte, mode AesMode) ([]byte, error) {
 }
 
 // Get a specific key from an email address
-func getKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
+func GetKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 	for _, entity := range keyring {
 		for _, ident := range entity.Identities {
 			if ident.UserId.Email == email {

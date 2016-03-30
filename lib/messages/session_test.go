@@ -6,6 +6,7 @@
 package message
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 )
@@ -97,4 +98,7 @@ func TestEncryptMessage(t *testing.T) {
 	}
 	t.Logf("Decrypted: %s.\n", string(decrypted))
 
+	if bytes.Compare(decrypted, []byte(kTestMessage)) != 0 {
+		t.Fatalf("Decrypted data is different from the original message.\n")
+	}
 }
