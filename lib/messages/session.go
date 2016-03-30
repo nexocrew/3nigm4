@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"golang.org/x/crypto/openpgp"
 	"io"
 	"time"
@@ -98,9 +99,7 @@ type SignedMessage struct {
 	Signature []byte  `json:"signature" xml:"signature"` // signature on json coded message.
 }
 
-// getKeyandAndSalt returns a derived key (using
-// PBKDF2) and a random generated salt.
-func (sk *SessionKeys) getKeyandAndSalt() ([]byte, []byte, error) {
+func (sk *SessionKeys) xoredKey() ([]byte, error) {
 	keys := make([][]byte, 0)
 	// main key
 	mainAesKey := deriveAesKey(sk.MainSymmetricKey)
@@ -114,7 +113,31 @@ func (sk *SessionKeys) getKeyandAndSalt() ([]byte, []byte, error) {
 		keys = append(keys, presharedAesKey[:])
 	}
 	// get the keys
-	key, err := crypto3n.XorKeysKeys(keys, 32)
+	key, err := crypto3n.XorKeys(keys, 32)
+	if err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+// getKey returns a derived key (using
+// PBKDF2) using a given salt.
+func (sk *SessionKeys) getKey(salt []byte) ([]byte, error) {
+	// get the keys
+	key, err := sk.xoredKey()
+	if err != nil {
+		return nil, err
+	}
+	// pbkdf2 derivation
+	derivedKey := crypto3n.DeriveKeyWithPbkdf2(key, salt, 7)
+	return derivedKey, nil
+}
+
+// getKeyandAndSalt returns a derived key (using
+// PBKDF2) and a random generated salt.
+func (sk *SessionKeys) getKeyandAndSalt() ([]byte, []byte, error) {
+	// get the keys
+	key, err := sk.xoredKey()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -131,7 +154,7 @@ func (sk *SessionKeys) getKeyandAndSalt() ([]byte, []byte, error) {
 // EncryptMessage derive all required keys and encrypt a message using
 // pre-shared keys. Notice that server maintained key has been already
 // retrieved and is stored in volatile RAM for usage.
-func (sk *SessionKeys) EncryptMessage(message []byte) ([]byte, error) {
+func (sk *SessionKeys) EncryptMessage(message []byte, signer *openpgp.Entity) ([]byte, error) {
 	// get key and salt
 	key, salt, err := sk.getKeyandAndSalt()
 	if err != nil {
@@ -153,13 +176,91 @@ func (sk *SessionKeys) EncryptMessage(message []byte) ([]byte, error) {
 	wrapper := SignedMessage{
 		Message: msg,
 	}
-	// generate signature
+	if signer != nil {
+		// marshal msg
+		jsonmsg, err := json.Marshal(msg)
+		if err != nil {
+			return nil, err
+		}
+		// generate signature
+		sign, err := crypto3n.OpenPgpSignMessage(jsonmsg, signer)
+		if err != nil {
+			return nil, err
+		}
+		wrapper.Signature = sign
+	}
 
-	return key, nil
+	// encode wrapped message
+	data, err := json.Marshal(wrapper)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
-func (sk *SessionKeys) DecryptAndAbsorbeServerKey(chipered []byte) error {
-	return nil
+func checkSignatures(signature []byte, msg Message, participants openpgp.EntityList) (bool, error) {
+	// check for signature on the wrapper package
+	jsonmsg, err := json.Marshal(msg)
+	if err != nil {
+		return false, err
+	}
+	var confirmed uint
+	for _, entity := range participants {
+		// check it out
+		ok, err := crypto3n.OpenPgpVerifySignature(signature, jsonmsg, entity)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			confirmed++
+		}
+	}
+	if confirmed > 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
+// DecryptMessage decrypt messages using symmetric
+// keys and verifying the signature (if enabled), it
+// returns the plaintext message, the message time stamp
+// and the message count.
+func (sk *SessionKeys) DecryptMessage(chipered []byte, participants openpgp.EntityList, signed bool) ([]byte, uint64, time.Time, error) {
+	// decode message
+	var wrapper SignedMessage
+	err := json.Unmarshal(chipered, &wrapper)
+	if err != nil {
+		return nil, 0, time.Time{}, err
+	}
+	// if signature is enabled
+	if signed {
+		ok, err := checkSignatures(wrapper.Signature, wrapper.Message, participants)
+		if err != nil {
+			return nil, 0, time.Time{}, err
+		}
+		if ok != true {
+			return nil, 0, time.Time{}, fmt.Errorf("invalid signature unable to find a correspondance with participants")
+		}
+	}
+
+	// get salt
+	salt, err := crypto3n.GetSaltFromCipherText(wrapper.Message.EncryptedBody)
+	if err != nil {
+		return nil, 0, time.Time{}, err
+	}
+	// derive key
+	key, err := sk.getKey(salt)
+	if err != nil {
+		return nil, 0, time.Time{}, err
+	}
+
+	// decrypt message
+	decrypted, err := crypto3n.AesDecrypt(key, wrapper.Message.EncryptedBody, crypto3n.CBC)
+	if err != nil {
+		return nil, 0, time.Time{}, err
+	}
+	return decrypted, wrapper.Message.Counter, wrapper.Message.TimeStamp, nil
 }
 
 func deriveAesKey(longKey []byte) [32]byte {

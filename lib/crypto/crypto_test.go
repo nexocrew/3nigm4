@@ -22,6 +22,9 @@ var (
 	This is a test message, it will be encrypted. 
 	This is a test message, it will be encrypted. 
 	This is a test message, it will be encrypted. 
+	This is a test message, it will be encrypted. 
+	This is a test message, it will be encrypted. 
+	This is a test message, it will be encrypted. 
 	This is a test message, it will be encrypted.`
 	key1 = "key12345a293bf93key12345a293bf93"
 	key2 = "this.is.a.test.key"
@@ -288,10 +291,18 @@ func TestOpenPgpSignature(t *testing.T) {
 	msg := []byte(plaintex)
 	signature, err := OpenPgpSignMessage(msg, pvkList[0])
 	if err != nil {
-		t.Fatalf("Unable to sign the message: %s.\n", signature)
+		t.Fatalf("Unable to sign the message: %s.\n", err.Error())
 	}
 	if len(signature) == 0 {
 		t.Fatalf("Invalid signature len should be not 0.\n")
 	}
-	t.Logf("Signature: %v.\n", signature)
+	t.Logf("Signature: %v (%d).\n", signature, len(signature))
+	/*
+		signer, err := OpenPgpVerifySignature(signature, msg, pvkList)
+		if err != nil {
+			t.Fatalf("Unable to verify signature: %s.\n", err.Error())
+		}
+
+		t.Logf("Signer: %v.\n", signer)
+	*/
 }

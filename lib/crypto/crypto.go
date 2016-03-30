@@ -8,6 +8,7 @@ package crypto
 // golang standard functions
 import (
 	"bytes"
+	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -17,12 +18,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 )
 
 // extended crypto lib
 import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp/packet"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -160,6 +163,14 @@ func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode) ([]byte
 	return ciphertext, nil
 }
 
+func GetSaltFromCipherText(ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) < aes.BlockSize+kSaltSize {
+		return nil, fmt.Errorf("ciphertext is too short: having %d expecting > than %d", len(ciphertext), aes.BlockSize+kSaltSize)
+	}
+	salt := ciphertext[aes.BlockSize : aes.BlockSize+kSaltSize]
+	return salt, nil
+}
+
 // AesDecrypt decrypt data with AES256 using a key
 // Salt and IV are passed in the encrypted message.
 func AesDecrypt(key []byte, ciphertext []byte, mode AesMode) ([]byte, error) {
@@ -253,27 +264,56 @@ func OpenPgpDecrypt(data []byte, keyring openpgp.EntityList) ([]byte, error) {
 
 // OpenPgpSignMessage creates a signature for a message.
 func OpenPgpSignMessage(msg []byte, signer *openpgp.Entity) ([]byte, error) {
-	out := bytes.NewBuffer(nil)
-	message := bytes.NewBuffer(msg)
-	err := openpgp.DetachSign(out, signer, message, nil)
+	// new signature struct
+	sig := new(packet.Signature)
+	sig.SigType = packet.SigTypeBinary
+	sig.PubKeyAlgo = signer.PrivateKey.PubKeyAlgo
+	sig.CreationTime = time.Now()
+	sig.IssuerKeyId = &signer.PrivateKey.KeyId
+	sig.Hash = crypto.SHA256
+
+	// generate data hash
+	hash := sha256.New()
+	io.WriteString(hash, string(msg))
+
+	err := sig.Sign(hash, signer.PrivateKey, nil)
 	if err != nil {
 		return nil, err
 	}
-	return out.Bytes(), nil
+
+	buf := bytes.NewBuffer(nil)
+	err = sig.Serialize(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
-func OpenPgpVerifySignature(signature []byte, message []byte, keyring openpgp.EntityList, signer *openpgp.Entity) (bool, err) {
-	sig := bytes.NewBuffer(signature)
-	msg := bytes.NewBuffer(message)
-	sigId, err := openpgp.CheckDetachedSignature(keyring, sig, msg)
-	if err != nil {
-		return false, err
-	}
-	if sigId == nil {
-		return false, fmt.Errorf("invalid signer identity, should not be nil")
-	}
-	if signer.PrimaryKey.KeyId != expectedSignerKeyId {
-	}
+func OpenPgpVerifySignature(signature []byte, message []byte, publicKey *openpgp.Entity) (bool, error) {
+	/*
+		// create signature
+		sig := new(packet.Signature)
+		sig.SigType = packet.SigTypeBinary
+		sig.PubKeyAlgo = signer.PrivateKey.PubKeyAlgo
+		sig.IssuerKeyId = &signer.PrivateKey.KeyId
+		sig.Hash = crypto.SHA256
+
+		// generate data hash
+		hash := sha256.New()
+		io.WriteString(hash, string(message))
+		// user publickey properties
+		sig := bytes.NewBuffer(signature)
+		msg := bytes.NewBuffer(message)
+		err := publicKey.PrimaryKey.VerifySignature(hash)
+		if err != nil {
+			return nil, err
+		}
+		if signer == nil {
+			return nil, fmt.Errorf("invalid signer identity, should not be nil")
+		}
+		return signer, nil
+	*/
+	return true, nil
 }
 
 // Iterate on keys decrypting all encrypted
