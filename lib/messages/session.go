@@ -24,15 +24,16 @@ import (
 // encrypted using pgp before being inserted in a Recipient
 // keys struct for being sent to the server.
 type SessionKeys struct {
-	CreatorId          string `json:"creatorid" xml:"creatorid"`   // id of the session creator;
-	MainSymmetricKey   []byte `json:"maink" xml:"maink"`           // main random generated symmetric key;
-	ServerSymmetricKey []byte `json:"serverk" xml:"serverk"`       // server symmetric key;
-	PreSharedFlag      bool   `json:"presharedf" xml:"presharedf"` // is there also a pre-shared key in use;
-	PreSharedKey       []byte `json:"-" xml:"-"`                   // pre shared key (only available in the client);
-	SessionId          []byte `json:"-" xml:"-"`                   // session id returned by the server after creating the session;
-	IncrementalCounter uint64 `json:"-" xml:"-"`                   // incremental counter of exchanged messages;
-	UserId             string `json:"-" xml:"-"`                   // the user that is interacting with the session;
-	ServerTmpKey       []byte `json:"-" xml:"-"`                   // server generated in memory key (shoul never be stored anywhere).
+	CreatorId          string    `json:"creatorid" xml:"creatorid"`   // id of the session creator;
+	MainSymmetricKey   []byte    `json:"maink" xml:"maink"`           // main random generated symmetric key;
+	ServerSymmetricKey []byte    `json:"serverk" xml:"serverk"`       // server symmetric key;
+	PreSharedFlag      bool      `json:"presharedf" xml:"presharedf"` // is there also a pre-shared key in use;
+	PreSharedKey       []byte    `json:"-" xml:"-"`                   // pre shared key (only available in the client);
+	SessionId          []byte    `json:"-" xml:"-"`                   // session id returned by the server after creating the session;
+	IncrementalCounter uint64    `json:"-" xml:"-"`                   // incremental counter of exchanged messages;
+	UserId             string    `json:"-" xml:"-"`                   // the user that is interacting with the session;
+	ServerTmpKey       []byte    `json:"-" xml:"-"`                   // server generated in memory key (shoul never be stored anywhere);
+	Messages           []Message `json:"-" xml:"-"`                   // in memory plain text messages list associated with the session.
 }
 
 const (
@@ -68,6 +69,9 @@ func NewSessionKeys(creatorId string, preshared []byte) (*SessionKeys, error) {
 		sk.PreSharedFlag = true
 		sk.PreSharedKey = preshared
 	}
+	// init message list
+	sk.Messages = make([]Message, 0)
+
 	return &sk, nil
 }
 

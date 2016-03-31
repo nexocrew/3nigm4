@@ -232,7 +232,6 @@ func readerFromHex(s string) ([]byte, error) {
 func TestOpenPgpEncryption(t *testing.T) {
 	data, _ := readerFromHex(testKeys1And2PrivateHex)
 	keyr, err := openpgp.ReadKeyRing(bytes.NewBuffer(data))
-	//keyr, err := ReadAndUnlockArmoredKeyRing([]byte(privateKey), []byte("golang"))
 	if err != nil {
 		t.Fatalf("Unable to extract private key: %d.\n", err.Error())
 	}
