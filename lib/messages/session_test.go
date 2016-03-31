@@ -61,7 +61,113 @@ rUxJMw1bIE2G606OY6hCgeE+YC8qny29hQtXhKIquUI/0A1qK3aCZhwqyqT+QjvF
 57ET
 =nvLl
 -----END PGP PRIVATE KEY BLOCK-----`
+	kPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v1
+
+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
+lw1nIDx1uwkeAfXXcViFBg==
+=Ifs7
+-----END PGP PUBLIC KEY BLOCK-----`
 )
+
+func TestEncryptForRecipients(t *testing.T) {
+	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))
+	if err != nil {
+		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
+	}
+	if sk == nil {
+		t.Fatalf("Returned object must never be nil.\n")
+	}
+	// get entity
+	signers, err := crypto3n.ReadArmoredKeyRing([]byte(kPrivateKey), []byte("golang"))
+	if err != nil {
+		t.Fatalf("Unable to read private key: %s.\n", err.Error())
+	}
+	if len(signers) == 0 {
+		t.Fatalf("Expecting at least 1 entity having %d.\n", len(signers))
+	}
+	entityList, err := crypto3n.ReadArmoredKeyRing([]byte(kPublicKey), nil)
+	if err != nil {
+		t.Fatalf("Unable to access public armored key: %s.\n", err.Error())
+	}
+	handshake, err := sk.EncryptForRecipients(entityList, signers[0])
+	if err != nil {
+		t.Fatalf("Unable to produce a valid handshake message: %s.\n", err.Error())
+	}
+	if len(handshake) == 0 {
+		t.Fatalf("Unexpected handshake length should be not nil.\n")
+	}
+}
 
 func TestEncryptMessageNotSigned(t *testing.T) {
 	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))

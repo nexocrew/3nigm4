@@ -16,6 +16,7 @@ GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOINSTALL=$(GOCMD) install
 GOTEST=$(GOCMD) test -v
+#GOTEST=$(GOCMD) test
 GODEP=$(GOTEST) -i
 GOFMT=gofmt -w
 
@@ -29,16 +30,17 @@ TEST_BENCHMARK ?= no
 
 # Package lists
 TOPLEVEL_PKG := github.com/nexocrew/3nigm4
-IMPL_LIST := lib/crypto lib/messages lib/version lib/logo	#<-- Implementation directories
+IMPL_LIST := lib/crypto lib/messages	#<-- Implementation directories
+COMMON_LIST := lib/version lib/logo
 
 # List building
-ALL_LIST = $(IMPL_LIST)
+ALL_LIST = $(IMPL_LIST) $(COMMON_LIST)
 
 BUILD_LIST = $(foreach int, $(ALL_LIST), $(int)_build)
 CLEAN_LIST = $(foreach int, $(ALL_LIST), $(int)_clean)
 INSTALL_LIST = $(foreach int, $(ALL_LIST), $(int)_install)
 IREF_LIST = $(foreach int, $(ALL_LIST), $(int)_iref)
-TEST_LIST = $(foreach int, $(ALL_LIST), $(int)_test)
+TEST_LIST = $(foreach int, $(IMPL_LIST), $(int)_test)
 FMT_TEST = $(foreach int, $(ALL_LIST), $(int)_fmt)
 
 # All are .PHONY for now because dependencyness is hard
