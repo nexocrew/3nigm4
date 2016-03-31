@@ -30,9 +30,9 @@ type SessionKeys struct {
 	PreSharedFlag      bool   `json:"presharedf" xml:"presharedf"` // is there also a pre-shared key in use;
 	PreSharedKey       []byte `json:"-" xml:"-"`                   // pre shared key (only available in the client);
 	SessionId          []byte `json:"-" xml:"-"`                   // session id returned by the server after creating the session;
-	ServerTmpKey       []byte `json:"-" xml:"-"`                   // server generated in memory key (shoul never be stored anywhere);
 	IncrementalCounter uint64 `json:"-" xml:"-"`                   // incremental counter of exchanged messages;
-	UserId             string `json:"-" xml:"-"`                   // the user that is interacting with the session.
+	UserId             string `json:"-" xml:"-"`                   // the user that is interacting with the session;
+	ServerTmpKey       []byte `json:"-" xml:"-"`                   // server generated in memory key (shoul never be stored anywhere).
 }
 
 const (
@@ -89,11 +89,13 @@ func (sk *SessionKeys) EncryptForRecipients(recipients openpgp.EntityList, signe
 
 // Request for an encrypted message using pre-sared keys.
 type Message struct {
-	SessionId     []byte    `json:"session" xml:"session"`     // the id of the session;
-	SenderId      string    `json:"senderid" xml:"senderid"`   // the message sender;
-	EncryptedBody []byte    `json:"body" xml:"body"`           // the actual encrypted message;
-	TimeStamp     time.Time `json:"timestamp" xml:"timestamp"` // message op timestamp;
-	Counter       uint64    `json:"counter" xml:"counter"`     // message idx.
+	SessionId         []byte    `json:"session" xml:"session"`     // the id of the session;
+	SenderId          string    `json:"-" xml:"-"`                 // plain text message sender (in memory);
+	EncryptedSenderId []byte    `json:"senderid" xml:"senderid"`   // encrypted sender id;
+	Body              []byte    `json:"-" xml:"-"`                 // plaintext body (in memory);
+	EncryptedBody     []byte    `json:"body" xml:"body"`           // the actual encrypted message;
+	TimeStamp         time.Time `json:"timestamp" xml:"timestamp"` // message op timestamp;
+	Counter           uint64    `json:"counter" xml:"counter"`     // message idx.
 }
 
 // Wrapping message containing message signature.
@@ -170,13 +172,18 @@ func (sk *SessionKeys) EncryptMessage(message []byte, signer *openpgp.Entity) ([
 	if err != nil {
 		return nil, err
 	}
+	// encrypt sender id
+	senderid, err := crypto3n.AesEncrypt(key, salt, []byte(sk.UserId), crypto3n.CBC)
+	if err != nil {
+		return nil, err
+	}
 	// generate message
 	msg := Message{
-		SessionId:     sk.SessionId,
-		EncryptedBody: encrypted,
-		TimeStamp:     time.Now(),
-		Counter:       sk.IncrementalCounter + 1,
-		SenderId:      sk.UserId,
+		SessionId:         sk.SessionId,
+		EncryptedBody:     encrypted,
+		TimeStamp:         time.Now(),
+		Counter:           sk.IncrementalCounter + 1,
+		EncryptedSenderId: senderid,
 	}
 	// create wrapper
 	wrapper := SignedMessage{
@@ -231,38 +238,51 @@ func checkSignatures(signature []byte, msg Message, senderId string, participant
 // keys and verifying the signature (if enabled), it
 // returns the plaintext message, the message time stamp
 // and the message count.
-func (sk *SessionKeys) DecryptMessage(chipered []byte, participants openpgp.EntityList, signed bool) ([]byte, uint64, time.Time, error) {
+func (sk *SessionKeys) DecryptMessage(chipered []byte, participants openpgp.EntityList, signed bool) (*Message, error) {
 	// decode message
 	var wrapper SignedMessage
 	err := json.Unmarshal(chipered, &wrapper)
 	if err != nil {
-		return nil, 0, time.Time{}, err
-	}
-	// if signature is enabled
-	if signed {
-		err := checkSignatures(wrapper.Signature, wrapper.Message, wrapper.Message.SenderId, participants)
-		if err != nil {
-			return nil, 0, time.Time{}, err
-		}
+		return nil, err
 	}
 
 	// get salt
 	salt, err := crypto3n.GetSaltFromCipherText(wrapper.Message.EncryptedBody)
 	if err != nil {
-		return nil, 0, time.Time{}, err
+		return nil, err
 	}
 	// derive key
 	key, err := sk.getKey(salt)
 	if err != nil {
-		return nil, 0, time.Time{}, err
+		return nil, err
+	}
+
+	// decript sender
+	senderId, err := crypto3n.AesDecrypt(key, wrapper.Message.EncryptedSenderId, crypto3n.CBC)
+	if err != nil {
+		return nil, err
+	}
+
+	// if signature is enabled
+	if signed {
+		err := checkSignatures(wrapper.Signature, wrapper.Message, string(senderId), participants)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// decrypt message
 	decrypted, err := crypto3n.AesDecrypt(key, wrapper.Message.EncryptedBody, crypto3n.CBC)
 	if err != nil {
-		return nil, 0, time.Time{}, err
+		return nil, err
 	}
-	return decrypted, wrapper.Message.Counter, wrapper.Message.TimeStamp, nil
+
+	msg := wrapper.Message
+	msg.SenderId = string(senderId)
+	msg.Body = decrypted
+
+	// compose plaintext message
+	return &msg, nil
 }
 
 // deriveAesKey returns a SHAed key from the original

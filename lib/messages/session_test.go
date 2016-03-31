@@ -81,7 +81,7 @@ func TestEncryptMessageNotSigned(t *testing.T) {
 	}
 	// set manually elements
 	sk.SessionId = []byte(kSessionName)
-	sk.ServerSymmetricKey = []byte(kServerKey)
+	sk.ServerTmpKey = []byte(kServerKey)
 	sk.UserId = kSenderId
 	encrypted, err := sk.EncryptMessage([]byte(kTestMessage), entities[0])
 	if err != nil {
@@ -103,22 +103,31 @@ func TestEncryptMessageNotSigned(t *testing.T) {
 	if len(message.Message.EncryptedBody) == 0 {
 		t.Fatalf("Encrypted body should be not empty.\n")
 	}
-	if message.Message.SenderId != kSenderId {
-		t.Fatalf("%s should be equal to %s.\n", message.Message.SenderId, kSenderId)
+	if len(message.Message.EncryptedSenderId) == 0 {
+		t.Fatalf("Encrypted sender id should not be nil.\n")
+	}
+	if len(message.Message.SenderId) != 0 {
+		t.Fatalf("Plain text sender id should not be setted in encrypted structure.\n")
+	}
+	if len(message.Message.Body) != 0 {
+		t.Fatalf("Plain text body should not be setted in encrypted structure.\n")
 	}
 	if bytes.Compare(message.Message.SessionId, []byte(kSessionName)) != 0 {
 		t.Fatalf("Session id is different from expected %s, having %s.\n", kSessionName, string(message.Message.SenderId))
 	}
 
 	// decrypt message
-	decrypted, _, _, err := sk.DecryptMessage(encrypted, nil, false)
+	decrypted, err := sk.DecryptMessage(encrypted, nil, false)
 	if err != nil {
 		t.Fatalf("Unable to decrypt message: %s.\n", err.Error())
 	}
-	t.Logf("Decrypted: %s.\n", string(decrypted))
+	t.Logf("Decrypted: %s.\n", string(decrypted.Body))
 
-	if bytes.Compare(decrypted, []byte(kTestMessage)) != 0 {
+	if bytes.Compare(decrypted.Body, []byte(kTestMessage)) != 0 {
 		t.Fatalf("Decrypted data is different from the original message.\n")
+	}
+	if decrypted.SenderId != kSenderId {
+		t.Fatalf("Unexpected sender, having %s expecting %s.\n", decrypted.SenderId, kSenderId)
 	}
 }
 
@@ -162,21 +171,30 @@ func TestEncryptMessageSigned(t *testing.T) {
 	if len(message.Message.EncryptedBody) == 0 {
 		t.Fatalf("Encrypted body should be not empty.\n")
 	}
-	if message.Message.SenderId != kSenderId {
-		t.Fatalf("%s should be equal to %s.\n", message.Message.SenderId, kSenderId)
+	if len(message.Message.EncryptedSenderId) == 0 {
+		t.Fatalf("Encrypted sender id should not be nil.\n")
+	}
+	if len(message.Message.SenderId) != 0 {
+		t.Fatalf("Plain text sender id should not be setted in encrypted structure.\n")
+	}
+	if len(message.Message.Body) != 0 {
+		t.Fatalf("Plain text body should not be setted in encrypted structure.\n")
 	}
 	if bytes.Compare(message.Message.SessionId, []byte(kSessionName)) != 0 {
 		t.Fatalf("Session id is different from expected %s, having %s.\n", kSessionName, string(message.Message.SenderId))
 	}
 
 	// decrypt message
-	decrypted, _, _, err := sk.DecryptMessage(encrypted, entities, true)
+	decrypted, err := sk.DecryptMessage(encrypted, entities, true)
 	if err != nil {
 		t.Fatalf("Unable to decrypt message: %s.\n", err.Error())
 	}
-	t.Logf("Decrypted: %s.\n", string(decrypted))
+	t.Logf("Decrypted: %s.\n", string(decrypted.Body))
 
-	if bytes.Compare(decrypted, []byte(kTestMessage)) != 0 {
+	if bytes.Compare(decrypted.Body, []byte(kTestMessage)) != 0 {
 		t.Fatalf("Decrypted data is different from the original message.\n")
+	}
+	if decrypted.SenderId != kSenderId {
+		t.Fatalf("Unexpected sender, having %s expecting %s.\n", decrypted.SenderId, kSenderId)
 	}
 }
