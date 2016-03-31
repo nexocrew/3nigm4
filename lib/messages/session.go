@@ -91,7 +91,7 @@ func (sk *SessionKeys) EncryptForRecipients(recipients openpgp.EntityList, signe
 type Message struct {
 	SessionId         []byte    `json:"session" xml:"session"`     // the id of the session;
 	SenderId          string    `json:"-" xml:"-"`                 // plain text message sender (in memory);
-	EncryptedSenderId []byte    `json:"senderid" xml:"senderid"`   // encrypted sender id;
+	EncryptedSenderId []byte    `json:"esenderid" xml:"esenderid"` // encrypted sender id;
 	Body              []byte    `json:"-" xml:"-"`                 // plaintext body (in memory);
 	EncryptedBody     []byte    `json:"body" xml:"body"`           // the actual encrypted message;
 	TimeStamp         time.Time `json:"timestamp" xml:"timestamp"` // message op timestamp;
@@ -173,7 +173,7 @@ func (sk *SessionKeys) EncryptMessage(message []byte, signer *openpgp.Entity) ([
 		return nil, err
 	}
 	// encrypt sender id
-	senderid, err := crypto3n.AesEncrypt(key, salt, []byte(sk.UserId), crypto3n.CBC)
+	esenderid, err := crypto3n.AesEncrypt(key, salt, []byte(sk.UserId), crypto3n.CBC)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (sk *SessionKeys) EncryptMessage(message []byte, signer *openpgp.Entity) ([
 		EncryptedBody:     encrypted,
 		TimeStamp:         time.Now(),
 		Counter:           sk.IncrementalCounter + 1,
-		EncryptedSenderId: senderid,
+		EncryptedSenderId: esenderid,
 	}
 	// create wrapper
 	wrapper := SignedMessage{
@@ -215,7 +215,7 @@ func (sk *SessionKeys) EncryptMessage(message []byte, signer *openpgp.Entity) ([
 // checkSignatures verify signature validity using available
 // recipients public keys and the sender id to check the right
 // user.
-func checkSignatures(signature []byte, msg Message, senderId string, participants openpgp.EntityList) error {
+func checkSignatures(signature []byte, msg *Message, senderId string, participants openpgp.EntityList) error {
 	// check for signature on the wrapper package
 	jsonmsg, err := json.Marshal(msg)
 	if err != nil {
@@ -251,21 +251,27 @@ func (sk *SessionKeys) DecryptMessage(chipered []byte, participants openpgp.Enti
 	if err != nil {
 		return nil, err
 	}
+
 	// derive key
 	key, err := sk.getKey(salt)
 	if err != nil {
 		return nil, err
 	}
 
+	// copy sender before decrypting
+	// cause padding will change referenced
+	// memory area producing inconsistant signature
+	esenderId := make([]byte, 0)
+	esenderId = append(esenderId, wrapper.Message.EncryptedSenderId...)
 	// decript sender
-	senderId, err := crypto3n.AesDecrypt(key, wrapper.Message.EncryptedSenderId, crypto3n.CBC)
+	senderId, err := crypto3n.AesDecrypt(key, esenderId, crypto3n.CBC)
 	if err != nil {
 		return nil, err
 	}
 
 	// if signature is enabled
 	if signed {
-		err := checkSignatures(wrapper.Signature, wrapper.Message, string(senderId), participants)
+		err := checkSignatures(wrapper.Signature, &wrapper.Message, string(senderId), participants)
 		if err != nil {
 			return nil, err
 		}
