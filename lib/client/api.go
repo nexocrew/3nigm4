@@ -32,6 +32,7 @@ func NewClient(keyringPath string, keyserverUrl string) *Client {
 	c := Client{
 		Sessions:        make([]messages.SessionKeys, 0),
 		RecipientsCache: make(map[string]openpgp.EntityList),
+		KeyserverUrl:    keyserverUrl,
 	}
 
 	return &c
@@ -97,6 +98,9 @@ const (
 )
 
 func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLookupRes, error) {
+	if len(c.KeyserverUrl) == 0 {
+		return nil, fmt.Errorf("keyserver url must not be nil")
+	}
 	// compose url
 	if c.KeyserverUrl[len(c.KeyserverUrl)-1] != '/' {
 		c.KeyserverUrl = c.KeyserverUrl + "/"
@@ -109,14 +113,16 @@ func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLooku
 	q := url.Query()
 	var recipients string
 	for idx, recipient := range recipientIds {
-		if idx != 0 ||
+		if idx != 0 &&
 			idx != len(recipients)-1 {
-			recipients = recipients + ", "
+			recipients = recipients + ","
 		}
 		recipients = recipients + recipient
 	}
-	q.Set("usernames", recipientIds)
+	q.Set("usernames", recipients)
 	url.RawQuery = q.Encode()
+
+	fmt.Printf("Query: %s.\n", url.String())
 
 	// request syncronously
 	req, err := http.NewRequest("GET", url.String(), nil)
@@ -131,9 +137,9 @@ func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLooku
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
-		err = fmt.Errorf("unable to process the enroll request, status: %d should be: %s (%s) cause: %s", resp.Status, strconv.Itoa(http.StatusCreated), http.StatusText(http.StatusCreated), string(body))
+		err = fmt.Errorf("unable to process the user lookup request, status: %d should be: %s (%s) cause: %s", resp.Status, strconv.Itoa(http.StatusOK), http.StatusText(http.StatusOK), string(body))
 		return nil, err
 	}
 

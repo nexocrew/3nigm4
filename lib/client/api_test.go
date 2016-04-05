@@ -24,7 +24,7 @@ func TestEnrollClient(t *testing.T) {
 		t.Fatalf("Client must exist.\n")
 	}
 
-	res, err := c.GetRecipientPublicKey([]string{"dyst0ni3", "illordlo"})
+	res, err := c.GetRecipientPublicKey([]string{"dystonie", "illordlo"})
 	if err != nil {
 		t.Fatalf("Unable to process GET request: %s.\n", err.Error())
 	}
