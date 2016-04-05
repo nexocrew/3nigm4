@@ -48,12 +48,13 @@ type KeybaseStatusRes struct {
 }
 
 type KeybaseBasicsRes struct {
-	Username     string `json:"username"`
-	Ctime        uint   `json:"ctime"`
-	Mtime        uint   `json:"mtime"`
-	IdVersion    int    `json:"id_version"`
-	TrackVersion int    `json:"track_version"`
-	LastIdChange uint   `json:"last_id_change"`
+	Username      string `json:"username"`
+	Ctime         uint   `json:"ctime"`
+	Mtime         uint   `json:"mtime"`
+	IdVersion     int    `json:"id_version"`
+	TrackVersion  int    `json:"track_version"`
+	LastIdChange  uint   `json:"last_id_change"`
+	UsernameCased string `json:"username_cased"`
 }
 
 type KeybasePictureRes struct {
@@ -69,15 +70,30 @@ type KeybasePicturesRes struct {
 type KeybasePublicKeyRes struct {
 	KeyFingerprint string `json:"key_fingerprint"`
 	Kid            string `json:"kid"`
+	SigningKid     string `json:"signing_kid"`
 	KeyType        int    `json:"key_type"`
 	Bundle         string `json:"bundle"`
 	Mtime          uint   `json:"mtime"`
 	Ctime          uint   `json:"ctime"`
 	Ukbid          string `json:"ukbid"`
+	KeyBits        uint   `json:"key_bits"`
+	KeyAlgo        uint   `json:"key_algo"`
+	KeyLevel       uint   `json:"key_level"`
+	Status         int    `json:"status"`
+	SelfSigned     bool   `json:"self_signed"`
+	ExpirationTime uint   `json:"etime"`
+}
+
+type KeybaseProfileRes struct {
+	Mtime    uint   `json:"mtime"`
+	FullName string `json:"full_name"`
+	Location string `json:"location"`
+	Bio      string `json:"bio"`
 }
 
 type KeybasePublicKeysRes struct {
-	Primary KeybasePublicKeyRes `json:"primary"`
+	Primary       KeybasePublicKeyRes `json:"primary"`
+	PgpPublicKeys []string            `json:"pgp_public_keys"`
 }
 
 type KeybaseThemRes struct {
@@ -86,6 +102,7 @@ type KeybaseThemRes struct {
 	Pictures   KeybasePicturesRes   `json:"pictures"`
 	PublicKeys KeybasePublicKeysRes `json:"public_keys"`
 	CsrfToken  []byte               `json:"csrf_token"`
+	Profile    KeybaseProfileRes    `json:"profile"`
 }
 
 type KeybaseUserLookupRes struct {
@@ -122,8 +139,6 @@ func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLooku
 	q.Set("usernames", recipients)
 	url.RawQuery = q.Encode()
 
-	fmt.Printf("Query: %s.\n", url.String())
-
 	// request syncronously
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
@@ -142,11 +157,12 @@ func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLooku
 		err = fmt.Errorf("unable to process the user lookup request, status: %d should be: %s (%s) cause: %s", resp.Status, strconv.Itoa(http.StatusOK), http.StatusText(http.StatusOK), string(body))
 		return nil, err
 	}
-
+	// read body struct
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
+	// unmarshal in structure
 	var lr KeybaseUserLookupRes
 	err = json.Unmarshal(body, &lr)
 	if err != nil {
