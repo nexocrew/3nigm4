@@ -6,16 +6,30 @@
 package client
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 )
 
 func TestEnrollClient(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		fmt.Fprintf(w, "{\"token\":\"%s\"}", kDefaultToken)
+		fmt.Fprintf(w, "{\"token\":\"nil\"}")
 	}))
 	defer ts.Close()
+
+	c := NewClient("", "https://keybase.io")
+	if c == nil {
+		t.Fatalf("Client must exist.\n")
+	}
+
+	res, err := c.GetRecipientPublicKey([]string{"dyst0ni3", "illordlo"})
+	if err != nil {
+		t.Fatalf("Unable to process GET request: %s.\n", err.Error())
+	}
+	t.Logf("Result: %v\n", res)
+
 	/*
 		cnf := defaultConfig("0.0.0.0", 7733, "", "127.0.0.1", 9775, "127.0.0.1", 9776)
 		fmt.Printf("%s.\n", string(cnf))

@@ -6,13 +6,21 @@
 package client
 
 import (
+	"encoding/json"
+	"fmt"
 	"golang.org/x/crypto/openpgp"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
+)
+
+import (
+	"github.com/nexocrew/3nigm4/lib/messages"
 )
 
 type Client struct {
-	Sessions        []SessionKeys                 `json:"-" xml:"-"` // client opened sessions;
+	Sessions        []messages.SessionKeys        `json:"-" xml:"-"` // client opened sessions;
 	PrivateKey      *openpgp.Entity               `json:"-" xml:"-"` // user's in memory private key;
 	PublicKey       *openpgp.Entity               `json:"-" xml:"-"` // user's in memory public key;
 	RecipientsCache map[string]openpgp.EntityList `json:"-" xml:"-"` // cached recipients;
@@ -22,8 +30,8 @@ type Client struct {
 func NewClient(keyringPath string, keyserverUrl string) *Client {
 	// init client object
 	c := Client{
-		Sessions:       make([]SessionKeys, 0),
-		RecipientCache: make(map[string]penpgp.EntityList),
+		Sessions:        make([]messages.SessionKeys, 0),
+		RecipientsCache: make(map[string]openpgp.EntityList),
 	}
 
 	return &c
@@ -88,52 +96,56 @@ const (
 	RootLookupUrl = "_/api/1.0/user/lookup.json"
 )
 
-func (c *Client) GetRecipientPublicKey(recipientIds []string) {
+func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLookupRes, error) {
 	// compose url
 	if c.KeyserverUrl[len(c.KeyserverUrl)-1] != '/' {
 		c.KeyserverUrl = c.KeyserverUrl + "/"
 	}
-	url := url.Parse(c.KeyserverUrl + RootLookupUrl)
-
-	/*
-		// encode JSON body
-		bd, err := json.Marshal(enroll)
-		if err != nil {
-			return err
+	url, err := url.Parse(c.KeyserverUrl + RootLookupUrl)
+	if err != nil {
+		return nil, err
+	}
+	// compose query
+	q := url.Query()
+	var recipients string
+	for idx, recipient := range recipientIds {
+		if idx != 0 ||
+			idx != len(recipients)-1 {
+			recipients = recipients + ", "
 		}
+		recipients = recipients + recipient
+	}
+	q.Set("usernames", recipientIds)
+	url.RawQuery = q.Encode()
 
-		// POST https://<addr>:<port/api/v1/enroll
-		url := c.Switchboard.Address + ":" + strconv.Itoa(c.Switchboard.Port) + "/api/v1/enroll"
+	// request syncronously
+	req, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
 
-		// enroll syncronously
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(bd))
-		if err != nil {
-			return err
-		}
-		req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
 
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			return err
-		}
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := ioutil.ReadAll(resp.Body)
+		err = fmt.Errorf("unable to process the enroll request, status: %d should be: %s (%s) cause: %s", resp.Status, strconv.Itoa(http.StatusCreated), http.StatusText(http.StatusCreated), string(body))
+		return nil, err
+	}
 
-		if resp.StatusCode != http.StatusCreated {
-			bs, _ := ioutil.ReadAll(resp.Body)
-			err = errors.New("unable to process the enroll request, status: '" + resp.Status + "' should be: '" + strconv.Itoa(http.StatusCreated) + " " + http.StatusText(http.StatusCreated) + "' cause:" + string(bs))
-			return err
-		}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var lr KeybaseUserLookupRes
+	err = json.Unmarshal(body, &lr)
+	if err != nil {
+		return nil, err
+	}
 
-		bs, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		var er enrollmentResonse
-		err = json.Unmarshal(bs, &er)
-		if err != nil {
-			return err
-		}
-		c.Switchboard.Token = er.Token
-		return nil
-	*/
+	return &lr, nil
 }
