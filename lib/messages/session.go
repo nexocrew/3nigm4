@@ -75,6 +75,26 @@ func NewSessionKeys(creatorId string, preshared []byte) (*SessionKeys, error) {
 	return &sk, nil
 }
 
+// NewSessionFromEncryptedMsg create a new session from an
+// encrypted message. Pre-shared key have to be inserted manually.
+func SessionFromEncryptedMsg(data []byte, recipientk openpgp.EntityList, preshared []byte) (*SessionKeys, error) {
+	// decrypt message
+	decrypted, err := crypto3n.OpenPgpDecrypt(data, recipientk)
+	if err != nil {
+		return nil, err
+	}
+	var session SessionKeys
+	err = json.Unmarshal(decrypted, &session)
+	if err != nil {
+		return nil, err
+	}
+	// assign preshared
+	if session.PreSharedFlag == true {
+		session.PreSharedKey = preshared
+	}
+	return &session, nil
+}
+
 // encryptForRecipient creates an encrypted message to pass
 // session keys to one of the recipients.
 func (sk *SessionKeys) EncryptForRecipients(recipients openpgp.EntityList, signer *openpgp.Entity) ([]byte, error) {
