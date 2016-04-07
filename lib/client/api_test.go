@@ -223,7 +223,7 @@ func TestClientFlow(t *testing.T) {
 	}
 	// add to keyring
 	kr = append(kr, tmp...)
-	kr = append(kr, tmpkeyr[1])
+	kr = append(kr, tmpkeyr[0])
 	if len(kr) != 3 {
 		t.Fatalf("Unexpected number of keys in the keyring: having %d expecting 3.\n", len(kr))
 	}
@@ -256,11 +256,39 @@ func TestClientFlow(t *testing.T) {
 		t.Fatalf("Unable to encrypt init message: %s.\n", err.Error())
 	}
 
-	t.Logf("Encoded: %s.\n", base64.StdEncoding.EncodeToString(enc))
 	// decrypt using pvkey
-	session, err := messages.SessionFromEncryptedMsg(enc, tmpkeyr, []byte(kPreshared))
+	initsk, err := messages.SessionFromEncryptedMsg(enc, tmpkeyr, []byte(kPreshared))
 	if err != nil {
 		t.Fatalf("Unable to access encrypted session: %s.\n", err.Error())
 	}
-	t.Logf("Session: %v.\n", session)
+	// check resulting session
+	if bytes.Compare(c.Sessions[0].MainSymmetricKey, initsk.MainSymmetricKey) != 0 {
+		t.Fatalf("Main keys are not equal: %s != %s.\n", base64.StdEncoding.EncodeToString(c.Sessions[0].MainSymmetricKey), base64.StdEncoding.EncodeToString(initsk.MainSymmetricKey))
+	}
+	if bytes.Compare(c.Sessions[0].ServerSymmetricKey, initsk.ServerSymmetricKey) != 0 {
+		t.Fatalf("Server keys are not equal: %s != %s.\n", base64.StdEncoding.EncodeToString(c.Sessions[0].ServerSymmetricKey), base64.StdEncoding.EncodeToString(initsk.ServerSymmetricKey))
+	}
+	if bytes.Compare(c.Sessions[0].PreSharedKey, initsk.PreSharedKey) != 0 {
+		t.Fatalf("Pre-shared keys are not equal: %s != %s.\n", base64.StdEncoding.EncodeToString(c.Sessions[0].PreSharedKey), base64.StdEncoding.EncodeToString(initsk.PreSharedKey))
+	}
+	if c.Sessions[0].CreatorId != initsk.CreatorId {
+		t.Fatalf("CreatorId is not equal: %s != %s.\n", c.Sessions[0].CreatorId, initsk.CreatorId)
+	}
+	if c.Sessions[0].PreSharedFlag != initsk.PreSharedFlag {
+		t.Fatalf("Preshared flag is not equal: %v != %v.\n", c.Sessions[0].PreSharedFlag, initsk.PreSharedFlag)
+	}
+
+	// both users try to encrypt a message
+	encrypted, err := c.Sessions[0].EncryptMessage([]byte(kPlainText), nil)
+	if err != nil {
+		t.Fatalf("Unable to encrypt message: %s.\n", err.Error())
+	}
+	decrypted, err := c.Sessions[0].DecryptMessage(encrypted, nil, false)
+	if err != nil {
+		t.Fatalf("Transmitted session keys are not able to decypt message: %s.\n", err.Error())
+	}
+	if bytes.Compare([]byte(kPlainText), decrypted.Body) != 0 {
+		t.Fatalf("Different bodies.\n")
+	}
+
 }
