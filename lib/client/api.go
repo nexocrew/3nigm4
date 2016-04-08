@@ -24,6 +24,7 @@ type Client struct {
 	PrivateKey      *openpgp.Entity               `json:"-" xml:"-"` // user's in memory private key;
 	PublicKey       *openpgp.Entity               `json:"-" xml:"-"` // user's in memory public key;
 	RecipientsCache map[string]openpgp.EntityList `json:"-" xml:"-"` // cached recipients;
+	KeyserverKeys   openpgp.EntityList            `json:"-" xml:"-"` // the public keys of the server specified in the url;
 	KeyserverUrl    string                        `json:"-" xml:"-"` // key servers.
 }
 
@@ -170,4 +171,16 @@ func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLooku
 	}
 
 	return &lr, nil
+}
+
+// Handshake message
+type HandshakeMsg struct {
+	SessionKeys []byte `json:"sessionk"`
+	ServerKeys  []byte `json:"serverk"`
+}
+
+// PostNewSession request the server to create a new session
+// targeting some users.
+func (c *Client) PostNewSession(recipients openpgp.EntityList, TimeToLive uint64) error {
+	return nil
 }

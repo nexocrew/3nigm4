@@ -169,6 +169,35 @@ func TestEncryptForRecipients(t *testing.T) {
 	}
 }
 
+func TestEncryptForServer(t *testing.T) {
+	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))
+	if err != nil {
+		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
+	}
+	if sk == nil {
+		t.Fatalf("Returned object must never be nil.\n")
+	}
+	// get entity
+	signers, err := crypto3n.ReadArmoredKeyRing([]byte(kPrivateKey), []byte("golang"))
+	if err != nil {
+		t.Fatalf("Unable to read private key: %s.\n", err.Error())
+	}
+	if len(signers) == 0 {
+		t.Fatalf("Expecting at least 1 entity having %d.\n", len(signers))
+	}
+	entityList, err := crypto3n.ReadArmoredKeyRing([]byte(kPublicKey), nil)
+	if err != nil {
+		t.Fatalf("Unable to access public armored key: %s.\n", err.Error())
+	}
+	handshake, err := sk.EncryptForServer(entityList, signers[0], []string{"illordlo", "dystonie"}, 2000)
+	if err != nil {
+		t.Fatalf("Unable to produce a valid server handshake message: %s.\n", err.Error())
+	}
+	if len(handshake) == 0 {
+		t.Fatalf("Unexpected handshake length should be not nil.\n")
+	}
+}
+
 func TestEncryptMessageNotSigned(t *testing.T) {
 	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))
 	if err != nil {

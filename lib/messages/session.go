@@ -36,6 +36,14 @@ type SessionKeys struct {
 	Messages           []Message `json:"-" xml:"-"`                   // in memory plain text messages list associated with the session.
 }
 
+// ServerMsg contain the exchange structure used
+// to pass the server symmetric key to the server.
+type ServerMsg struct {
+	ServerSymmetricKey []byte   `json:"serverk" xml:"serverk"`             // symmetric key to be used to encrypt server random key;
+	RecipientsIds      []string `json:"recipientsids" xml:"recipientsids"` // resipients ids;
+	TimeToLive         uint64   `json:"ttl" xml:"ttl"`                     // time to live in seconds.
+}
+
 const (
 	kSharedKeySize = 128 // Shared key size.
 )
@@ -95,8 +103,8 @@ func SessionFromEncryptedMsg(data []byte, recipientk openpgp.EntityList, preshar
 	return &session, nil
 }
 
-// encryptForRecipient creates an encrypted message to pass
-// session keys to one of the recipients.
+// EncryptForRecipients creates an encrypted message to pass
+// session keys to one or more of recipients.
 func (sk *SessionKeys) EncryptForRecipients(recipients openpgp.EntityList, signer *openpgp.Entity) ([]byte, error) {
 	// encode sessions keys
 	encoded, err := json.Marshal(sk)
@@ -104,11 +112,36 @@ func (sk *SessionKeys) EncryptForRecipients(recipients openpgp.EntityList, signe
 		return nil, err
 	}
 	// encrypt encoded
-	encryped, err := crypto3n.OpenPgpEncrypt(encoded, recipients, signer)
+	encrypted, err := crypto3n.OpenPgpEncrypt(encoded, recipients, signer)
 	if err != nil {
 		return nil, err
 	}
-	return encryped, nil
+	return encrypted, nil
+}
+
+// EncryptForServer create an encrypted packet to exchange
+// server encryption key with the server. This function will
+// use as recipient the public keys exposed by the server
+// entity and will sign the message using the sender key. A
+// time to live can be specified to define how many time the
+// key should be maintained by the server.
+func (sk *SessionKeys) EncryptForServer(recipients openpgp.EntityList, signer *openpgp.Entity, recids []string, ttl uint64) ([]byte, error) {
+	serverk := ServerMsg{
+		ServerSymmetricKey: sk.ServerSymmetricKey,
+		RecipientsIds:      recids,
+		TimeToLive:         ttl,
+	}
+	// encode in json
+	encoded, err := json.Marshal(&serverk)
+	if err != nil {
+		return nil, err
+	}
+	// encrypt encoded
+	encrypted, err := crypto3n.OpenPgpEncrypt(encoded, recipients, signer)
+	if err != nil {
+		return nil, err
+	}
+	return encrypted, nil
 }
 
 // Request for an encrypted message using pre-sared keys.
