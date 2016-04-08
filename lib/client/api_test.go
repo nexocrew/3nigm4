@@ -236,6 +236,7 @@ func TestClientFlow(t *testing.T) {
 	if sk == nil {
 		t.Fatalf("Returned object must never be nil.\n")
 	}
+	sk.UserId = "userA"
 	// add to client
 	c.Sessions = append(c.Sessions, *sk)
 
@@ -277,9 +278,17 @@ func TestClientFlow(t *testing.T) {
 	if c.Sessions[0].PreSharedFlag != initsk.PreSharedFlag {
 		t.Fatalf("Preshared flag is not equal: %v != %v.\n", c.Sessions[0].PreSharedFlag, initsk.PreSharedFlag)
 	}
+	if c.Sessions[0].UserId == initsk.UserId {
+		t.Fatalf("UserId must be manually setted should not be unmarshaled with the structure.\n")
+	}
+	initsk.UserId = "userB"
 
 	// both users try to encrypt a message
-	encrypted, err := c.Sessions[0].EncryptMessage([]byte(kPlainText), nil)
+	message := []byte(kPlainText)
+	if len(message) == 0 {
+		t.Fatalf("Message must not be nil.\n")
+	}
+	encrypted, err := c.Sessions[0].EncryptMessage(message, nil)
 	if err != nil {
 		t.Fatalf("Unable to encrypt message: %s.\n", err.Error())
 	}
@@ -287,7 +296,7 @@ func TestClientFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transmitted session keys are not able to decypt message: %s.\n", err.Error())
 	}
-	if bytes.Compare([]byte(kPlainText), decrypted.Body) != 0 {
+	if bytes.Compare(message, decrypted.Body) != 0 {
 		t.Fatalf("Different bodies.\n")
 	}
 

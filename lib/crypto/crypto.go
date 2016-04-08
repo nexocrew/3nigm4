@@ -57,12 +57,12 @@ func PKCS5Padding(src []byte, blockSize int) []byte {
 func PKCS5UnPadding(src []byte) ([]byte, error) {
 	length := len(src)
 	if length <= 0 {
-		return nil, fmt.Errorf("Invalid byte blob lenght: expecting > 0 having %d.\n", length)
+		return nil, fmt.Errorf("invalid byte blob lenght: expecting > 0 having %d", length)
 	}
 	unpadding := int(src[length-1])
 	delta := length - unpadding
 	if delta < 0 {
-		return nil, fmt.Errorf("Invalid padding delta lenght: expecting >= 0 having %d.\n", delta)
+		return nil, fmt.Errorf("invalid padding delta lenght: expecting >= 0 having %d", delta)
 	}
 	return src[:delta], nil
 }
@@ -97,7 +97,7 @@ func XorKeys(keys [][]byte, maxlen int) ([]byte, error) {
 	buffeXored := make([]byte, maxlen)
 	for counter, key := range keys {
 		if len(key) != maxlen {
-			return nil, fmt.Errorf("Invalid passcodes: argument passcodes are too short, should be min %d byte long.", maxlen)
+			return nil, fmt.Errorf("invalid passcodes: argument passcodes are too short, should be min %d byte long", maxlen)
 		}
 		// copy or xor
 		if counter == 0 {
@@ -115,10 +115,12 @@ func XorKeys(keys [][]byte, maxlen int) ([]byte, error) {
 // Salt and IV will be passed in the encrypted message.
 func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode) ([]byte, error) {
 	// check input values
-	if len(key) < 1 ||
-		len(plaintext) < 1 ||
+	if len(key) < 1 {
+		return nil, fmt.Errorf("invalid key argument: should be not null or empty")
+	}
+	if len(plaintext) < 1 ||
 		plaintext == nil {
-		return nil, fmt.Errorf("Invalid arguments: should be not null or empty.")
+		return nil, fmt.Errorf("invalid plain text argument: should be not null or empty")
 	}
 
 	// pad plain text
@@ -127,7 +129,7 @@ func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode) ([]byte
 	ciphertext := make([]byte, len(paddedPlaintext)+kSaltSize+aes.BlockSize)
 	// copy salt
 	if len(salt) != kSaltSize {
-		return nil, fmt.Errorf("Invalid salt size, expecting %d having %d.", kSaltSize, len(salt))
+		return nil, fmt.Errorf("invalid salt size, expecting %d having %d", kSaltSize, len(salt))
 	}
 	jdx := 0
 	for idx := aes.BlockSize; idx < aes.BlockSize+kSaltSize; idx++ {
@@ -137,7 +139,7 @@ func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode) ([]byte
 
 	// Should be previously padded
 	if len(paddedPlaintext)%aes.BlockSize != 0 {
-		return nil, fmt.Errorf("Invalid plain text size: should be a multiple of block size.")
+		return nil, fmt.Errorf("invalid plain text size: should be a multiple of block size")
 	}
 
 	block, err := aes.NewCipher(key)
@@ -178,7 +180,7 @@ func AesDecrypt(key []byte, ciphertext []byte, mode AesMode) ([]byte, error) {
 	if len(key) < 1 ||
 		len(ciphertext) < 1 ||
 		ciphertext == nil {
-		return nil, fmt.Errorf("Invalid arguments: should be not null or empty.")
+		return nil, fmt.Errorf("invalid arguments: should be not null or empty")
 	}
 
 	// get packed values
@@ -188,10 +190,10 @@ func AesDecrypt(key []byte, ciphertext []byte, mode AesMode) ([]byte, error) {
 
 	// check ciphertext lenght
 	if len(ciphert) < aes.BlockSize {
-		return nil, fmt.Errorf("Cipher text too short, must be at least longer than block size.")
+		return nil, fmt.Errorf("cipher text too short, must be at least longer than block size")
 	}
 	if len(ciphert)%aes.BlockSize != 0 {
-		return nil, fmt.Errorf("Chiper text have wrong size, should be a block size multiple.")
+		return nil, fmt.Errorf("chiper text have wrong size, should be a block size multiple")
 	}
 
 	block, err := aes.NewCipher(key)

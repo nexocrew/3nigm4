@@ -186,6 +186,9 @@ func (sk *SessionKeys) getKeyandAndSalt() ([]byte, []byte, error) {
 // pre-shared keys. Notice that server maintained key has been already
 // retrieved and is stored in volatile RAM for usage.
 func (sk *SessionKeys) EncryptMessage(message []byte, signer *openpgp.Entity) ([]byte, error) {
+	if sk.UserId == "" {
+		return nil, fmt.Errorf("a valid sender user id is required, right now is nil")
+	}
 	// get key and salt
 	key, salt, err := sk.getKeyandAndSalt()
 	if err != nil {
