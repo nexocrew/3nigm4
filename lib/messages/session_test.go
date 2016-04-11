@@ -141,7 +141,7 @@ lw1nIDx1uwkeAfXXcViFBg==
 )
 
 func TestEncryptForRecipients(t *testing.T) {
-	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))
+	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared), []string{})
 	if err != nil {
 		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
 	}
@@ -160,7 +160,7 @@ func TestEncryptForRecipients(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to access public armored key: %s.\n", err.Error())
 	}
-	handshake, err := sk.EncryptForRecipients(entityList, signers[0])
+	handshake, err := sk.EncryptForRecipientsHandshake(entityList, signers[0])
 	if err != nil {
 		t.Fatalf("Unable to produce a valid handshake message: %s.\n", err.Error())
 	}
@@ -170,7 +170,7 @@ func TestEncryptForRecipients(t *testing.T) {
 }
 
 func TestEncryptForServer(t *testing.T) {
-	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))
+	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared), []string{"illordlo", "dystonie"})
 	if err != nil {
 		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
 	}
@@ -189,7 +189,7 @@ func TestEncryptForServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to access public armored key: %s.\n", err.Error())
 	}
-	handshake, err := sk.EncryptForServer(entityList, signers[0], []string{"illordlo", "dystonie"}, 2000)
+	handshake, err := sk.EncryptForServerHandshake(entityList, signers[0], 2000)
 	if err != nil {
 		t.Fatalf("Unable to produce a valid server handshake message: %s.\n", err.Error())
 	}
@@ -199,7 +199,7 @@ func TestEncryptForServer(t *testing.T) {
 }
 
 func TestEncryptMessageNotSigned(t *testing.T) {
-	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))
+	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared), []string{})
 	if err != nil {
 		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
 	}
@@ -267,7 +267,7 @@ func TestEncryptMessageNotSigned(t *testing.T) {
 }
 
 func TestEncryptMessageSigned(t *testing.T) {
-	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared))
+	sk, err := NewSessionKeys(kCreatorId, []byte(kPreshared), []string{})
 	if err != nil {
 		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
 	}

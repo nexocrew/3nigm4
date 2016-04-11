@@ -229,7 +229,7 @@ func TestClientFlow(t *testing.T) {
 	}
 
 	// create a session
-	sk, err := messages.NewSessionKeys(kCreatorId, []byte(kPreshared))
+	sk, err := messages.NewSessionKeys(kCreatorId, []byte(kPreshared), []string{"illordlo", "dystonie"})
 	if err != nil {
 		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
 	}
@@ -252,7 +252,7 @@ func TestClientFlow(t *testing.T) {
 		t.Fatalf("Expecting at least 1 entity having %d.\n", len(signers))
 	}
 	// encrypted session initialisation
-	enc, err := c.Sessions[0].EncryptForRecipients(kr, signers[0])
+	enc, err := c.Sessions[0].EncryptForRecipientsHandshake(kr, signers[0])
 	if err != nil {
 		t.Fatalf("Unable to encrypt init message: %s.\n", err.Error())
 	}

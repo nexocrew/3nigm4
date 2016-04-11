@@ -24,6 +24,8 @@ type Client struct {
 	PrivateKey      *openpgp.Entity               `json:"-" xml:"-"` // user's in memory private key;
 	PublicKey       *openpgp.Entity               `json:"-" xml:"-"` // user's in memory public key;
 	RecipientsCache map[string]openpgp.EntityList `json:"-" xml:"-"` // cached recipients;
+	ServerUrl       string                        `json:"-" xml:"-"` // backend server url;
+	ServerKeys      openpgp.EntityList            `json:"-" xml:"-"` // backend server keys;
 	KeyserverKeys   openpgp.EntityList            `json:"-" xml:"-"` // the public keys of the server specified in the url;
 	KeyserverUrl    string                        `json:"-" xml:"-"` // key servers.
 }
@@ -115,7 +117,7 @@ const (
 	RootLookupUrl = "_/api/1.0/user/lookup.json"
 )
 
-func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLookupRes, error) {
+func (c *Client) composeKeyserverUrl() (*url.URL, error) {
 	if len(c.KeyserverUrl) == 0 {
 		return nil, fmt.Errorf("keyserver url must not be nil")
 	}
@@ -123,12 +125,35 @@ func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLooku
 	if c.KeyserverUrl[len(c.KeyserverUrl)-1] != '/' {
 		c.KeyserverUrl = c.KeyserverUrl + "/"
 	}
-	url, err := url.Parse(c.KeyserverUrl + RootLookupUrl)
+	u, err := url.Parse(c.KeyserverUrl + RootLookupUrl)
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func (c *Client) serverUrl(path string) (*url.URL, error) {
+	if len(c.ServerUrl) == 0 {
+		return nil, fmt.Errorf("server url must not be nil")
+	}
+	// compose url
+	if c.ServerUrl[len(c.ServerUrl)-1] != '/' {
+		c.ServerUrl = c.ServerUrl + "/"
+	}
+	u, err := url.Parse(c.ServerUrl + path)
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLookupRes, error) {
+	u, err := c.composeKeyserverUrl()
 	if err != nil {
 		return nil, err
 	}
 	// compose query
-	q := url.Query()
+	q := u.Query()
 	var recipients string
 	for idx, recipient := range recipientIds {
 		if idx != 0 &&
@@ -138,10 +163,10 @@ func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLooku
 		recipients = recipients + recipient
 	}
 	q.Set("usernames", recipients)
-	url.RawQuery = q.Encode()
+	u.RawQuery = q.Encode()
 
 	// request syncronously
-	req, err := http.NewRequest("GET", url.String(), nil)
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +206,54 @@ type HandshakeMsg struct {
 
 // PostNewSession request the server to create a new session
 // targeting some users.
-func (c *Client) PostNewSession(recipients openpgp.EntityList, TimeToLive uint64) error {
-	return nil
+func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpgp.EntityList, ttl uint64) error {
+	if session == nil ||
+		len(recipients) == 0 {
+		return fmt.Errorf("invalid arguments, should not be nil")
+	}
+	// encrypt for recipients
+	sessionenc, err := session.EncryptForRecipientsHanshake(recipients, c.PrivateKey)
+	if err != nil {
+		return err
+	}
+	// encrypt for server
+	serverenc, err := session.EncryptForServerHandshake(c.ServerKeys, c.PrivateKey, ttl)
+	if err != nil {
+		return err
+	}
+
+	hm := HandshakeMsg{
+		SessionKeys: sessionenc,
+		ServerKeys:  serverenc,
+	}
+
+	jsonData, err := json.Marshal(hm)
+	if err != nil {
+		return err
+	}
+
+	u, err := c.ServerUrl("session")
+	if err != nil {
+		return err
+	}
+
+	// enroll syncronously
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		bs, _ := ioutil.ReadAll(resp.Body)
+		err = errors.New("unable to process the enroll request, status: '" + resp.Status + "' should be: '" + strconv.Itoa(http.StatusCreated) + " " + http.StatusText(http.StatusCreated) + "' cause:" + string(bs))
+		return err
+	}
+
 }

@@ -24,16 +24,17 @@ import (
 // encrypted using pgp before being inserted in a Recipient
 // keys struct for being sent to the server.
 type SessionKeys struct {
-	CreatorId          string    `json:"creatorid" xml:"creatorid"`   // id of the session creator;
-	MainSymmetricKey   []byte    `json:"maink" xml:"maink"`           // main random generated symmetric key;
-	ServerSymmetricKey []byte    `json:"serverk" xml:"serverk"`       // server symmetric key;
-	PreSharedFlag      bool      `json:"presharedf" xml:"presharedf"` // is there also a pre-shared key in use;
-	PreSharedKey       []byte    `json:"-" xml:"-"`                   // pre shared key (only available in the client);
-	SessionId          []byte    `json:"-" xml:"-"`                   // session id returned by the server after creating the session;
-	IncrementalCounter uint64    `json:"-" xml:"-"`                   // incremental counter of exchanged messages;
-	UserId             string    `json:"-" xml:"-"`                   // the user that is interacting with the session;
-	ServerTmpKey       []byte    `json:"-" xml:"-"`                   // server generated in memory key (shoul never be stored anywhere);
-	Messages           []Message `json:"-" xml:"-"`                   // in memory plain text messages list associated with the session.
+	CreatorId          string    `json:"creatorid" xml:"creatorid"`        // id of the session creator;
+	MainSymmetricKey   []byte    `json:"maink" xml:"maink"`                // main random generated symmetric key;
+	ServerSymmetricKey []byte    `json:"serverk" xml:"serverk"`            // server symmetric key;
+	PreSharedFlag      bool      `json:"presharedf" xml:"presharedf"`      // is there also a pre-shared key in use;
+	RecipientsIds      []string  `json:"recipientsids" xml:"recipientsid"` // slice of id of recipients and senender (all involved entities);
+	PreSharedKey       []byte    `json:"-" xml:"-"`                        // pre shared key (only available in the client);
+	SessionId          []byte    `json:"-" xml:"-"`                        // session id returned by the server after creating the session;
+	IncrementalCounter uint64    `json:"-" xml:"-"`                        // incremental counter of exchanged messages;
+	UserId             string    `json:"-" xml:"-"`                        // the user that is interacting with the session;
+	ServerTmpKey       []byte    `json:"-" xml:"-"`                        // server generated in memory key (shoul never be stored anywhere);
+	Messages           []Message `json:"-" xml:"-"`                        // in memory plain text messages list associated with the session.
 }
 
 // ServerMsg contain the exchange structure used
@@ -60,7 +61,7 @@ func randomBytesForLen(size int) ([]byte, error) {
 
 // NewSessionKeys creates a new session struct assigning random
 // keys and required configurations.
-func NewSessionKeys(creatorId string, preshared []byte) (*SessionKeys, error) {
+func NewSessionKeys(creatorId string, preshared []byte, recipients []string) (*SessionKeys, error) {
 	sk := SessionKeys{}
 	var err error
 	sk.MainSymmetricKey, err = randomBytesForLen(kSharedKeySize)
@@ -77,6 +78,8 @@ func NewSessionKeys(creatorId string, preshared []byte) (*SessionKeys, error) {
 		sk.PreSharedFlag = true
 		sk.PreSharedKey = preshared
 	}
+	// set recipients
+	sk.RecipientsIds = recipients
 	// init message list
 	sk.Messages = make([]Message, 0)
 
@@ -103,9 +106,9 @@ func SessionFromEncryptedMsg(data []byte, recipientk openpgp.EntityList, preshar
 	return &session, nil
 }
 
-// EncryptForRecipients creates an encrypted message to pass
+// EncryptForRecipientsHandshake creates an encrypted message to pass
 // session keys to one or more of recipients.
-func (sk *SessionKeys) EncryptForRecipients(recipients openpgp.EntityList, signer *openpgp.Entity) ([]byte, error) {
+func (sk *SessionKeys) EncryptForRecipientsHandshake(recipients openpgp.EntityList, signer *openpgp.Entity) ([]byte, error) {
 	// encode sessions keys
 	encoded, err := json.Marshal(sk)
 	if err != nil {
@@ -119,16 +122,16 @@ func (sk *SessionKeys) EncryptForRecipients(recipients openpgp.EntityList, signe
 	return encrypted, nil
 }
 
-// EncryptForServer create an encrypted packet to exchange
+// EncryptForServerHandshake create an encrypted packet to exchange
 // server encryption key with the server. This function will
 // use as recipient the public keys exposed by the server
 // entity and will sign the message using the sender key. A
 // time to live can be specified to define how many time the
 // key should be maintained by the server.
-func (sk *SessionKeys) EncryptForServer(recipients openpgp.EntityList, signer *openpgp.Entity, recids []string, ttl uint64) ([]byte, error) {
+func (sk *SessionKeys) EncryptForServerHandshake(recipients openpgp.EntityList, signer *openpgp.Entity, ttl uint64) ([]byte, error) {
 	serverk := ServerMsg{
 		ServerSymmetricKey: sk.ServerSymmetricKey,
-		RecipientsIds:      recids,
+		RecipientsIds:      sk.RecipientsIds,
 		TimeToLive:         ttl,
 	}
 	// encode in json
