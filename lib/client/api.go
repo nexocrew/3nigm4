@@ -6,6 +6,7 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"golang.org/x/crypto/openpgp"
@@ -24,6 +25,7 @@ type Client struct {
 	PrivateKey      *openpgp.Entity               `json:"-" xml:"-"` // user's in memory private key;
 	PublicKey       *openpgp.Entity               `json:"-" xml:"-"` // user's in memory public key;
 	RecipientsCache map[string]openpgp.EntityList `json:"-" xml:"-"` // cached recipients;
+	ApiKey          string                        `json:"-" xml:"-"` // api key used to identify client app;
 	ServerUrl       string                        `json:"-" xml:"-"` // backend server url;
 	ServerKeys      openpgp.EntityList            `json:"-" xml:"-"` // backend server keys;
 	KeyserverKeys   openpgp.EntityList            `json:"-" xml:"-"` // the public keys of the server specified in the url;
@@ -212,7 +214,7 @@ func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpg
 		return fmt.Errorf("invalid arguments, should not be nil")
 	}
 	// encrypt for recipients
-	sessionenc, err := session.EncryptForRecipientsHanshake(recipients, c.PrivateKey)
+	sessionenc, err := session.EncryptForRecipientsHandshake(recipients, c.PrivateKey)
 	if err != nil {
 		return err
 	}
@@ -232,17 +234,18 @@ func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpg
 		return err
 	}
 
-	u, err := c.ServerUrl("session")
+	u, err := c.serverUrl("sessions")
 	if err != nil {
 		return err
 	}
 
 	// enroll syncronously
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", u.String(), bytes.NewBuffer(jsonData))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Api-Key", c.ApiKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -252,8 +255,8 @@ func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpg
 
 	if resp.StatusCode != http.StatusCreated {
 		bs, _ := ioutil.ReadAll(resp.Body)
-		err = errors.New("unable to process the enroll request, status: '" + resp.Status + "' should be: '" + strconv.Itoa(http.StatusCreated) + " " + http.StatusText(http.StatusCreated) + "' cause:" + string(bs))
+		err = fmt.Errorf("unable to process the enroll request, status:%d should be %d (%s) cause: %s", resp.Status, strconv.Itoa(http.StatusCreated), http.StatusText(http.StatusCreated), string(bs))
 		return err
 	}
-
+	return nil
 }
