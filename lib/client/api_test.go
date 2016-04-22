@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"golang.org/x/crypto/openpgp"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -89,7 +90,7 @@ func TestLookupKeybaseUsers(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("", ts.URL)
+	c := NewClient("", ts.URL, "")
 	if c == nil {
 		t.Fatalf("Client must exist.\n")
 	}
@@ -182,7 +183,7 @@ func TestClientFlow(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	c := NewClient("", ts.URL)
+	c := NewClient("", ts.URL, "")
 	if c == nil {
 		t.Fatalf("Client must exist.\n")
 	}
@@ -300,4 +301,71 @@ func TestClientFlow(t *testing.T) {
 		t.Fatalf("Different bodies.\n")
 	}
 
+}
+
+func TestNewSession(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		body, _ := ioutil.ReadAll(r.Body)
+		fmt.Printf("Recived message:%s.\n", body)
+		fmt.Fprintf(w, kKeybaseUserLookupResponse)
+	}))
+	defer ts.Close()
+
+	c := NewClient("", ts.URL, "")
+	if c == nil {
+		t.Fatalf("Client must exist.\n")
+	}
+
+	res, err := c.GetRecipientPublicKey([]string{"dystonie", "illordlo"})
+	if err != nil {
+		t.Fatalf("Unable to process GET request: %s.\n", err.Error())
+	}
+	if res.Status.Code != 0 ||
+		res.Status.Name != "OK" {
+		t.Fatalf("Unexpected unmarshaling expecting \"OK\" having %s.\n", res.Status.Name)
+	}
+	if len(res.Them) != 2 {
+		t.Fatalf("Expected 2 results, having %d.\n", len(res.Them))
+	}
+
+	dystonie := res.Them[0]
+	illordlo := res.Them[1]
+
+	// load key in client cache
+	kr, err := crypto3n.ReadArmoredKeyRing([]byte(dystonie.PublicKeys.Primary.Bundle), nil)
+	if err != nil {
+		t.Fatalf("Unable to read dystonie armored keyring: %s.\n", err.Error())
+	}
+	tmp, err := crypto3n.ReadArmoredKeyRing([]byte(illordlo.PublicKeys.Primary.Bundle), nil)
+	if err != nil {
+		t.Fatalf("Unable to read illordlo armored keyring: %s.\n", err.Error())
+	}
+	// add to keyring
+	kr = append(kr, tmp...)
+
+	tsp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprintf(w, "{\"status\":0, \"error\":\"\"}")
+	}))
+	defer ts.Close()
+
+	cp := NewClient("", "", tsp.URL)
+	if c == nil {
+		t.Fatalf("Client must exist.\n")
+	}
+
+	// create a session
+	sk, err := messages.NewSessionKeys(kCreatorId, []byte(kPreshared), []string{"illordlo", "dystonie"})
+	if err != nil {
+		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
+	}
+	if sk == nil {
+		t.Fatalf("Returned object must never be nil.\n")
+	}
+
+	err = cp.PostNewSession(sk, kr, 1000)
+	if err != nil {
+		t.Fatalf("Unable to post new session: %s.\n", err.Error())
+	}
 }

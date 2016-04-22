@@ -32,12 +32,16 @@ type Client struct {
 	KeyserverUrl    string                        `json:"-" xml:"-"` // key servers.
 }
 
-func NewClient(keyringPath string, keyserverUrl string) *Client {
+// NewClient creates a new client struct starting minimum
+// required data: keyserver url, 3nigm4 url and a keyring
+// path address.
+func NewClient(keyringPath string, keyserverUrl string, serverUrl string) *Client {
 	// init client object
 	c := Client{
 		Sessions:        make([]messages.SessionKeys, 0),
 		RecipientsCache: make(map[string]openpgp.EntityList),
 		KeyserverUrl:    keyserverUrl,
+		ServerUrl:       serverUrl,
 	}
 
 	return &c
