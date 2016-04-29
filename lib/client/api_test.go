@@ -306,8 +306,6 @@ func TestClientFlow(t *testing.T) {
 func TestNewSession(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		body, _ := ioutil.ReadAll(r.Body)
-		fmt.Printf("Recived message:%s.\n", body)
 		fmt.Fprintf(w, kKeybaseUserLookupResponse)
 	}))
 	defer ts.Close()
@@ -346,6 +344,11 @@ func TestNewSession(t *testing.T) {
 
 	tsp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
+		body, _ := ioutil.ReadAll(r.Body)
+		if len(body) == 0 {
+			t.Fatalf("Unexpected message body lenght, esxpecting not nil.\n")
+		}
+		t.Logf("Request body: %s.\n", string(body))
 		fmt.Fprintf(w, "{\"status\":0, \"error\":\"\"}")
 	}))
 	defer ts.Close()
