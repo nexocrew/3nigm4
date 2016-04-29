@@ -349,7 +349,7 @@ func TestNewSession(t *testing.T) {
 			t.Fatalf("Unexpected message body lenght, esxpecting not nil.\n")
 		}
 		t.Logf("Request body: %s.\n", string(body))
-		fmt.Fprintf(w, "{\"status\":0, \"error\":\"\"}")
+		fmt.Fprintf(w, "{\"sessionid\":\"c2Vzc2lvbjAxMjkwNDE2MDAwMDAwMQ==\"}")
 	}))
 	defer ts.Close()
 
@@ -367,8 +367,11 @@ func TestNewSession(t *testing.T) {
 		t.Fatalf("Returned object must never be nil.\n")
 	}
 
-	err = cp.PostNewSession(sk, kr, 1000)
+	sessionid, err := cp.PostNewSession(sk, kr, 1000)
 	if err != nil {
 		t.Fatalf("Unable to post new session: %s.\n", err.Error())
+	}
+	if string(sessionid.SessionId) != "session012904160000001" {
+		t.Fatalf("Unexpected session id: having %s expecting \"session012904160000001\"", string(sessionid.SessionId))
 	}
 }

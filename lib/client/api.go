@@ -210,22 +210,27 @@ type HandshakeMsg struct {
 	ServerKeys  []byte `json:"serverk"`
 }
 
+// Response while creating a new session
+type PostNewSessionResp struct {
+	SessionId []byte `json:"sessionid"`
+}
+
 // PostNewSession request the server to create a new session
 // targeting some users.
-func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpgp.EntityList, ttl uint64) error {
+func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpgp.EntityList, ttl uint64) (*PostNewSessionResp, error) {
 	if session == nil ||
 		len(recipients) == 0 {
-		return fmt.Errorf("invalid arguments, should not be nil")
+		return nil, fmt.Errorf("invalid arguments, should not be nil")
 	}
 	// encrypt for recipients
 	sessionenc, err := session.EncryptForRecipientsHandshake(recipients, c.PrivateKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// encrypt for server
 	serverenc, err := session.EncryptForServerHandshake(c.ServerKeys, c.PrivateKey, ttl)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	hm := HandshakeMsg{
@@ -235,18 +240,18 @@ func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpg
 
 	jsonData, err := json.Marshal(hm)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	u, err := c.serverUrl("sessions")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// enroll syncronously
 	req, err := http.NewRequest("POST", u.String(), bytes.NewBuffer(jsonData))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Api-Key", c.ApiKey)
@@ -254,13 +259,21 @@ func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpg
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusCreated {
 		bs, _ := ioutil.ReadAll(resp.Body)
 		err = fmt.Errorf("unable to process the enroll request, status:%d should be %d (%s) cause: %s", resp.Status, strconv.Itoa(http.StatusCreated), http.StatusText(http.StatusCreated), string(bs))
-		return err
+		return nil, err
 	}
-	return nil
+	// read response body
+	body, _ := ioutil.ReadAll(resp.Body)
+	var sessionResponse PostNewSessionResp
+	err = json.Unmarshal(body, &sessionResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return &sessionResponse, nil
 }
