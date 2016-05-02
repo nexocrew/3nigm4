@@ -277,3 +277,68 @@ func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpg
 
 	return &sessionResponse, nil
 }
+
+// Message struct
+type MessageRequest struct {
+	SessionId   []byte `json:"sessionid"`
+	MessageBody []byte `json:"messagebody"`
+}
+
+type MessageResponse struct {
+	Counter uint64 `json:"counter"`
+}
+
+func (c *Client) PostMessage(session *messages.SessionKeys, message []byte) (uint64, error) {
+	if len(message) == 0 ||
+		session == nil {
+		return 0, fmt.Errorf("unexpected arguments, should have not nil message and session")
+	}
+
+	// encrypt message
+	encrypted, err := session.EncryptMessage(message, c.PrivateKey)
+	if err != nil {
+		return 0, fmt.Errorf("unable to encrypt the message, %s", err.Error())
+	}
+
+	// create message
+	body := &MessageRequest{
+		SessionId:   session.SessionId,
+		MessageBody: encrypted,
+	}
+	// encode
+	encoded, err := json.Marshal(body)
+
+	u, err := c.serverUrl("messages")
+	if err != nil {
+		return 0, err
+	}
+
+	// enroll syncronously
+	req, err := http.NewRequest("POST", u.String(), bytes.NewBuffer(encoded))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Api-Key", c.ApiKey)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		bs, _ := ioutil.ReadAll(resp.Body)
+		err = fmt.Errorf("unable to process the message request, status:%d should be %d (%s) cause: %s", resp.Status, strconv.Itoa(http.StatusCreated), http.StatusText(http.StatusCreated), string(bs))
+		return 0, err
+	}
+	// read response body
+	response, _ := ioutil.ReadAll(resp.Body)
+	var messageResponse MessageResponse
+	err = json.Unmarshal(response, &messageResponse)
+	if err != nil {
+		return 0, err
+	}
+
+	return messageResponse.Counter, nil
+}

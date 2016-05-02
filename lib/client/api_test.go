@@ -375,3 +375,80 @@ func TestNewSession(t *testing.T) {
 		t.Fatalf("Unexpected session id: having %s expecting \"session012904160000001\"", string(sessionid.SessionId))
 	}
 }
+
+func TestNewMessage(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, kKeybaseUserLookupResponse)
+	}))
+	defer ts.Close()
+
+	c := NewClient("", ts.URL, "")
+	if c == nil {
+		t.Fatalf("Client must exist.\n")
+	}
+
+	res, err := c.GetRecipientPublicKey([]string{"dystonie", "illordlo"})
+	if err != nil {
+		t.Fatalf("Unable to process GET request: %s.\n", err.Error())
+	}
+	if res.Status.Code != 0 ||
+		res.Status.Name != "OK" {
+		t.Fatalf("Unexpected unmarshaling expecting \"OK\" having %s.\n", res.Status.Name)
+	}
+	if len(res.Them) != 2 {
+		t.Fatalf("Expected 2 results, having %d.\n", len(res.Them))
+	}
+
+	dystonie := res.Them[0]
+	illordlo := res.Them[1]
+
+	// load key in client cache
+	kr, err := crypto3n.ReadArmoredKeyRing([]byte(dystonie.PublicKeys.Primary.Bundle), nil)
+	if err != nil {
+		t.Fatalf("Unable to read dystonie armored keyring: %s.\n", err.Error())
+	}
+	tmp, err := crypto3n.ReadArmoredKeyRing([]byte(illordlo.PublicKeys.Primary.Bundle), nil)
+	if err != nil {
+		t.Fatalf("Unable to read illordlo armored keyring: %s.\n", err.Error())
+	}
+	// add to keyring
+	kr = append(kr, tmp...)
+
+	tsp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		body, _ := ioutil.ReadAll(r.Body)
+		if len(body) == 0 {
+			t.Fatalf("Unexpected message body lenght, esxpecting not nil.\n")
+		}
+		t.Logf("Request body: %s.\n", string(body))
+		fmt.Fprintf(w, "{\"sessionid\":\"c2Vzc2lvbjAxMjkwNDE2MDAwMDAwMQ==\"}")
+	}))
+	defer ts.Close()
+
+	cp := NewClient("", "", tsp.URL)
+	if c == nil {
+		t.Fatalf("Client must exist.\n")
+	}
+
+	data, _ := readerFromHex(testKeys1And2PrivateHex)
+	privatekr, err := openpgp.ReadKeyRing(bytes.NewBuffer(data))
+	if err != nil {
+		t.Fatalf("Unable to extract private key: %d.\n", err.Error())
+	}
+	if len(privatekr) != 2 {
+		t.Fatalf("Unexpected number of elements: having %d expecting 2.\n", len(tmpkeyr))
+	}
+	cp.PrivateKey = privatekr[0]
+
+	// create a session
+	sk, err := messages.NewSessionKeys(kCreatorId, []byte(kPreshared), []string{"illordlo", "dystonie"})
+	if err != nil {
+		t.Fatalf("Unable to create session keys: %s.\n", err.Error())
+	}
+	if sk == nil {
+		t.Fatalf("Returned object must never be nil.\n")
+	}
+
+	cp.PostMessage(sk, []byte(kPlainText))
+}
