@@ -422,7 +422,11 @@ func TestNewMessage(t *testing.T) {
 			t.Fatalf("Unexpected message body lenght, esxpecting not nil.\n")
 		}
 		t.Logf("Request body: %s.\n", string(body))
-		fmt.Fprintf(w, "{\"sessionid\":\"c2Vzc2lvbjAxMjkwNDE2MDAwMDAwMQ==\"}")
+		if r.URL.String() == "/sessions" {
+			fmt.Fprintf(w, "{\"sessionid\":\"c2Vzc2lvbjAxMjkwNDE2MDAwMDAwMQ==\"}")
+		} else {
+			fmt.Fprintf(w, "{\"counter\":1}")
+		}
 	}))
 	defer ts.Close()
 
@@ -437,7 +441,7 @@ func TestNewMessage(t *testing.T) {
 		t.Fatalf("Unable to extract private key: %d.\n", err.Error())
 	}
 	if len(privatekr) != 2 {
-		t.Fatalf("Unexpected number of elements: having %d expecting 2.\n", len(tmpkeyr))
+		t.Fatalf("Unexpected number of elements: having %d expecting 2.\n", len(privatekr))
 	}
 	cp.PrivateKey = privatekr[0]
 
@@ -449,6 +453,22 @@ func TestNewMessage(t *testing.T) {
 	if sk == nil {
 		t.Fatalf("Returned object must never be nil.\n")
 	}
+	sk.UserId = "testuser"
 
-	cp.PostMessage(sk, []byte(kPlainText))
+	sessionid, err := cp.PostNewSession(sk, kr, 1000)
+	if err != nil {
+		t.Fatalf("Unable to post new session: %s.\n", err.Error())
+	}
+	if string(sessionid.SessionId) != "session012904160000001" {
+		t.Fatalf("Unexpected session id: having %s expecting \"session012904160000001\"", string(sessionid.SessionId))
+	}
+	sk.SessionId = sessionid.SessionId
+
+	counter, err := cp.PostMessage(sk, []byte(kPlainText))
+	if err != nil {
+		t.Fatalf("Unable to post messages: %s.\n", err.Error())
+	}
+	if counter != 1 {
+		t.Fatalf("Unexpected counter, having %d expecting %d.\n", counter, 1)
+	}
 }
