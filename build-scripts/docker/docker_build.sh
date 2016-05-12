@@ -51,18 +51,19 @@ function clean()	 {
 # $4 architecture type
 #
 function build() {
+	BUILD_PATH=build/${3}-${4}
 	# check for build dir
-	if [ -d ${1}/src/${2}/build ]
+	if [ -d ${1}/src/${2}/${BUILD_PATH} ]
 	then
-		mkdir -p ${1}src/${2}/build
+		mkdir -p ${1}src/${2}/${BUILD_PATH}
 	else
-		rm -Rf ${1}/src/${2}/build/*
+		rm -Rf ${1}/src/${2}/${BUILD_PATH}/*
 	fi
 
 	# install it!
 	docker run --rm -v ${1}/src/:/usr/src/:Z \
 	-w /usr/src/${2} -e GOPATH=/usr/:${GOPATH} \
-	-e GOBIN=/usr/src/${2}/build -e GOARCH=${4} \
+	-e GOBIN=/usr/src/${2}/${BUILD_PATH} -e GOARCH=${4} \
 	-e GOOS=${3} ${GOLANG_IMAGE} \
 	bash -c make install
 	if [ $? -ne 0 ]
@@ -144,6 +145,9 @@ then
 
 	else
 		echo "Unexpected number of arguments, having $# expecting 3."
+		echo "sh docker_build.sh <gopath> <src_path> <os> <arch>"
+		echo "Available os: linux, darwin, windows, netbsd."
+		echo "Available arch: amd64, 386, arm, ppc64."
 		exit 1
 	fi
 
