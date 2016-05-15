@@ -3,6 +3,7 @@
 GOLANG_IMAGE=golang:latest
 
 #
+#
 # General-purpose environment variables:
 #
 # 	GCCGO
