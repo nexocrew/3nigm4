@@ -36,7 +36,7 @@ type EncryptedDataChunkManager interface {
 type encryptedChunk struct {
 	masterKey  []byte
 	compressed bool
-	chunkSize  int64
+	chunkSize  uint64
 	chunks     [][]byte
 	chunksKeys [][]byte
 	metadata   Metadata
@@ -48,9 +48,9 @@ const (
 	chunkKeySize = 32
 )
 
-func generateChunkRandomKeys(chunksize int) ([][]byte, error) {
+func generateChunkRandomKeys(chunksize uint64) ([][]byte, error) {
 	chunkKeys := make([][]byte, chunksize)
-	for idx := 0; idx < chunksize; idx++ {
+	for idx := uint64(0); idx < chunksize; idx++ {
 		buf := make([]byte, chunkKeySize)
 		_, err := rand.Read(buf)
 		if err != nil {
@@ -70,14 +70,38 @@ func (e *encryptedChunk) splitDataInChunks(data []byte) error {
 		totalPartsCount = uint64(math.Ceil(float64(len(data)) / float64(e.chunkSize)))
 	}
 
-	for idx := uint64(0); idx < totalPartsCount; idx++ {
-		partSize := int(math.Min(fileChunk, float64(fileSize-int64(i*fileChunk))))
-		partBuffer := make([]byte, partSize)
-		// split data blob
+	// before starting check for keys number
+	if len(e.chunksKeys) != totalPartsCount {
+		return fmt.Errorf("unexpected number of keys, having %d parts and %d keys", totalPartsCount, len(e.chunksKeys))
 	}
+
+	// init chunks structure
+	e.chunks = make([][]byte, totalPartsCount)
+
+	for idx := uint64(0); idx < totalPartsCount; idx++ {
+		processedLen := len(data) - int64(idx*e.chunkSize)
+		partSize := uint64(math.Min(float64(e.chunkSize), float64(processedLen)))
+		partBuffer := make([]byte, 0)
+		// copy data blob
+		partBuffer = append(partBuffer, data[processedLen:processedLen+partSize]...)
+		// generate random salt of len 8 bytes
+		salt := make([]byte, 8)
+		_, err := rand.Read(salt)
+		if err != nil {
+			return err
+		}
+		// encrypt using associated key
+		encryptedChunk, err := crypto3n.AesEncrypt(e.chunksKeys[idx], salt, partBuffer, crypto3n.CBC)
+		if err != nil {
+			return err
+		}
+		// assign to internal buffer
+		e.chunks[idx] = encryptedChunk
+	}
+	return nil
 }
 
-func NewEncryptedChunk(masterkey []byte, chunkSize int64, compressed bool) (*encryptedChunk, error) {
+func NewEncryptedChunk(masterkey []byte, chunkSize uint64, compressed bool) (*encryptedChunk, error) {
 	if len(masterkey) < minKeyLen {
 		return nil, fmt.Errorf("unable to create an encrypted chunk, key is too short: having %d expecting %d", minKeyLen, len(masterkey))
 	}
