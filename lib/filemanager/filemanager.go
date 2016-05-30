@@ -95,23 +95,18 @@ func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
 	return nil
 }
 
-func compressAndSaveToTempFile(dirpath string) (string, error) {
-	/*
-		content := []byte("temporary file's content")
-		tmpfile, err := ioutil.TempFile("", "example")
+func (e *EncryptedChunks) GetOriginalData() ([]byte, error) {
+	if len(e.chunks) != len(e.chunksKeys) {
+		return nil, fmt.Errorf("unexpected key number having %d requiring %d", len(e.chunksKeys, len(e.chunks)))
+	}
+	outData := make([]byte, 0)
+	for idx, edata := range e.chunks {
+		key := e.chunksKeys[idx]
+		decryptedChunk, err := crypto3n.AesDecrypt(key, edata, crypto3n.CBC)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
-
-		defer os.Remove(tmpfile.Name()) // clean up
-
-		if _, err := tmpfile.Write(content); err != nil {
-			log.Fatal(err)
-		}
-		if err := tmpfile.Close(); err != nil {
-			log.Fatal(err)
-		}
-	*/
+	}
 }
 
 func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
@@ -119,14 +114,6 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 	fileInfo, err := os.Stat(filepath)
 	if err != nil {
 		return nil, err
-	}
-
-	var finalFilePath string
-	if fileInfo.IsDir() == true {
-		// create a tmp tgz archive and operate on it
-	} else {
-		// assign final path to actual one
-		finalFilePath = filepath
 	}
 
 	// create chunk struct
@@ -140,11 +127,21 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 	chunk.metadata.IsDir = fileInfo.IsDir()
 	chunk.metadata.ModTime = fileInfo.ModTime()
 
-	// read argument passed file
-	data, err := ioutil.ReadFile(finalFilePath)
-	if err != nil {
-		return nil, err
+	var data []byte
+	if fileInfo.IsDir() == true {
+		// create a tmp tar archive and operate on it
+		data, err = tarit(filepath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// read argument passed file
+		data, err = ioutil.ReadFile(filepath)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	err = chunk.splitDataInChunks(data)
 	if err != nil {
 		return nil, err

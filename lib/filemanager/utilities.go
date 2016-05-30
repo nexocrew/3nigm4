@@ -14,21 +14,18 @@ import (
 	"os"
 )
 
-func tarit(source, target string) error {
+func tarit(source string) ([]byte, error) {
 	filename := filepath.Base(source)
-	target = filepath.Join(target, fmt.Sprintf("%s.tar", filename))
-	tarfile, err := os.Create(target)
-	if err != nil {
-		return err
-	}
-	defer tarfile.Close()
 
-	tarball := tar.NewWriter(tarfile)
+	// create a buffer
+	buf := new(bytes.Buffer)
+	// create a tar
+	tarball := tar.NewWriter(buf)
 	defer tarball.Close()
 
 	info, err := os.Stat(source)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	var baseDir string
@@ -66,6 +63,8 @@ func tarit(source, target string) error {
 			_, err = io.Copy(tarball, file)
 			return err
 		})
+
+	return buf.Bytes(), nil
 }
 
 func untar(tarball, target string) error {
