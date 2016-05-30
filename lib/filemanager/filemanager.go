@@ -8,6 +8,7 @@ package filemanager
 // Standard libs
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
@@ -95,10 +96,11 @@ func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
 	return nil
 }
 
-func (e *EncryptedChunks) GetOriginalData() ([]byte, error) {
+func (e *EncryptedChunks) composeOriginalData() ([]byte, error) {
 	if len(e.chunks) != len(e.chunksKeys) {
 		return nil, fmt.Errorf("unexpected key number having %d requiring %d", len(e.chunksKeys, len(e.chunks)))
 	}
+	// decrypt original data
 	outData := make([]byte, 0)
 	for idx, edata := range e.chunks {
 		key := e.chunksKeys[idx]
@@ -106,7 +108,46 @@ func (e *EncryptedChunks) GetOriginalData() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		outData = append(outData, decryptedChunk...)
 	}
+	// check for data size
+	if len(outData) != e.metadata.Size {
+		return nil, fmt.Errorf("unexpected file size, having %d expecting %d", len(outData), e.metadata.Size)
+	}
+
+	// if compressed decompress
+	if e.compressed {
+		outData, err = ungzipData(outData)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return outData, nil
+}
+
+func ungzipData(compressed []byte) ([]byte, error) {
+	reader := bytes.NewReader(compressed)
+	r, err := gzip.NewReader(&reader)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r)
+	return buf.Bytes(), nil
+}
+
+func gzipData(data []byte) []byte {
+	buf := new(bytes.Buffer)
+	w := gzip.NewWriter(&buf)
+	defer w.Close()
+
+	// write in buffer
+	writer.Write(data)
+
+	return buf.Bytes()
 }
 
 func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
@@ -140,6 +181,12 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// compress data
+	if chunk.compressed == true {
+		// reassign data
+		data = gzipData(data)
 	}
 
 	err = chunk.splitDataInChunks(data)
