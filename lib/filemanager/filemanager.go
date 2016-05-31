@@ -63,6 +63,13 @@ func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
 		totalPartsCount = uint64(math.Ceil(float64(len(data)) / float64(e.chunkSize)))
 	}
 
+	// generate random keys for chunks
+	var err error
+	e.chunksKeys, err = generateChunksRandomKeys(totalPartsCount)
+	if err != nil {
+		return err
+	}
+
 	// before starting check for keys number
 	if len(e.chunksKeys) != int(totalPartsCount) {
 		return fmt.Errorf("unexpected number of keys, having %d parts and %d keys", totalPartsCount, len(e.chunksKeys))
@@ -109,9 +116,10 @@ func (e *EncryptedChunks) composeOriginalData() ([]byte, error) {
 		outData = append(outData, decryptedChunk...)
 	}
 
+	var err error
 	// if compressed decompress
 	if e.compressed {
-		outData, err := ungzipData(outData)
+		outData, err = ungzipData(outData)
 		if err != nil {
 			return nil, err
 		}
@@ -196,19 +204,14 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 
 func initEncryptedChunks(masterkey []byte, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
 	if len(masterkey) < minKeyLen {
-		return nil, fmt.Errorf("unable to create an encrypted chunk, key is too short: having %d expecting %d", minKeyLen, len(masterkey))
+		return nil, fmt.Errorf("unable to create an encrypted chunk, key is too short: having %d expecting %d", len(masterkey), minKeyLen)
 	}
 	if chunkSize < minChunkSize {
 		return nil, fmt.Errorf("required chunk size is too small: should be major than %d", minChunkSize)
-	}
-	randomKeys, err := generateChunksRandomKeys(chunkSize)
-	if err != nil {
-		return nil, err
 	}
 	return &EncryptedChunks{
 		masterKey:  masterkey,
 		compressed: compressed,
 		chunkSize:  chunkSize,
-		chunksKeys: randomKeys,
 	}, nil
 }

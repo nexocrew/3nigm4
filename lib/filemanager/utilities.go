@@ -17,8 +17,6 @@ import (
 )
 
 func tarit(source string) ([]byte, error) {
-	filename := filepath.Base(source)
-
 	// create a buffer
 	buf := new(bytes.Buffer)
 	// create a tar
@@ -71,7 +69,7 @@ func tarit(source string) ([]byte, error) {
 
 func untar(tarball []byte, target string) error {
 	buf := bytes.NewReader(tarball)
-	tarReader := tar.NewReader(reader)
+	tarReader := tar.NewReader(buf)
 
 	for {
 		header, err := tarReader.Next()
@@ -105,7 +103,7 @@ func untar(tarball []byte, target string) error {
 
 func ungzipData(compressed []byte) ([]byte, error) {
 	reader := bytes.NewReader(compressed)
-	r, err := gzip.NewReader(&reader)
+	r, err := gzip.NewReader(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -118,11 +116,11 @@ func ungzipData(compressed []byte) ([]byte, error) {
 
 func gzipData(data []byte) []byte {
 	buf := new(bytes.Buffer)
-	w := gzip.NewWriter(&buf)
+	w := gzip.NewWriter(buf)
 	defer w.Close()
 
 	// write in buffer
-	writer.Write(data)
+	w.Write(data)
 
 	return buf.Bytes()
 }
