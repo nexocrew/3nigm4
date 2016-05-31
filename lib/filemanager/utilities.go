@@ -9,9 +9,11 @@ package filemanager
 import (
 	"archive/tar"
 	"bytes"
-	"fmt"
-	"io/ioutil"
+	"compress/gzip"
+	"io"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 func tarit(source string) ([]byte, error) {
@@ -33,7 +35,7 @@ func tarit(source string) ([]byte, error) {
 		baseDir = filepath.Base(source)
 	}
 
-	return filepath.Walk(source,
+	filepath.Walk(source,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -67,12 +69,8 @@ func tarit(source string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func untar(tarball, target string) error {
-	reader, err := os.Open(tarball)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
+func untar(tarball []byte, target string) error {
+	buf := bytes.NewReader(tarball)
 	tarReader := tar.NewReader(reader)
 
 	for {
@@ -102,4 +100,29 @@ func untar(tarball, target string) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func ungzipData(compressed []byte) ([]byte, error) {
+	reader := bytes.NewReader(compressed)
+	r, err := gzip.NewReader(&reader)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r)
+	return buf.Bytes(), nil
+}
+
+func gzipData(data []byte) []byte {
+	buf := new(bytes.Buffer)
+	w := gzip.NewWriter(&buf)
+	defer w.Close()
+
+	// write in buffer
+	writer.Write(data)
+
+	return buf.Bytes()
 }

@@ -7,8 +7,6 @@ package filemanager
 
 // Standard libs
 import (
-	"bytes"
-	"compress/gzip"
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
@@ -59,14 +57,14 @@ func generateChunksRandomKeys(chunksize uint64) ([][]byte, error) {
 func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
 	// check if chunk size is bigger than file size
 	var totalPartsCount uint64
-	if len(data) <= e.chunkSize {
+	if len(data) <= int(e.chunkSize) {
 		totalPartsCount = 1
 	} else {
 		totalPartsCount = uint64(math.Ceil(float64(len(data)) / float64(e.chunkSize)))
 	}
 
 	// before starting check for keys number
-	if len(e.chunksKeys) != totalPartsCount {
+	if len(e.chunksKeys) != int(totalPartsCount) {
 		return fmt.Errorf("unexpected number of keys, having %d parts and %d keys", totalPartsCount, len(e.chunksKeys))
 	}
 
@@ -74,11 +72,11 @@ func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
 	e.chunks = make([][]byte, totalPartsCount)
 
 	for idx := uint64(0); idx < totalPartsCount; idx++ {
-		processedLen := len(data) - int64(idx*e.chunkSize)
+		processedLen := int64(len(data)) - int64(idx*e.chunkSize)
 		partSize := uint64(math.Min(float64(e.chunkSize), float64(processedLen)))
 		partBuffer := make([]byte, 0)
 		// copy data blob
-		partBuffer = append(partBuffer, data[processedLen:processedLen+partSize]...)
+		partBuffer = append(partBuffer, data[processedLen:processedLen+int64(partSize)]...)
 		// generate random salt of len 8 bytes
 		salt := make([]byte, 8)
 		_, err := rand.Read(salt)
@@ -98,7 +96,7 @@ func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
 
 func (e *EncryptedChunks) composeOriginalData() ([]byte, error) {
 	if len(e.chunks) != len(e.chunksKeys) {
-		return nil, fmt.Errorf("unexpected key number having %d requiring %d", len(e.chunksKeys, len(e.chunks)))
+		return nil, fmt.Errorf("unexpected key number having %d requiring %d", len(e.chunksKeys), len(e.chunks))
 	}
 	// decrypt original data
 	outData := make([]byte, 0)
@@ -110,44 +108,43 @@ func (e *EncryptedChunks) composeOriginalData() ([]byte, error) {
 		}
 		outData = append(outData, decryptedChunk...)
 	}
-	// check for data size
-	if len(outData) != e.metadata.Size {
-		return nil, fmt.Errorf("unexpected file size, having %d expecting %d", len(outData), e.metadata.Size)
-	}
 
 	// if compressed decompress
 	if e.compressed {
-		outData, err = ungzipData(outData)
+		outData, err := ungzipData(outData)
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	// check for data size
+	if len(outData) != int(e.metadata.Size) {
+		return nil, fmt.Errorf("unexpected file size, having %d expecting %d", len(outData), e.metadata.Size)
+	}
+
 	return outData, nil
 }
 
-func ungzipData(compressed []byte) ([]byte, error) {
-	reader := bytes.NewReader(compressed)
-	r, err := gzip.NewReader(&reader)
+func (e *EncryptedChunks) FileFromEncryptedChunks(filepath string) error {
+	// get original data
+	data, err := e.composeOriginalData()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	defer r.Close()
-
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(r)
-	return buf.Bytes(), nil
-}
-
-func gzipData(data []byte) []byte {
-	buf := new(bytes.Buffer)
-	w := gzip.NewWriter(&buf)
-	defer w.Close()
-
-	// write in buffer
-	writer.Write(data)
-
-	return buf.Bytes()
+	// if required untar it
+	if e.metadata.IsDir == true {
+		err = untar(data, filepath)
+		if err != nil {
+			return err
+		}
+	} else {
+		// write to file
+		err = ioutil.WriteFile(filepath, data, 0644)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
@@ -158,13 +155,12 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 	}
 
 	// create chunk struct
-	chunk, err := newEncryptedChunks(masterkey, chunkSize, compressed)
+	chunk, err := initEncryptedChunks(masterkey, chunkSize, compressed)
 	if err != nil {
 		return nil, err
 	}
 	// define metadata
 	chunk.metadata.FileName = fileInfo.Name()
-	chunk.metadata.Size = fileInfo.Size()
 	chunk.metadata.IsDir = fileInfo.IsDir()
 	chunk.metadata.ModTime = fileInfo.ModTime()
 
@@ -182,6 +178,7 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 			return nil, err
 		}
 	}
+	chunk.metadata.Size = int64(len(data))
 
 	// compress data
 	if chunk.compressed == true {
@@ -197,21 +194,21 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 	return chunk, nil
 }
 
-func newEncryptedChunks(masterkey []byte, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
+func initEncryptedChunks(masterkey []byte, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
 	if len(masterkey) < minKeyLen {
 		return nil, fmt.Errorf("unable to create an encrypted chunk, key is too short: having %d expecting %d", minKeyLen, len(masterkey))
 	}
 	if chunkSize < minChunkSize {
 		return nil, fmt.Errorf("required chunk size is too small: should be major than %d", minChunkSize)
 	}
-	randomKeys, err := generateChunksRandomKeys(chunksize)
+	randomKeys, err := generateChunksRandomKeys(chunkSize)
 	if err != nil {
 		return nil, err
 	}
 	return &EncryptedChunks{
-		masterkey:  masterkey,
+		masterKey:  masterkey,
 		compressed: compressed,
 		chunkSize:  chunkSize,
 		chunksKeys: randomKeys,
-	}
+	}, nil
 }
