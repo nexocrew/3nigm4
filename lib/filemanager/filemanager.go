@@ -7,7 +7,9 @@ package filemanager
 
 // Standard libs
 import (
+	"bytes"
 	"crypto/rand"
+	"crypto/sha512"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -24,6 +26,7 @@ type Metadata struct {
 	Size     int64
 	ModTime  time.Time
 	IsDir    bool
+	CheckSum [sha512.Size384]byte
 }
 
 type EncryptedChunks struct {
@@ -139,6 +142,13 @@ func (e *EncryptedChunks) FileFromEncryptedChunks(filepath string) error {
 	if err != nil {
 		return err
 	}
+
+	// checksum verification
+	actualCs := sha512.Sum384(data)
+	if bytes.Compare(actualCs[:], e.metadata.CheckSum[:]) != 0 {
+		return fmt.Errorf("checksum not verified, hashed value from actual data do not match reference, file malformed")
+	}
+
 	// if required untar it
 	if e.metadata.IsDir == true {
 		err = untar(data, filepath)
@@ -187,6 +197,9 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 		}
 	}
 	chunk.metadata.Size = int64(len(data))
+
+	// calculate checksum
+	chunk.metadata.CheckSum = sha512.Sum384(data)
 
 	// compress data
 	if chunk.compressed == true {
