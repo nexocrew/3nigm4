@@ -81,12 +81,14 @@ func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
 	// init chunks structure
 	e.chunks = make([][]byte, totalPartsCount)
 
+	var processedLen uint64
 	for idx := uint64(0); idx < totalPartsCount; idx++ {
-		processedLen := int64(len(data)) - int64(idx*e.chunkSize)
-		partSize := uint64(math.Min(float64(e.chunkSize), float64(processedLen)))
+		remainingLen := uint64(len(data)) - processedLen
+		partSize := uint64(math.Min(float64(e.chunkSize), float64(remainingLen)))
 		partBuffer := make([]byte, 0)
 		// copy data blob
-		partBuffer = append(partBuffer, data[processedLen:processedLen+int64(partSize)]...)
+		partBuffer = append(partBuffer, data[processedLen:processedLen+partSize]...)
+		processedLen += partSize
 		// generate random salt of len 8 bytes
 		salt := make([]byte, 8)
 		_, err := rand.Read(salt)
