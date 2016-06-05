@@ -182,11 +182,15 @@ func AesDecrypt(key []byte, ciphertext []byte, mode AesMode) ([]byte, error) {
 		ciphertext == nil {
 		return nil, fmt.Errorf("invalid arguments: should be not null or empty")
 	}
+	// copy ciphertext to avoid modyfing the actual
+	// argument passed data.
+	copiedChipertext := make([]byte, len(ciphertext))
+	copy(copiedChipertext, ciphertext)
 
 	// get packed values
-	iv := ciphertext[:aes.BlockSize]
+	iv := copiedChipertext[:aes.BlockSize]
 	//salt := ciphertext[aes.BlockSize : aes.BlockSize+kSaltSize]
-	ciphert := ciphertext[aes.BlockSize+kSaltSize:]
+	ciphert := copiedChipertext[aes.BlockSize+kSaltSize:]
 
 	// check ciphertext lenght
 	if len(ciphert) < aes.BlockSize {

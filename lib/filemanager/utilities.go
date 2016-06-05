@@ -109,9 +109,9 @@ func ungzipData(compressed []byte) ([]byte, error) {
 	}
 	defer r.Close()
 
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(r)
-	return buf.Bytes(), nil
+	var out bytes.Buffer
+	io.Copy(&out, r)
+	return out.Bytes(), nil
 }
 
 func gzipData(data []byte) []byte {
@@ -121,6 +121,7 @@ func gzipData(data []byte) []byte {
 
 	// write in buffer
 	w.Write(data)
+	w.Close()
 
 	return buf.Bytes()
 }
