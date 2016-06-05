@@ -14,29 +14,11 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
-	"time"
 )
 
 import (
 	crypto3n "github.com/nexocrew/3nigm4/lib/crypto"
 )
-
-type Metadata struct {
-	FileName string
-	Size     int64
-	ModTime  time.Time
-	IsDir    bool
-	CheckSum [sha512.Size384]byte
-}
-
-type EncryptedChunks struct {
-	masterKey  []byte
-	compressed bool
-	chunkSize  uint64
-	chunks     [][]byte
-	chunksKeys [][]byte
-	metadata   Metadata
-}
 
 const (
 	minKeyLen    = 32
