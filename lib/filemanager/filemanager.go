@@ -13,7 +13,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	mathrand "math/rand"
 	"os"
+	"time"
 )
 
 import (
@@ -21,7 +23,6 @@ import (
 )
 
 const (
-	minKeyLen    = 32
 	minChunkSize = 32
 	chunkKeySize = 32
 )
@@ -37,6 +38,30 @@ func generateChunksRandomKeys(chunksize uint64) ([][]byte, error) {
 		chunkKeys[idx] = buf
 	}
 	return chunkKeys, nil
+}
+
+func (e *EncryptedChunks) defineKeyAndSaltForIdx(idx uint64) ([]byte, []byte, error) {
+	var key, salt []byte
+	var err error
+	if e.masterKey != nil &&
+		e.salt != nil {
+		// xor random key with derived
+		key, err = crypto3n.XorKeys([][]byte{e.chunksKeys[idx], e.masterKey}, chunkKeySize)
+		if err != nil {
+			return nil, nil, err
+		}
+		salt = e.salt
+	} else {
+		// assign random key
+		key = e.chunksKeys[idx]
+		// generate random salt of len 8 bytes
+		salt = make([]byte, 8)
+		_, err := rand.Read(salt)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return key, salt, nil
 }
 
 func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
@@ -71,14 +96,13 @@ func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
 		// copy data blob
 		partBuffer = append(partBuffer, data[processedLen:processedLen+partSize]...)
 		processedLen += partSize
-		// generate random salt of len 8 bytes
-		salt := make([]byte, 8)
-		_, err := rand.Read(salt)
+
+		key, salt, err := e.defineKeyAndSaltForIdx(idx)
 		if err != nil {
 			return err
 		}
 		// encrypt using associated key
-		encryptedChunk, err := crypto3n.AesEncrypt(e.chunksKeys[idx], salt, partBuffer, crypto3n.CBC)
+		encryptedChunk, err := crypto3n.AesEncrypt(key, salt, partBuffer, crypto3n.CBC)
 		if err != nil {
 			return err
 		}
@@ -95,7 +119,17 @@ func (e *EncryptedChunks) composeOriginalData() ([]byte, error) {
 	// decrypt original data
 	outData := make([]byte, 0)
 	for idx, edata := range e.chunks {
-		key := e.chunksKeys[idx]
+		var key []byte
+		var err error
+		// xor with master key if any
+		if e.masterKey != nil {
+			key, err = crypto3n.XorKeys([][]byte{e.chunksKeys[idx], e.masterKey}, chunkKeySize)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			key = e.chunksKeys[idx]
+		}
 		decryptedChunk, err := crypto3n.AesDecrypt(key, edata, crypto3n.CBC)
 		if err != nil {
 			return nil, err
@@ -149,6 +183,17 @@ func (e *EncryptedChunks) FileFromEncryptedChunks(filepath string) error {
 	return nil
 }
 
+func deriveAesMasterKey(masterKey []byte, rounds int) ([]byte, []byte, error) {
+	// randomly generate salt
+	salt := make([]byte, 8)
+	_, err := rand.Read(salt)
+	if err != nil {
+		return nil, nil, err
+	}
+	key := crypto3n.DeriveKeyWithPbkdf2(masterKey, salt, rounds)
+	return key, salt, nil
+}
+
 func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
 	// get infos from file
 	fileInfo, err := os.Stat(filepath)
@@ -161,6 +206,7 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 	if err != nil {
 		return nil, err
 	}
+
 	// define metadata
 	chunk.metadata.FileName = fileInfo.Name()
 	chunk.metadata.IsDir = fileInfo.IsDir()
@@ -199,16 +245,28 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 	return chunk, nil
 }
 
-func initEncryptedChunks(masterkey []byte, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
-	if len(masterkey) < minKeyLen {
-		return nil, fmt.Errorf("unable to create an encrypted chunk, key is too short: having %d expecting %d", len(masterkey), minKeyLen)
-	}
+func initEncryptedChunks(rawkey []byte, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
 	if chunkSize < minChunkSize {
 		return nil, fmt.Errorf("required chunk size is too small: should be major than %d", minChunkSize)
 	}
-	return &EncryptedChunks{
-		masterKey:  masterkey,
+
+	ec := &EncryptedChunks{
 		compressed: compressed,
 		chunkSize:  chunkSize,
-	}, nil
+	}
+
+	// if masterkey available
+	if rawkey != nil &&
+		len(rawkey) > 0 {
+		// define rounds
+		r := mathrand.New(mathrand.NewSource(time.Now().Unix()))
+		ec.derivationRounds = randomInRange(r, 10000, 13000)
+		key, salt, err := deriveAesMasterKey(rawkey, ec.derivationRounds)
+		if err != nil {
+			return nil, err
+		}
+		ec.masterKey = key
+		ec.salt = salt
+	}
+	return ec, nil
 }

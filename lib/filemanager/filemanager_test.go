@@ -124,7 +124,7 @@ func TestNewEncryptedChunksNoCompression(t *testing.T) {
 	}
 	defer os.Remove(filePath) // clean up
 
-	chunks, err := NewEncryptedChunksFromFile([]byte(kMasterKey), filePath, kChunkSize, false)
+	chunks, err := NewEncryptedChunksFromFile(nil, filePath, kChunkSize, false)
 	if err != nil {
 		t.Fatalf("Unable to create chunks: %s.\n", err.Error())
 	}
@@ -190,7 +190,7 @@ func TestNewEncryptedChunksWithCompression(t *testing.T) {
 	}
 	defer os.Remove(filePath) // clean up
 
-	chunks, err := NewEncryptedChunksFromFile([]byte(kMasterKey), filePath, kChunkSize, true)
+	chunks, err := NewEncryptedChunksFromFile(nil, filePath, kChunkSize, true)
 	if err != nil {
 		t.Fatalf("Unable to create chunks: %s.\n", err.Error())
 	}
@@ -219,7 +219,7 @@ func TestNewEncryptedChunksDirectoryWithCompression(t *testing.T) {
 		t.Fatalf("Unable to create tmp directory: %s.\n", err.Error())
 	}
 
-	chunks, err := NewEncryptedChunksFromFile([]byte(kMasterKey), dirPath, kChunkSize, true)
+	chunks, err := NewEncryptedChunksFromFile(nil, dirPath, kChunkSize, true)
 	if err != nil {
 		t.Fatalf("Unable to create chunks: %s.\n", err.Error())
 	}

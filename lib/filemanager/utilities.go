@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -124,4 +125,13 @@ func gzipData(data []byte) []byte {
 	w.Close()
 
 	return buf.Bytes()
+}
+
+// Returns a random number in the required
+// min-max range using a pre-seeded pseudo
+// random generator. Not to be used in security
+// related functions!
+// Produced value is x < n (not equal).
+func randomInRange(r *rand.Rand, min, max int) int {
+	return r.Intn(max-min) + min
 }

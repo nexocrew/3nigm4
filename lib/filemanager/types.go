@@ -20,16 +20,26 @@ type Metadata struct {
 }
 
 type EncryptedChunks struct {
-	masterKey  []byte
 	compressed bool
 	chunkSize  uint64
 	chunks     [][]byte
 	chunksKeys [][]byte
 	metadata   Metadata
+	// optional master key
+	masterKey        []byte
+	derivationRounds int
+	salt             []byte
+}
+
+type ChunkFile struct {
+	Chunk   []byte    `json:"chunk" xml:"chunk"`
+	ModTime time.Time `json:"modtime" xml:"modtime"`
 }
 
 type ReferenceFile struct {
 	Metadata
-	ChunksPaths []string `json:"chunkspaths" xml:"chunkspaths"`
-	ChunksKeys  []byte   `json:"chunkskeys" xml:"chunkskeys"`
+	DerivationRounds int      `json:"rounds" xml:"rounds"`
+	Salt             []byte   `json:"salt" xml:"salt"`
+	ChunksPaths      []string `json:"chunkspaths" xml:"chunkspaths"`
+	ChunksKeys       []byte   `json:"chunkskeys" xml:"chunkskeys"`
 }
