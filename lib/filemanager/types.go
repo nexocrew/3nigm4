@@ -37,9 +37,15 @@ type ChunkFile struct {
 }
 
 type ReferenceFile struct {
-	Metadata
+	// metadata
+	FileName string               `json:"filename" xml:"filename"`
+	Size     int64                `json:"size" xml:"size"`
+	ModTime  time.Time            `json:"modtime" xml:"modtime"`
+	IsDir    bool                 `json:"isdir" xml:"isdir"`
+	CheckSum [sha512.Size384]byte `json:"checksum" xml:"checksum"`
+	//encryption
 	DerivationRounds int      `json:"rounds" xml:"rounds"`
 	Salt             []byte   `json:"salt" xml:"salt"`
 	ChunksPaths      []string `json:"chunkspaths" xml:"chunkspaths"`
-	ChunksKeys       []byte   `json:"chunkskeys" xml:"chunkskeys"`
+	ChunksKeys       [][]byte `json:"chunkskeys" xml:"chunkskeys"`
 }

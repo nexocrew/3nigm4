@@ -194,7 +194,7 @@ func deriveAesMasterKey(masterKey []byte, rounds int) ([]byte, []byte, error) {
 	return key, salt, nil
 }
 
-func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
+func NewEncryptedChunksFromFile(password []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
 	// get infos from file
 	fileInfo, err := os.Stat(filepath)
 	if err != nil {
@@ -202,7 +202,7 @@ func NewEncryptedChunksFromFile(masterkey []byte, filepath string, chunkSize uin
 	}
 
 	// create chunk struct
-	chunk, err := initEncryptedChunks(masterkey, chunkSize, compressed)
+	chunk, err := initEncryptedChunks(password, chunkSize, compressed)
 	if err != nil {
 		return nil, err
 	}
@@ -269,4 +269,31 @@ func initEncryptedChunks(rawkey []byte, chunkSize uint64, compressed bool) (*Enc
 		ec.salt = salt
 	}
 	return ec, nil
+}
+
+type DataSaver interface {
+	SaveChunks(string, [][]byte) ([]string, error)
+}
+
+func (e *EncryptedChunks) SaveChunks(ds DataSaver) (*ReferenceFile, error) {
+	filesPaths, err := ds.SaveChunks("", e.chunks)
+	if err != nil {
+		return nil, err
+	}
+
+	rf := &ReferenceFile{
+		// metadata
+		FileName: e.metadata.FileName,
+		Size:     e.metadata.Size,
+		CheckSum: e.metadata.CheckSum,
+		ModTime:  e.metadata.ModTime,
+		IsDir:    e.metadata.IsDir,
+		// encryption vars
+		DerivationRounds: e.derivationRounds,
+		Salt:             e.salt,
+		ChunksKeys:       e.chunksKeys,
+		// file paths
+		ChunksPaths: filesPaths,
+	}
+	return rf, nil
 }
