@@ -9,6 +9,7 @@ package filemanager
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
@@ -260,7 +261,7 @@ func NewEncryptedChunks(rawKey []byte, filepath string, chunkSize uint64, compre
 // SaveChunks saves encrypted data chunks to
 // a structure implementing the DataSaver interface.
 func (e *EncryptedChunks) SaveChunks(ds DataSaver) (*ReferenceFile, error) {
-	filesPaths, err := ds.SaveChunks(e.metadata.FileName, e.chunks)
+	filesPaths, err := ds.SaveChunks(e.metadata.FileName, e.chunks, e.metadata.CheckSum[:])
 	if err != nil {
 		return nil, err
 	}
@@ -358,12 +359,14 @@ func (e *EncryptedChunks) GetFile(filepath string) error {
 
 // ChunkFileId calculate the file name for a specific chunk and
 // returns an hexed string that should be used to store it in a
-// data saver implementation.
+// data saver implementation. Checksum data can be any hased data
+// usable to differentiate commonly named files (being derivable
+// form metadata).
 func ChunkFileId(filename string, chunkNumber int, checksum []byte) (string, error) {
 	completeFileName := fmt.Sprintf("%s-chunk%d", filename, chunkNumber)
 	id := make([]byte, 0)
 	id = append(id, []byte(completeFileName)...)
 	id = append(id, checksum...)
-	hashedId := sha512.Sum384(id)
+	hashedId := sha1.Sum(id)
 	return hex.EncodeToString(hashedId[:]), nil
 }

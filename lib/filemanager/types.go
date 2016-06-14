@@ -31,11 +31,6 @@ type EncryptedChunks struct {
 	salt             []byte
 }
 
-type ChunkFile struct {
-	Chunk   []byte    `json:"chunk" xml:"chunk"`
-	ModTime time.Time `json:"modtime" xml:"modtime"`
-}
-
 type ReferenceFile struct {
 	// metadata
 	FileName string               `json:"filename" xml:"filename"`
@@ -54,6 +49,6 @@ type ReferenceFile struct {
 }
 
 type DataSaver interface {
-	SaveChunks(string, [][]byte) ([]string, error)
-	RetrieveChunks([]string) ([][]byte, error)
+	SaveChunks(string, [][]byte, []byte) ([]string, error) // Saves data using a file name, actual data and a checksum reference;
+	RetrieveChunks([]string) ([][]byte, error)             // loads from a defined path.
 }
