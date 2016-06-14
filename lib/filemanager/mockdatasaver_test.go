@@ -6,7 +6,6 @@
 package filemanager
 
 import (
-	"crypto/rand"
 	"fmt"
 	"os"
 	"testing"
@@ -24,10 +23,6 @@ func NewLocalDataSaver(root string) (*localDataSaver, error) {
 	return &localDataSaver{
 		rootPath: root,
 	}
-}
-
-func hashFileName(filename string) string {
-
 }
 
 func (l *localDataSaver) SaveChunks(filename string, chunks [][]byte) ([]string, error) {
