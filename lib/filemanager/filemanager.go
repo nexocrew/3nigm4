@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha512"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -154,47 +155,58 @@ func (e *EncryptedChunks) composeOriginalData() ([]byte, error) {
 	return outData, nil
 }
 
-func (e *EncryptedChunks) FileFromEncryptedChunks(filepath string) error {
-	// get original data
-	data, err := e.composeOriginalData()
-	if err != nil {
-		return err
-	}
-
-	// checksum verification
-	actualCs := sha512.Sum384(data)
-	if bytes.Compare(actualCs[:], e.metadata.CheckSum[:]) != 0 {
-		return fmt.Errorf("checksum not verified, hashed value from actual data do not match reference, file malformed")
-	}
-
-	// if required untar it
-	if e.metadata.IsDir == true {
-		err = untar(data, filepath)
-		if err != nil {
-			return err
-		}
+func deriveAesMasterKey(rawKey []byte, rounds int, salt []byte) ([]byte, []byte, error) {
+	var s []byte
+	if salt != nil &&
+		len(salt) == 8 {
+		s = salt
 	} else {
-		// write to file
-		err = ioutil.WriteFile(filepath, data, 0644)
+		// randomly generate salt
+		s := make([]byte, 8)
+		_, err := rand.Read(s)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 	}
-	return nil
+
+	key := crypto3n.DeriveKeyWithPbkdf2(rawKey, s, rounds)
+	return key, s, nil
 }
 
-func deriveAesMasterKey(masterKey []byte, rounds int) ([]byte, []byte, error) {
-	// randomly generate salt
-	salt := make([]byte, 8)
-	_, err := rand.Read(salt)
-	if err != nil {
-		return nil, nil, err
+func initEncryptedChunks(rawkey []byte, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
+	if chunkSize < minChunkSize {
+		return nil, fmt.Errorf("required chunk size is too small: should be major than %d", minChunkSize)
 	}
-	key := crypto3n.DeriveKeyWithPbkdf2(masterKey, salt, rounds)
-	return key, salt, nil
+
+	ec := &EncryptedChunks{
+		compressed: compressed,
+		chunkSize:  chunkSize,
+	}
+
+	// if masterkey available
+	if rawkey != nil &&
+		len(rawkey) > 0 {
+		// define rounds
+		r := mathrand.New(mathrand.NewSource(time.Now().Unix()))
+		ec.derivationRounds = randomInRange(r, 10000, 13000)
+		key, salt, err := deriveAesMasterKey(rawkey, ec.derivationRounds, nil)
+		if err != nil {
+			return nil, err
+		}
+		ec.masterKey = key
+		ec.salt = salt
+	}
+	return ec, nil
 }
 
-func NewEncryptedChunksFromFile(password []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
+// NewEncryptedChunks creates a new encrypted chunks
+// structure from a given file, a chunk size and a compression
+// flag. If a rawkey is specified will be used to make AES
+// encryption stronger (this key will not be passed using a
+// reference file).
+// This function returns the initialised struct or an error if
+// sometring went wrong.
+func NewEncryptedChunks(rawKey []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
 	// get infos from file
 	fileInfo, err := os.Stat(filepath)
 	if err != nil {
@@ -202,7 +214,7 @@ func NewEncryptedChunksFromFile(password []byte, filepath string, chunkSize uint
 	}
 
 	// create chunk struct
-	chunk, err := initEncryptedChunks(password, chunkSize, compressed)
+	chunk, err := initEncryptedChunks(rawKey, chunkSize, compressed)
 	if err != nil {
 		return nil, err
 	}
@@ -245,38 +257,10 @@ func NewEncryptedChunksFromFile(password []byte, filepath string, chunkSize uint
 	return chunk, nil
 }
 
-func initEncryptedChunks(rawkey []byte, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
-	if chunkSize < minChunkSize {
-		return nil, fmt.Errorf("required chunk size is too small: should be major than %d", minChunkSize)
-	}
-
-	ec := &EncryptedChunks{
-		compressed: compressed,
-		chunkSize:  chunkSize,
-	}
-
-	// if masterkey available
-	if rawkey != nil &&
-		len(rawkey) > 0 {
-		// define rounds
-		r := mathrand.New(mathrand.NewSource(time.Now().Unix()))
-		ec.derivationRounds = randomInRange(r, 10000, 13000)
-		key, salt, err := deriveAesMasterKey(rawkey, ec.derivationRounds)
-		if err != nil {
-			return nil, err
-		}
-		ec.masterKey = key
-		ec.salt = salt
-	}
-	return ec, nil
-}
-
-type DataSaver interface {
-	SaveChunks(string, [][]byte) ([]string, error)
-}
-
+// SaveChunks saves encrypted data chunks to
+// a structure implementing the DataSaver interface.
 func (e *EncryptedChunks) SaveChunks(ds DataSaver) (*ReferenceFile, error) {
-	filesPaths, err := ds.SaveChunks("", e.chunks)
+	filesPaths, err := ds.SaveChunks(e.metadata.FileName, e.chunks)
 	if err != nil {
 		return nil, err
 	}
@@ -294,6 +278,92 @@ func (e *EncryptedChunks) SaveChunks(ds DataSaver) (*ReferenceFile, error) {
 		ChunksKeys:       e.chunksKeys,
 		// file paths
 		ChunksPaths: filesPaths,
+		ChunkSize:   e.chunkSize,
+		Compressed:  e.compressed,
 	}
 	return rf, nil
+}
+
+// LoadChunks loads chunks from a struct implementing
+// the DataSaver interface, given a reference file in
+// input. It returns a complete encrypted chunks structure
+// from which decrypt the original file.
+func LoadChunks(ds DataSaver, reference *ReferenceFile, rawKey []byte) (*EncryptedChunks, error) {
+	chunks, err := ds.RetrieveChunks(reference.ChunksPaths)
+	if err != nil {
+		return nil, err
+	}
+
+	var key []byte
+	if rawKey != nil &&
+		len(rawKey) != 0 {
+		key, _, err = deriveAesMasterKey(rawKey, reference.DerivationRounds, reference.Salt)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	ec := &EncryptedChunks{
+		metadata: Metadata{
+			FileName: reference.FileName,
+			Size:     reference.Size,
+			ModTime:  reference.ModTime,
+			IsDir:    reference.IsDir,
+			CheckSum: reference.CheckSum,
+		},
+		chunkSize:        reference.ChunkSize,
+		compressed:       reference.Compressed,
+		chunks:           chunks,
+		chunksKeys:       reference.ChunksKeys,
+		derivationRounds: reference.DerivationRounds,
+		salt:             reference.Salt,
+		masterKey:        key,
+	}
+
+	return ec, nil
+}
+
+// GetFile returns the recomposed file merging all
+// data chunks and verifying consistency. It saves
+// the final result to the path specified as argument
+// or returns an error is something went wrong.
+func (e *EncryptedChunks) GetFile(filepath string) error {
+	// get original data
+	data, err := e.composeOriginalData()
+	if err != nil {
+		return err
+	}
+
+	// checksum verification
+	actualCs := sha512.Sum384(data)
+	if bytes.Compare(actualCs[:], e.metadata.CheckSum[:]) != 0 {
+		return fmt.Errorf("checksum not verified, hashed value from actual data do not match reference, file malformed")
+	}
+
+	// if required untar it
+	if e.metadata.IsDir == true {
+		err = untar(data, filepath)
+		if err != nil {
+			return err
+		}
+	} else {
+		// write to file
+		err = ioutil.WriteFile(filepath, data, 0644)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ChunkFileId calculate the file name for a specific chunk and
+// returns an hexed string that should be used to store it in a
+// data saver implementation.
+func ChunkFileId(filename string, chunkNumber int, checksum []byte) (string, error) {
+	completeFileName := fmt.Sprintf("%s-chunk%d", filename, chunkNumber)
+	id := make([]byte, 0)
+	id = append(id, []byte(completeFileName)...)
+	id = append(id, checksum...)
+	hashedId := sha512.Sum384(id)
+	return hex.EncodeToString(hashedId[:]), nil
 }

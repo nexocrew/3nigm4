@@ -43,9 +43,17 @@ type ReferenceFile struct {
 	ModTime  time.Time            `json:"modtime" xml:"modtime"`
 	IsDir    bool                 `json:"isdir" xml:"isdir"`
 	CheckSum [sha512.Size384]byte `json:"checksum" xml:"checksum"`
-	//encryption
+	// encryption
 	DerivationRounds int      `json:"rounds" xml:"rounds"`
 	Salt             []byte   `json:"salt" xml:"salt"`
-	ChunksPaths      []string `json:"chunkspaths" xml:"chunkspaths"`
 	ChunksKeys       [][]byte `json:"chunkskeys" xml:"chunkskeys"`
+	// chunks settings
+	ChunksPaths []string `json:"chunkspaths" xml:"chunkspaths"`
+	Compressed  bool     `json:"compressed" xml:"compressed"`
+	ChunkSize   uint64   `json:"chunksize" xml:"chunksize"`
+}
+
+type DataSaver interface {
+	SaveChunks(string, [][]byte) ([]string, error)
+	RetrieveChunks([]string) ([][]byte, error)
 }
