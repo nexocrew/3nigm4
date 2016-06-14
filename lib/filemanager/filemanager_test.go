@@ -300,7 +300,7 @@ func TestNewEncryptedChunksDirectoryWithCompression(t *testing.T) {
 
 func TestDataSaverLogics(t *testing.T) {
 	// create tmp file
-	filePath, err := createCustomSizedTmpFile([]byte(kTestFileContent), 50000)
+	filePath, err := createCustomSizedTmpFile([]byte(kTestFileContent), 500000)
 	if err != nil {
 		t.Fatalf("Unable to create tmp file: %s.\n", err.Error())
 	}
