@@ -46,6 +46,7 @@ func (e *EncryptedChunks) defineKeyAndSaltForIdx(idx uint64) ([]byte, []byte, er
 	var key, salt []byte
 	var err error
 	if e.masterKey != nil &&
+		len(e.masterKey) == chunkKeySize &&
 		e.salt != nil {
 		// xor random key with derived
 		key, err = crypto3n.XorKeys([][]byte{e.chunksKeys[idx], e.masterKey}, chunkKeySize)
@@ -124,13 +125,9 @@ func (e *EncryptedChunks) composeOriginalData() ([]byte, error) {
 		var key []byte
 		var err error
 		// xor with master key if any
-		if e.masterKey != nil {
-			key, err = crypto3n.XorKeys([][]byte{e.chunksKeys[idx], e.masterKey}, chunkKeySize)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			key = e.chunksKeys[idx]
+		key, _, err = e.defineKeyAndSaltForIdx(uint64(idx))
+		if err != nil {
+			return nil, err
 		}
 		decryptedChunk, err := crypto3n.AesDecrypt(key, edata, crypto3n.CBC)
 		if err != nil {
@@ -163,7 +160,7 @@ func deriveAesMasterKey(rawKey []byte, rounds int, salt []byte) ([]byte, []byte,
 		s = salt
 	} else {
 		// randomly generate salt
-		s := make([]byte, 8)
+		s = make([]byte, 8)
 		_, err := rand.Read(s)
 		if err != nil {
 			return nil, nil, err

@@ -346,7 +346,7 @@ func TestDataSaverLogics(t *testing.T) {
 	// recompose it
 	recomposedChunks, err := LoadChunks(ds, reference, nil)
 	if err != nil {
-		t.Fatalf("Unable to recompose chunks: %s.\n", err.Error())
+		t.Fatalf("Unable to load chunks: %s.\n", err.Error())
 	}
 	if reflect.DeepEqual(recomposedChunks, chunks) != true {
 		t.Fatalf("Expected same encrypted chunks structure.\n")
@@ -363,5 +363,136 @@ func TestDataSaverLogics(t *testing.T) {
 	}
 	if bytes.Compare(recomposed, original) != 0 {
 		t.Fatalf("Recomposed data do not match original data.\n")
+	}
+}
+
+func TestDataSaverLogicsWithPassword(t *testing.T) {
+	// create tmp file
+	filePath, err := createCustomSizedTmpFile([]byte(kTestFileContent), 500000)
+	if err != nil {
+		t.Fatalf("Unable to create tmp file: %s.\n", err.Error())
+	}
+	defer os.Remove(filePath) // clean up
+
+	rawKey := []byte("testkey0001")
+	chunks, err := NewEncryptedChunks(rawKey, filePath, kChunkSize, false)
+	if err != nil {
+		t.Fatalf("Unable to create chunks: %s.\n", err.Error())
+	}
+	if len(chunks.chunksKeys) != len(chunks.chunks) {
+		t.Fatalf("Unexpected slice sizes: having %d expecting %d.\n", len(chunks.chunks), len(chunks.chunksKeys))
+	}
+
+	// create tmp destination path
+	tmpdir, err := ioutil.TempDir("", "datasaver")
+	if err != nil {
+		t.Fatalf("Unable to define tmp dir: %s.\n", err.Error())
+	}
+	ds, err := NewLocalDataSaver(tmpdir)
+	if err != nil {
+		t.Fatalf("Unable to create a new data saver: %s.\n", err.Error())
+	}
+	defer ds.Cleanup()
+
+	// do it!
+	reference, err := chunks.SaveChunks(ds)
+	if err != nil {
+		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
+	}
+	// check files existance
+	for _, file := range reference.ChunksPaths {
+		path := fmt.Sprintf("%s/%s", tmpdir, file)
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("Unable to find file %s: %s.\n", path, err.Error())
+		}
+		if info.Size() > (kChunkSize+32+4) ||
+			info.Size() == 0 {
+			t.Fatalf("Unexpected file size: %d should be < %d and != 0.\n", info.Size(), (kChunkSize + 32 + 4))
+		}
+	}
+
+	// recompose it
+	recomposedChunks, err := LoadChunks(ds, reference, rawKey)
+	if err != nil {
+		t.Fatalf("Unable to load chunks: %s.\n", err.Error())
+	}
+	if reflect.DeepEqual(recomposedChunks, chunks) != true {
+		t.Fatalf("Expected same encrypted chunks structure.\n")
+	}
+
+	// verify final data
+	recomposed, err := recomposedChunks.composeOriginalData()
+	if err != nil {
+		t.Fatalf("Unable to recompose data: %s.\n", err.Error())
+	}
+	original, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Unable to read file: %s.\n", err.Error())
+	}
+	if bytes.Compare(recomposed, original) != 0 {
+		t.Fatalf("Recomposed data do not match original data.\n")
+	}
+}
+
+func TestDataSaverLogicsWithWrongPassword(t *testing.T) {
+	// create tmp file
+	filePath, err := createCustomSizedTmpFile([]byte(kTestFileContent), 500000)
+	if err != nil {
+		t.Fatalf("Unable to create tmp file: %s.\n", err.Error())
+	}
+	defer os.Remove(filePath) // clean up
+
+	rawKey := []byte("testkey0001")
+	chunks, err := NewEncryptedChunks(rawKey, filePath, kChunkSize, false)
+	if err != nil {
+		t.Fatalf("Unable to create chunks: %s.\n", err.Error())
+	}
+	if len(chunks.chunksKeys) != len(chunks.chunks) {
+		t.Fatalf("Unexpected slice sizes: having %d expecting %d.\n", len(chunks.chunks), len(chunks.chunksKeys))
+	}
+
+	// create tmp destination path
+	tmpdir, err := ioutil.TempDir("", "datasaver")
+	if err != nil {
+		t.Fatalf("Unable to define tmp dir: %s.\n", err.Error())
+	}
+	ds, err := NewLocalDataSaver(tmpdir)
+	if err != nil {
+		t.Fatalf("Unable to create a new data saver: %s.\n", err.Error())
+	}
+	defer ds.Cleanup()
+
+	// do it!
+	reference, err := chunks.SaveChunks(ds)
+	if err != nil {
+		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
+	}
+	// check files existance
+	for _, file := range reference.ChunksPaths {
+		path := fmt.Sprintf("%s/%s", tmpdir, file)
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("Unable to find file %s: %s.\n", path, err.Error())
+		}
+		if info.Size() > (kChunkSize+32+4) ||
+			info.Size() == 0 {
+			t.Fatalf("Unexpected file size: %d should be < %d and != 0.\n", info.Size(), (kChunkSize + 32 + 4))
+		}
+	}
+
+	// recompose it
+	recomposedChunks, err := LoadChunks(ds, reference, nil)
+	if err != nil {
+		t.Fatalf("Unable to load chunks: %s.\n", err.Error())
+	}
+	if reflect.DeepEqual(recomposedChunks, chunks) == true {
+		t.Fatalf("These structures should not match, the raw key is different.\n")
+	}
+
+	// verify final data
+	_, err = recomposedChunks.composeOriginalData()
+	if err == nil {
+		t.Fatalf("Expected an error while decrypting with wrong key.\n")
 	}
 }
