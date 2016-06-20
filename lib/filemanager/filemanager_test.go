@@ -251,14 +251,19 @@ func TestNewEncryptedChunksDirectoryWithCompression(t *testing.T) {
 	os.RemoveAll(dirPath) // clean up
 
 	//copiedChunks := copyEncryptedChunks(chunks)
-	err = chunks.GetFile("/tmp")
+	tmpdir, err := ioutil.TempDir("", "3nigm4dir")
+	if err != nil {
+		t.Fatalf("Unable to create tmp dir: %s.\n", err.Error())
+	}
+	err = chunks.GetFile(tmpdir)
 	if err != nil {
 		t.Fatalf("Unable to restore file: %s.\n", err.Error())
 	}
-	defer os.RemoveAll(dirPath)
+	defer os.RemoveAll(tmpdir)
 
 	// check extracted files
-	readmeFile := filepath.Join(dirPath, "README")
+	tmpdir = filepath.Join(tmpdir, chunks.metadata.FileName)
+	readmeFile := filepath.Join(tmpdir, "README")
 	finfo, err := os.Stat(readmeFile)
 	if err != nil {
 		t.Fatalf("Unable to stat %s cause %s.\n", readmeFile, err.Error())
@@ -266,7 +271,7 @@ func TestNewEncryptedChunksDirectoryWithCompression(t *testing.T) {
 	if finfo.Size() != 24 {
 		t.Fatalf("Unexpected %s file size: having %d expecting %d.\n", readmeFile, finfo.Size(), 24)
 	}
-	txtFile := filepath.Join(dirPath, "textfile.txt")
+	txtFile := filepath.Join(tmpdir, "textfile.txt")
 	finfo, err = os.Stat(txtFile)
 	if err != nil {
 		t.Fatalf("Unable to stat %s cause %s.\n", txtFile, err.Error())
@@ -274,12 +279,12 @@ func TestNewEncryptedChunksDirectoryWithCompression(t *testing.T) {
 	if finfo.Size() != int64(len(kTestFileContent)) {
 		t.Fatalf("Unexpected %s file size: having %d expecting %d.\n", txtFile, finfo.Size(), len(kTestFileContent))
 	}
-	binFile := filepath.Join(dirPath, "binfile.bin")
+	binFile := filepath.Join(tmpdir, "binfile.bin")
 	finfo, err = os.Stat(binFile)
 	if err != nil {
 		t.Fatalf("Unable to stat %s cause %s.\n", binFile, err.Error())
 	}
-	dataDir := filepath.Join(dirPath, "data")
+	dataDir := filepath.Join(tmpdir, "data")
 	finfo, err = os.Stat(dataDir)
 	if err != nil {
 		t.Fatalf("Unable to stat %s cause %s.\n", dataDir, err.Error())
@@ -287,7 +292,7 @@ func TestNewEncryptedChunksDirectoryWithCompression(t *testing.T) {
 	if finfo.IsDir() != true {
 		t.Fatalf("Unexpected stat type, should be a directory.\n")
 	}
-	txtSecondFile := filepath.Join(dirPath, "data", "txtfile.txt")
+	txtSecondFile := filepath.Join(tmpdir, "data", "txtfile.txt")
 	finfo, err = os.Stat(txtSecondFile)
 	if err != nil {
 		t.Fatalf("Unable to stat %s cause %s.\n", txtSecondFile, err.Error())

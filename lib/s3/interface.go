@@ -5,6 +5,10 @@
 //
 package backend
 
+import (
+	"bytes"
+)
+
 // Third party libs
 import (
 	// https://docs.aws.amazon.com/sdk-for-go/latest/v1/developerguide/common-examples.title.html#amazon-s3
@@ -24,8 +28,10 @@ func (bs *BackendSession) Upload(data []byte) (string, error) {
 	uploader := s3manager.NewUploader(session.New(&aws.Config{
 		Region: aws.String("eu-west-1"),
 	}))
+
+	buf := bytes.NewBuffer(data)
 	result, err := uploader.Upload(&s3manager.UploadInput{
-		Body:   data,
+		Body:   buf,
 		Bucket: aws.String(bs.Bucket),
 		Key:    aws.String(bs.Key),
 	})
