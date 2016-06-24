@@ -14,11 +14,11 @@ import (
 	// https://docs.aws.amazon.com/sdk-for-go/latest/v1/developerguide/common-examples.title.html#amazon-s3
 	//
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
+	_ "github.com/aws/aws-sdk-go/aws/awserr"
+	_ "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	_ "github.com/aws/aws-sdk-go/service/s3"
 )
 
 // Internal dependencies
@@ -43,13 +43,14 @@ func NewS3BackendSession(endpoint, region, id, secret, token string, workersize,
 		logLevel = aws.LogDebug
 	}
 
+	accelerateFlag := true
 	session := &S3BackendSession{
 		config: &aws.Config{
-			Endpoint:         endpoint,
-			Region:           region,
-			S3ForcePathStyle: true,
-			Credentials:      creds,
-			LogLevel:         logLevel,
+			Endpoint:        &endpoint,
+			Region:          &region,
+			Credentials:     creds,
+			LogLevel:        &logLevel,
+			S3UseAccelerate: &accelerateFlag,
 		},
 		errorChan: make(chan error),
 	}
@@ -61,20 +62,10 @@ func NewS3BackendSession(endpoint, region, id, secret, token string, workersize,
 	return session, nil
 }
 
+func (bs *S3BackendSession) Close() {
+	bs.workingQueue.Close()
+}
+
 func (bs *S3BackendSession) Upload(data []byte) (string, error) {
-	uploader := s3manager.NewUploader(session.New(&aws.Config{
-		Region: aws.String("eu-west-1"),
-	}))
-
-	buf := bytes.NewBuffer(data)
-	result, err := uploader.Upload(&s3manager.UploadInput{
-		Body:   buf,
-		Bucket: aws.String(bs.Bucket),
-		Key:    aws.String(bs.Key),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return result.UploadID, nil
+	return "", nil
 }
