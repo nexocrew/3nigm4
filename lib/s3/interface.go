@@ -14,17 +14,51 @@ import (
 	// https://docs.aws.amazon.com/sdk-for-go/latest/v1/developerguide/common-examples.title.html#amazon-s3
 	//
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	_ "github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-type BackendSession struct {
-	Bucket string
-	Key    string
+// Internal dependencies
+import (
+	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
+)
+
+type S3BackendSession struct {
+	// private vars
+	config       *aws.Config
+	workingQueue *wq.WorkingQueue
+	errorChan    chan error
 }
 
-func (bs *BackendSession) Upload(data []byte) (string, error) {
+func NewS3BackendSession(endpoint, region, id, secret, token string, verbose bool) (*S3BackendSession, error) {
+	// get credentials
+	creds := credentials.NewStaticCredentials(id, secret, token)
+
+	// set log level
+	logLevel := aws.LogOff
+	if verbose == true {
+		logLevel = aws.LogDebug
+	}
+
+	session := &S3BackendSession{
+		config: &aws.Config{
+			Endpoint:         endpoint,
+			Region:           region,
+			S3ForcePathStyle: true,
+			Credentials:      creds,
+			LogLevel:         logLevel,
+		},
+		// create working queue
+		errorChan: make(chan error),
+		workingQueue: wq.New
+	}
+
+}
+
+func (bs *S3BackendSession) Upload(data []byte) (string, error) {
 	uploader := s3manager.NewUploader(session.New(&aws.Config{
 		Region: aws.String("eu-west-1"),
 	}))
