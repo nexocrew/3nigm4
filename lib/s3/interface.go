@@ -33,7 +33,7 @@ type S3BackendSession struct {
 	errorChan    chan error
 }
 
-func NewS3BackendSession(endpoint, region, id, secret, token string, verbose bool) (*S3BackendSession, error) {
+func NewS3BackendSession(endpoint, region, id, secret, token string, workersize, queuesize int, verbose bool) (*S3BackendSession, error) {
 	// get credentials
 	creds := credentials.NewStaticCredentials(id, secret, token)
 
@@ -51,11 +51,14 @@ func NewS3BackendSession(endpoint, region, id, secret, token string, verbose boo
 			Credentials:      creds,
 			LogLevel:         logLevel,
 		},
-		// create working queue
 		errorChan: make(chan error),
-		workingQueue: wq.New
 	}
-
+	// create working queue
+	session.workingQueue = wq.NewWorkingQueue(workersize, queuesize, session.errorChan)
+	if err := session.workingQueue.Run(); err != nil {
+		return nil, err
+	}
+	return session, nil
 }
 
 func (bs *S3BackendSession) Upload(data []byte) (string, error) {
