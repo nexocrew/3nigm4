@@ -31,7 +31,7 @@ TEST_BENCHMARK ?= no
 # Package lists
 TOPLEVEL_PKG := github.com/nexocrew/3nigm4
 IMPL_LIST := lib/crypto lib/messages lib/client lib/filemanager lib/s3	#<-- Implementation directories
-COMMON_LIST := lib/version lib/logo
+COMMON_LIST := lib/version lib/logo lib/itm
 
 # List building
 ALL_LIST = $(IMPL_LIST) $(COMMON_LIST)
