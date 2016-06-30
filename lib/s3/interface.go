@@ -8,6 +8,7 @@ package s3backend
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"reflect"
 	"time"
 )
@@ -31,8 +32,8 @@ import (
 
 type S3BackendSession struct {
 	// private vars
-	config       *aws.Config
 	workingQueue *wq.WorkingQueue
+	s3           *s3.S3
 	// exposed vars
 	ErrorChan  chan error
 	SendedChan chan *s3.PutObjectOutput
@@ -49,12 +50,12 @@ func NewS3BackendSession(endpoint, region, id, secret, token string, workersize,
 	}
 
 	session := &S3BackendSession{
-		config: &aws.Config{
+		s3: s3.New(session.New(), &aws.Config{
 			Endpoint:    &endpoint,
 			Region:      &region,
 			Credentials: creds,
 			LogLevel:    &logLevel,
-		},
+		}),
 		ErrorChan:  make(chan error, workersize),
 		SendedChan: make(chan *s3.PutObjectOutput, workersize),
 	}
@@ -78,8 +79,8 @@ type args struct {
 	fileType   string
 	fileData   []byte
 	expires    *time.Time
-	// s3 config
-	config         *aws.Config
+	// s3
+	s3             *s3.S3
 	backendSession *S3BackendSession
 }
 
@@ -89,7 +90,6 @@ func upload(a interface{}) error {
 	if arguments, ok = a.(*args); !ok {
 		return fmt.Errorf("unexpected argument type, having %s expecting *args", reflect.TypeOf(a))
 	}
-	svc := s3.New(session.New(), arguments.config)
 
 	// compose params
 	params := &s3.PutObjectInput{
@@ -104,25 +104,54 @@ func upload(a interface{}) error {
 			"Key": aws.String("MetadataValue"), //required
 		},
 	}
-	result, err := svc.PutObject(params)
+	response, err := arguments.s3.PutObject(params)
 	if err != nil {
 		return err
 	}
 
 	// send result back in chan
-	arguments.backendSession.SendedChan <- result
+	arguments.backendSession.SendedChan <- response
+	return nil
+}
+
+func delete(a interface{}) error {
+	var arguments *args
+	var ok bool
+	if arguments, ok = a.(*args); !ok {
+		return fmt.Errorf("unexpected argument type, having %s expecting *args", reflect.TypeOf(a))
+	}
+
+	// delete params
+	params := &s3.DeleteObjectInput{
+		Bucket: aws.String(arguments.bucketName),
+		Key:    aws.String(arguments.id),
+	}
+
+	_, err := arguments.s3.DeleteObject(params)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (bs *S3BackendSession) Upload(bucketName, id, fileType string, data []byte, expires *time.Time) {
+func (bs *S3BackendSession) Delete(bucketName, id string) {
+	a := &args{
+		bucketName: bucketName,
+		id:         id,
+		s3:         bs.s3,
+	}
+	bs.workingQueue.SendJob(delete, a)
+}
+
+func (bs *S3BackendSession) Upload(bucketName, id string, data []byte, expires *time.Time) {
 	a := &args{
 		bucketName:     bucketName,
 		id:             id,
-		fileType:       fileType,
+		fileType:       http.DetectContentType(data),
 		fileData:       data,
 		expires:        expires,
-		config:         bs.config,
+		s3:             bs.s3,
 		backendSession: bs,
 	}
 

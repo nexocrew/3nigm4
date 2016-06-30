@@ -19,8 +19,7 @@ const (
 	kFileContent = `Test this content for file usage,
 		should be used to test upload functions to the
 		S£ instance.`
-	kFileId   = "testfile"
-	kFileType = "txt"
+	kFileId = "testfile"
 )
 
 func TestS3UploadInterface(t *testing.T) {
@@ -52,13 +51,14 @@ func TestS3UploadInterface(t *testing.T) {
 		}
 	}()
 
-	s3.Upload(itm.S().S3Bucket(), kFileId, kFileType, []byte(kFileContent), nil)
+	s3.Upload(itm.S().S3Bucket(), kFileId, []byte(kFileContent), nil)
+	defer s3.Delete(itm.S().S3Bucket(), kFileId)
 
 	// the following timeout time is used to ensure
 	// that all goroutines have compleated their
 	// processing life (wg waits only for the chan
 	// injection).
-	ticker := time.Tick(3 * time.Second)
+	ticker := time.Tick(7 * time.Second)
 	timeoutCounter := wq.AtomicCounter{}
 	go func() {
 		for {
