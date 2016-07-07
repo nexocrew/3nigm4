@@ -27,6 +27,7 @@ import (
 
 // Internal dependencies
 import (
+	fm "github.com/nexocrew/3nigm4/lib/filemanager"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
@@ -35,8 +36,14 @@ type S3BackendSession struct {
 	workingQueue *wq.WorkingQueue
 	s3           *s3.S3
 	// exposed vars
-	ErrorChan  chan error
-	SendedChan chan *s3.PutObjectOutput
+	ErrorChan      chan error
+	UploadedChan   chan string
+	DownloadedChan chan DownloadRequest
+}
+
+type DownloadRequest struct {
+	Data      []byte
+	RequestId string
 }
 
 func NewS3BackendSession(endpoint, region, id, secret, token string, workersize, queuesize int, verbose bool) (*S3BackendSession, error) {
@@ -56,8 +63,9 @@ func NewS3BackendSession(endpoint, region, id, secret, token string, workersize,
 			Credentials: creds,
 			LogLevel:    &logLevel,
 		}),
-		ErrorChan:  make(chan error, workersize),
-		SendedChan: make(chan *s3.PutObjectOutput, workersize),
+		ErrorChan:      make(chan error, workersize),
+		UploadedChan:   make(chan string, workersize),
+		DownloadedChan: make(chan DownloadRequest, workersize),
 	}
 
 	// create working queue
@@ -76,12 +84,12 @@ type args struct {
 	// file data
 	bucketName string
 	id         string
-	fileType   string
-	fileData   []byte
-	expires    *time.Time
 	// s3
-	s3             *s3.S3
 	backendSession *S3BackendSession
+	// put specifics
+	fileType string
+	fileData []byte
+	expires  *time.Time
 }
 
 func upload(a interface{}) error {
@@ -104,13 +112,13 @@ func upload(a interface{}) error {
 			"Key": aws.String("MetadataValue"), //required
 		},
 	}
-	response, err := arguments.s3.PutObject(params)
+	_, err := arguments.backendSession.s3.PutObject(params)
 	if err != nil {
 		return err
 	}
 
 	// send result back in chan
-	arguments.backendSession.SendedChan <- response
+	arguments.backendSession.UploadedChan <- arguments.id
 	return nil
 }
 
@@ -127,7 +135,7 @@ func delete(a interface{}) error {
 		Key:    aws.String(arguments.id),
 	}
 
-	_, err := arguments.s3.DeleteObject(params)
+	_, err := arguments.backendSession.s3.DeleteObject(params)
 	if err != nil {
 		return err
 	}
@@ -135,11 +143,40 @@ func delete(a interface{}) error {
 	return nil
 }
 
+func download(a interface{}) error {
+	var arguments *args
+	var ok bool
+	if arguments, ok = a.(*args); !ok {
+		return fmt.Errorf("unexpected argument type, having %s expecting *args", reflect.TypeOf(a))
+	}
+
+	// download params
+	params := &s3.GetObjectInput{
+		Bucket: aws.String(arguments.bucketName),
+		Key:    aws.String(arguments.id),
+	}
+
+	response, err := arguments.backendSession.s3.GetObject(params)
+	if err != nil {
+		return nil
+	}
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(response.Body)
+	arguments.backendSession.DownloadedChan <- DownloadRequest{
+		Data:      buf.Bytes(),
+		RequestId: arguments.id,
+	}
+
+	return nil
+
+}
+
 func (bs *S3BackendSession) Delete(bucketName, id string) {
 	a := &args{
-		bucketName: bucketName,
-		id:         id,
-		s3:         bs.s3,
+		bucketName:     bucketName,
+		id:             id,
+		backendSession: bs,
 	}
 	bs.workingQueue.SendJob(delete, a)
 }
@@ -151,9 +188,35 @@ func (bs *S3BackendSession) Upload(bucketName, id string, data []byte, expires *
 		fileType:       http.DetectContentType(data),
 		fileData:       data,
 		expires:        expires,
-		s3:             bs.s3,
 		backendSession: bs,
 	}
 
 	bs.workingQueue.SendJob(upload, a)
+}
+
+func (bs *S3BackendSession) Download(bucketName, id string) {
+	a := &args{
+		bucketName:     bucketName,
+		id:             id,
+		backendSession: bs,
+	}
+
+	bs.workingQueue.SendJob(download, a)
+}
+
+func (bs *S3BackendSession) SaveChunks(filename string, chunks [][]byte, hashedValue []byte) ([]string, error) {
+	paths := make([]string, len(chunks))
+	for idx, chunk := range chunks {
+		id, err := fm.ChunkFileId(filename, idx, hashedValue)
+		if err != nil {
+			return nil, err
+		}
+		bs.Upload(bucketName, id, data, expires)
+		paths[idx] = id
+	}
+	return paths, nil
+}
+
+func (bs *S3BackendSession) RetrieveChunks(files []string) ([][]byte, error) {
+
 }

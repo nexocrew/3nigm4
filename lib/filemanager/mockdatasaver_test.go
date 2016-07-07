@@ -54,6 +54,6 @@ func (l *localDataSaver) RetrieveChunks(files []string) ([][]byte, error) {
 	return chunks, nil
 }
 
-func (l *localDataSaver) Cleanup() error {
+func (l *localDataSaver) Cleanup(files []string) error {
 	return os.RemoveAll(l.rootPath)
 }
