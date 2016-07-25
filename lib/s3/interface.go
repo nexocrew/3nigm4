@@ -3,6 +3,10 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
+// This package expose S3 interaction capabilities backended
+// by the FileManager package. All operations are managed by a
+// concurrent working queue and tend to be asyncronous.
+//
 package s3backend
 
 import (
@@ -15,11 +19,10 @@ import (
 
 // Third party libs
 import (
+	// Inspired by:
 	// https://docs.aws.amazon.com/sdk-for-go/latest/v1/developerguide/common-examples.title.html#amazon-s3
-	//
+	// See the link for more examples.
 	"github.com/aws/aws-sdk-go/aws"
-	_ "github.com/aws/aws-sdk-go/aws/awserr"
-	_ "github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -31,21 +34,27 @@ import (
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
+// The Backend session struct is composed of several private
+// fields and expose the async mechanism chans.
 type S3BackendSession struct {
 	// private vars
 	workingQueue *wq.WorkingQueue
 	s3           *s3.S3
 	// exposed vars
-	ErrorChan      chan error
-	UploadedChan   chan string
-	DownloadedChan chan DownloadRequest
+	ErrorChan      chan error           // returned errors;
+	UploadedChan   chan string          // id of completed uploads;
+	DownloadedChan chan DownloadRequest // return chan for async downloaded chunks.
 }
 
+// Returned by asyng download routines should be matching the
+// requested id field.
 type DownloadRequest struct {
-	Data      []byte
-	RequestId string
+	Data      []byte // actual data;
+	RequestId string // unique id for the retrieved file.
 }
 
+// NewS3BackendSession initialise a new S3 session for the file
+// storage capabilities-
 func NewS3BackendSession(endpoint, region, id, secret, token string, workersize, queuesize int, verbose bool) (*S3BackendSession, error) {
 	// get credentials
 	creds := credentials.NewStaticCredentials(id, secret, token)
@@ -76,6 +85,9 @@ func NewS3BackendSession(endpoint, region, id, secret, token string, workersize,
 	return session, nil
 }
 
+// Close close the actual opened connection with S3 storage,
+// should normally be used with the defer keyword after
+// invoking the NewS3BackendSession function.
 func (bs *S3BackendSession) Close() {
 	bs.workingQueue.Close()
 }
@@ -172,6 +184,7 @@ func download(a interface{}) error {
 
 }
 
+// Delete removes a identified file from a S3 storage bucket.
 func (bs *S3BackendSession) Delete(bucketName, id string) {
 	a := &args{
 		bucketName:     bucketName,
@@ -181,6 +194,7 @@ func (bs *S3BackendSession) Delete(bucketName, id string) {
 	bs.workingQueue.SendJob(delete, a)
 }
 
+// Upload send a single data blob to a S3 storage.
 func (bs *S3BackendSession) Upload(bucketName, id string, data []byte, expires *time.Time) {
 	a := &args{
 		bucketName:     bucketName,
@@ -194,6 +208,7 @@ func (bs *S3BackendSession) Upload(bucketName, id string, data []byte, expires *
 	bs.workingQueue.SendJob(upload, a)
 }
 
+// Download get a single file from a S3 bucket.
 func (bs *S3BackendSession) Download(bucketName, id string) {
 	a := &args{
 		bucketName:     bucketName,
@@ -204,6 +219,9 @@ func (bs *S3BackendSession) Download(bucketName, id string) {
 	bs.workingQueue.SendJob(download, a)
 }
 
+// SaveChunks start the async upload of all argument passed chunks
+// generating a single name for each one (that must be keeped in
+// order to get back the file later on).
 func (bs *S3BackendSession) SaveChunks(filename, bucket string, chunks [][]byte, hashedValue []byte, expirets *time.Time) ([]string, error) {
 	paths := make([]string, len(chunks))
 	for idx, chunk := range chunks {
@@ -217,6 +235,12 @@ func (bs *S3BackendSession) SaveChunks(filename, bucket string, chunks [][]byte,
 	return paths, nil
 }
 
-func (bs *S3BackendSession) RetrieveChunks(files []string) ([][]byte, error) {
-	return nil, nil
+// RetrieveChunks starts the async retrieve of previously uploaded
+// chunks starting from the returned files names. The actual downloaded
+// data is then returned on the DownloadedChan.
+func (bs *S3BackendSession) RetrieveChunks(bucket string, files []string) []string {
+	for _, fname := range files {
+		bs.Download(bucket, fname)
+	}
+	return files
 }
