@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type localDataSaver struct {
@@ -26,7 +27,7 @@ func NewLocalDataSaver(root string) (*localDataSaver, error) {
 	}, nil
 }
 
-func (l *localDataSaver) SaveChunks(filename string, chunks [][]byte, hashedValue []byte) ([]string, error) {
+func (l *localDataSaver) SaveChunks(filename, bucket string, chunks [][]byte, hashedValue []byte, expire *time.Time) ([]string, error) {
 	paths := make([]string, len(chunks))
 	for idx, chunk := range chunks {
 		id, err := ChunkFileId(filename, idx, hashedValue)

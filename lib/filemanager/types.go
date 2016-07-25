@@ -49,6 +49,6 @@ type ReferenceFile struct {
 }
 
 type DataSaver interface {
-	SaveChunks(string, [][]byte, []byte) ([]string, error) // Saves data using a file name, actual data and a checksum reference;
-	RetrieveChunks([]string) ([][]byte, error)             // loads from a defined path.
+	SaveChunks(string, string, [][]byte, []byte, *time.Time) ([]string, error) // Saves data using a file name, bucketm actual data, a checksum reference and an expire date;
+	RetrieveChunks([]string) ([][]byte, error)                                 // loads from a defined path.
 }

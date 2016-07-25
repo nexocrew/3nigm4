@@ -204,19 +204,19 @@ func (bs *S3BackendSession) Download(bucketName, id string) {
 	bs.workingQueue.SendJob(download, a)
 }
 
-func (bs *S3BackendSession) SaveChunks(filename string, chunks [][]byte, hashedValue []byte) ([]string, error) {
+func (bs *S3BackendSession) SaveChunks(filename, bucket string, chunks [][]byte, hashedValue []byte, expirets *time.Time) ([]string, error) {
 	paths := make([]string, len(chunks))
 	for idx, chunk := range chunks {
 		id, err := fm.ChunkFileId(filename, idx, hashedValue)
 		if err != nil {
 			return nil, err
 		}
-		bs.Upload(bucketName, id, data, expires)
+		bs.Upload(bucket, id, chunk, expirets)
 		paths[idx] = id
 	}
 	return paths, nil
 }
 
 func (bs *S3BackendSession) RetrieveChunks(files []string) ([][]byte, error) {
-
+	return nil, nil
 }

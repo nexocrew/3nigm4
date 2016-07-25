@@ -328,10 +328,10 @@ func TestDataSaverLogics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create a new data saver: %s.\n", err.Error())
 	}
-	defer ds.Cleanup()
+	defer ds.Cleanup(nil)
 
 	// do it!
-	reference, err := chunks.SaveChunks(ds)
+	reference, err := chunks.SaveChunks(ds, "bucket", nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
@@ -397,10 +397,10 @@ func TestDataSaverLogicsWithPassword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create a new data saver: %s.\n", err.Error())
 	}
-	defer ds.Cleanup()
+	defer ds.Cleanup(nil)
 
 	// do it!
-	reference, err := chunks.SaveChunks(ds)
+	reference, err := chunks.SaveChunks(ds, "bucket", nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
@@ -466,10 +466,10 @@ func TestDataSaverLogicsWithWrongPassword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create a new data saver: %s.\n", err.Error())
 	}
-	defer ds.Cleanup()
+	defer ds.Cleanup(nil)
 
 	// do it!
-	reference, err := chunks.SaveChunks(ds)
+	reference, err := chunks.SaveChunks(ds, "bucket", nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
