@@ -8,6 +8,7 @@ package crypto
 // golang standard functions
 import (
 	"bytes"
+	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -15,9 +16,17 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/pbkdf2"
 	"io"
+	"io/ioutil"
+	"time"
+)
+
+// extended crypto lib
+import (
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp/packet"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 // AesMode defines a enum type for available
@@ -48,12 +57,12 @@ func PKCS5Padding(src []byte, blockSize int) []byte {
 func PKCS5UnPadding(src []byte) ([]byte, error) {
 	length := len(src)
 	if length <= 0 {
-		return nil, fmt.Errorf("Invalid byte blob lenght: expecting > 0 having %d.\n", length)
+		return nil, fmt.Errorf("invalid byte blob lenght: expecting > 0 having %d", length)
 	}
 	unpadding := int(src[length-1])
 	delta := length - unpadding
 	if delta < 0 {
-		return nil, fmt.Errorf("Invalid padding delta lenght: expecting >= 0 having %d.\n", delta)
+		return nil, fmt.Errorf("invalid padding delta lenght: expecting >= 0 having %d", delta)
 	}
 	return src[:delta], nil
 }
@@ -83,12 +92,12 @@ func DeriveKeyWithPbkdf2(password []byte, salt []byte, iter int) []byte {
 
 // XOR given keys (passed in a slice)
 // returning an unique key.
-func xorKeys(keys [][]byte, maxlen int) ([]byte, error) {
+func XorKeys(keys [][]byte, maxlen int) ([]byte, error) {
 	// xor passcodesb
 	buffeXored := make([]byte, maxlen)
 	for counter, key := range keys {
 		if len(key) != maxlen {
-			return nil, fmt.Errorf("Invalid passcodes: argument passcodes are too short, should be min 32 byte long.")
+			return nil, fmt.Errorf("invalid passcodes: argument passcodes are too short, should be min %d byte long", maxlen)
 		}
 		// copy or xor
 		if counter == 0 {
@@ -104,13 +113,14 @@ func xorKeys(keys [][]byte, maxlen int) ([]byte, error) {
 
 // AesEncrypt encrypt data with AES256 using a key.
 // Salt and IV will be passed in the encrypted message.
-func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode, iterations int) ([]byte, error) {
+func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode) ([]byte, error) {
 	// check input values
-	if len(key) < 1 ||
-		len(plaintext) < 1 ||
-		plaintext == nil ||
-		iterations < 1 {
-		return nil, fmt.Errorf("Invalid arguments: passcodes, plaintext and iterations should be not null or empty.")
+	if len(key) < 1 {
+		return nil, fmt.Errorf("invalid key argument: should be not null or empty")
+	}
+	if len(plaintext) < 1 ||
+		plaintext == nil {
+		return nil, fmt.Errorf("invalid plain text argument: should be not null or empty")
 	}
 
 	// pad plain text
@@ -119,7 +129,7 @@ func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode, iterati
 	ciphertext := make([]byte, len(paddedPlaintext)+kSaltSize+aes.BlockSize)
 	// copy salt
 	if len(salt) != kSaltSize {
-		return nil, fmt.Errorf("Invalid salt size, expecting %d having %d.", kSaltSize, len(salt))
+		return nil, fmt.Errorf("invalid salt size, expecting %d having %d", kSaltSize, len(salt))
 	}
 	jdx := 0
 	for idx := aes.BlockSize; idx < aes.BlockSize+kSaltSize; idx++ {
@@ -129,7 +139,7 @@ func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode, iterati
 
 	// Should be previously padded
 	if len(paddedPlaintext)%aes.BlockSize != 0 {
-		return nil, fmt.Errorf("Invalid plain text size: should be a multiple of block size.")
+		return nil, fmt.Errorf("invalid plain text size: should be a multiple of block size")
 	}
 
 	block, err := aes.NewCipher(key)
@@ -155,28 +165,39 @@ func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode, iterati
 	return ciphertext, nil
 }
 
+func GetSaltFromCipherText(ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) < aes.BlockSize+kSaltSize {
+		return nil, fmt.Errorf("ciphertext is too short: having %d expecting > than %d", len(ciphertext), aes.BlockSize+kSaltSize)
+	}
+	salt := ciphertext[aes.BlockSize : aes.BlockSize+kSaltSize]
+	return salt, nil
+}
+
 // AesDecrypt decrypt data with AES256 using a key
 // Salt and IV are passed in the encrypted message.
-func AesDecrypt(key []byte, ciphertext []byte, mode AesMode, iterations int) ([]byte, error) {
+func AesDecrypt(key []byte, ciphertext []byte, mode AesMode) ([]byte, error) {
 	// check input values
 	if len(key) < 1 ||
 		len(ciphertext) < 1 ||
-		ciphertext == nil ||
-		iterations < 1 {
-		return nil, fmt.Errorf("Invalid arguments: passcodes, ciphertext and iterations should be not null or empty.")
+		ciphertext == nil {
+		return nil, fmt.Errorf("invalid arguments: should be not null or empty")
 	}
+	// copy ciphertext to avoid modyfing the actual
+	// argument passed data.
+	copiedChipertext := make([]byte, len(ciphertext))
+	copy(copiedChipertext, ciphertext)
 
 	// get packed values
-	iv := ciphertext[:aes.BlockSize]
+	iv := copiedChipertext[:aes.BlockSize]
 	//salt := ciphertext[aes.BlockSize : aes.BlockSize+kSaltSize]
-	ciphert := ciphertext[aes.BlockSize+kSaltSize:]
+	ciphert := copiedChipertext[aes.BlockSize+kSaltSize:]
 
 	// check ciphertext lenght
 	if len(ciphert) < aes.BlockSize {
-		return nil, fmt.Errorf("Cipher text too short, must be at least longer than block size.")
+		return nil, fmt.Errorf("cipher text too short, must be at least longer than block size")
 	}
 	if len(ciphert)%aes.BlockSize != 0 {
-		return nil, fmt.Errorf("Chiper text have wrong size, should be a block size multiple.")
+		return nil, fmt.Errorf("chiper text have wrong size, should be a block size multiple")
 	}
 
 	block, err := aes.NewCipher(key)
@@ -200,7 +221,8 @@ func AesDecrypt(key []byte, ciphertext []byte, mode AesMode, iterations int) ([]
 	return unpadded, nil
 }
 
-func getKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
+// Get a specific key from an email address
+func GetKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 	for _, entity := range keyring {
 		for _, ident := range entity.Identities {
 			if ident.UserId.Email == email {
@@ -211,27 +233,12 @@ func getKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 	return nil
 }
 
-func OpenPgpEncrypt(data []byte, privateKr []byte, publicKr []byte, signerEmail string) ([]byte, error) {
-	// get private key
-	rpv := bytes.NewReader(privateKr)
-	privring, err := openpgp.ReadKeyRing(rpv)
-	if err != nil {
-		return nil, err
-	}
-	privateKey := getKeyByEmail(privring, signerEmail)
-	if privateKey == nil {
-		return nil, fmt.Errorf("Private key for user %s not found, unable to sign the message and proceeding.", signerEmail)
-	}
-
-	// extract recipients keys
-	rpb := bytes.NewReader(publicKr)
-	pubring, err := openpgp.ReadArmoredKeyRing(rpb)
-	if err != nil {
-		return nil, err
-	}
+// Encrypt using pgp and the passed recipients list
+// and signer entity.
+func OpenPgpEncrypt(data []byte, recipients openpgp.EntityList, signer *openpgp.Entity) ([]byte, error) {
 	// encrypt message
 	buf := new(bytes.Buffer)
-	w, err := openpgp.Encrypt(buf, pubring, privateKey, nil, nil)
+	w, err := openpgp.Encrypt(buf, recipients, signer, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -245,4 +252,156 @@ func OpenPgpEncrypt(data []byte, privateKr []byte, publicKr []byte, signerEmail 
 	}
 
 	return buf.Bytes(), nil
+}
+
+// OpenPgpDecrypt decrypt a message using the argument
+// keyring as source to get required keys.
+func OpenPgpDecrypt(data []byte, keyring openpgp.EntityList) ([]byte, error) {
+	md, err := openpgp.ReadMessage(bytes.NewBuffer(data), keyring, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := ioutil.ReadAll(md.UnverifiedBody)
+	if err != nil {
+		return nil, err
+	}
+	return plaintext, nil
+}
+
+// OpenPgpSignMessage creates a signature for a message.
+func OpenPgpSignMessage(msg []byte, signer *openpgp.Entity) ([]byte, error) {
+	// new signature struct
+	sig := new(packet.Signature)
+	sig.SigType = packet.SigTypeBinary
+	sig.PubKeyAlgo = signer.PrivateKey.PubKeyAlgo
+	sig.CreationTime = time.Now()
+	sig.IssuerKeyId = &signer.PrivateKey.KeyId
+	sig.Hash = crypto.SHA256
+
+	// generate data hash
+	hash := sha256.New()
+	io.WriteString(hash, string(msg))
+
+	err := sig.Sign(hash, signer.PrivateKey, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(nil)
+	err = sig.Serialize(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func OpenPgpVerifySignature(signature []byte, message []byte, publicKey *openpgp.Entity) error {
+	// load signature
+	pack, err := packet.Read(bytes.NewBuffer(signature))
+	if err != nil {
+		return err
+	}
+	sign, ok := pack.(*packet.Signature)
+	if !ok {
+		return fmt.Errorf("unexpected signature format")
+	}
+
+	// get signature hash
+	hash := sign.Hash.New()
+
+	// hash message content
+	_, err = hash.Write(message)
+	if err != nil {
+		return err
+	}
+
+	err = publicKey.PrimaryKey.VerifySignature(hash, sign)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Iterate on keys decrypting all encrypted
+// entities.
+func unlockKeyRing(entity *openpgp.Entity, passphrase []byte) error {
+	if entity.PrivateKey != nil &&
+		entity.PrivateKey.Encrypted {
+		err := entity.PrivateKey.Decrypt(passphrase)
+		if err != nil {
+			return err
+		}
+	}
+	for _, subkey := range entity.Subkeys {
+		if subkey.PrivateKey != nil && subkey.PrivateKey.Encrypted {
+			err := subkey.PrivateKey.Decrypt(passphrase)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// ReadArmoredKeyRing read keys in an armored keyring
+// and returns openpgp entities. If a passphrase is passed
+// it will be used to decrypt keys.
+func ReadArmoredKeyRing(kr []byte, passphrase []byte) (openpgp.EntityList, error) {
+	// Read armored private key into type EntityList
+	// An EntityList contains one or more Entities.
+	// This assumes there is only one Entity involved
+	kring, err := openpgp.ReadArmoredKeyRing(bytes.NewBuffer(kr))
+	if err != nil {
+		return nil, err
+	}
+	if passphrase != nil {
+		for _, entity := range kring {
+			err := unlockKeyRing(entity, passphrase)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return kring, nil
+}
+
+const (
+	kEn1gm4Type    = "EN1GM4 HANDSHAKE"              // message type;
+	kEn1gm4Version = "En1gm4 v1.0.0 (GnuPG v1.4.10)" // Message version.
+)
+
+// EncodePgpArmored encode a pgp message in armored
+// ASCII format.
+func EncodePgpArmored(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	header := map[string]string{
+		"Version": kEn1gm4Version,
+	}
+	w, err := armor.Encode(buf, kEn1gm4Type, header)
+	if err != nil {
+		return nil, err
+	}
+	_, err = w.Write(data)
+	if err != nil {
+		return nil, err
+	}
+	w.Close()
+
+	return buf.Bytes(), nil
+}
+
+// DecodePgpArmored decode pgp armored messages from
+// ASCII armored format.
+func DecodePgpArmored(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(data)
+	result, err := armor.Decode(buf)
+	if err != nil {
+		return nil, err
+	}
+	decoded, err := ioutil.ReadAll(result.Body)
+	if err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }

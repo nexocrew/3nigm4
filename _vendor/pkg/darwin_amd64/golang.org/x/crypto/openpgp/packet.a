@@ -1,7 +1,7 @@
 !<arch>
-__.PKGDEF       0           0     0     644     59414     `
-go object darwin amd64 go1.6 X:none
-build id "b03828461f11c1cbe34e66da050deda420a826a0"
+__.PKGDEF       0           0     0     644     59417     `
+go object darwin amd64 go1.6.2 X:none
+build id "a7fdf68e04a6f147f85a66bd04d0e2be321e74f8"
 
 $$
 package packet
@@ -127,7 +127,7 @@ package packet
 	func (@"".c·2 *@"".Config "esc:0x1") Cipher () (? @"".CipherFunction) { if @"".c·2 == nil || uint8(@"".c·2.DefaultCipher) == uint8(0x0) { return @"".CipherFunction(0x7) }; return @"".c·2.DefaultCipher }
 	func (@"".c·2 *@"".Config "esc:0x1") Compression () (? @"".CompressionAlgo) { if @"".c·2 == nil { return @"".CompressionAlgo(0x0) }; return @"".c·2.DefaultCompressionAlgo }
 	func (@"".c·2 *@"".Config "esc:0x1") Hash () (? @"crypto".Hash) { if @"".c·2 == nil || uint(@"".c·2.DefaultHash) == uint(0x0) { return @"crypto".Hash(0x5) }; return @"".c·2.DefaultHash }
-	func (@"".c·2 *@"".Config "esc:0x1") Now () (? @"time".Time)
+	func (@"".c·2 *@"".Config "esc:0x32") Now () (? @"time".Time)
 	func (@"".c·2 *@"".Config "esc:0x1") PasswordHashIterations () (? int) { if @"".c·2 == nil || @"".c·2.S2KCount == int(0x0) { return int(0x0) }; return @"".c·2.S2KCount }
 	func (@"".c·2 *@"".Config "esc:0x22") Random () (? @"io".Reader) { if @"".c·2 == nil || @"".c·2.Rand == nil { return @"crypto/rand".Reader }; return @"".c·2.Rand }
 	type @"".PublicKeyAlgorithm uint8
@@ -494,8 +494,8 @@ package packet
 	var @"image/color".Alpha16Model @"image/color".Model
 
 $$
-_go_.o          0           0     0     644     768409    `
-go object darwin amd64 go1.6 X:none
+ _go_.o          0           0     0     644     768411    `
+go object darwin amd64 go1.6.2 X:none
 
 !
   go13ld compress/bzip2.a compress/flate.acompress/zlib.aHgolang.org/x/crypto/openpgp/errors.aio.astrconv.acrypto.acrypto/rand.atime.acrypto/rsa.a"encoding/binary.amath/big.aJgolang.org/x/crypto/openpgp/elgamal.acrypto/cipher.aBgolang.org/x/crypto/openpgp/s2k.abytes.aio/ioutil.abufio.acrypto/aes.acrypto/des.a6golang.org/x/crypto/cast5.acrypto/dsa.acrypto/sha1.acrypto/ecdsa.a"crypto/elliptic.acrypto/sha256.acrypto/sha512.a

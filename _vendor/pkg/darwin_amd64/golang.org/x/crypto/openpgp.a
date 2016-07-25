@@ -1,7 +1,7 @@
 !<arch>
-__.PKGDEF       0           0     0     644     61532     `
-go object darwin amd64 go1.6 X:none
-build id "3069ef4d236c9e22cf4702a1a77f81041967df9a"
+__.PKGDEF       0           0     0     644     61527     `
+go object darwin amd64 go1.6.2 X:none
+build id "2ad2a82cb2890c5f02e9f8c4a2d26a2ea1e81d27"
 
 $$
 package openpgp
@@ -263,7 +263,7 @@ package openpgp
 	func (@"golang.org/x/crypto/openpgp/packet".cÂ·2 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x1") Cipher () (? @"golang.org/x/crypto/openpgp/packet".CipherFunction) { if @"golang.org/x/crypto/openpgp/packet".cÂ·2 == nil || uint8(@"golang.org/x/crypto/openpgp/packet".cÂ·2.DefaultCipher) == uint8(0x0) { return @"golang.org/x/crypto/openpgp/packet".CipherFunction(0x7) }; return @"golang.org/x/crypto/openpgp/packet".cÂ·2.DefaultCipher }
 	func (@"golang.org/x/crypto/openpgp/packet".cÂ·2 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x1") Compression () (? @"golang.org/x/crypto/openpgp/packet".CompressionAlgo) { if @"golang.org/x/crypto/openpgp/packet".cÂ·2 == nil { return @"golang.org/x/crypto/openpgp/packet".CompressionAlgo(0x0) }; return @"golang.org/x/crypto/openpgp/packet".cÂ·2.DefaultCompressionAlgo }
 	func (@"golang.org/x/crypto/openpgp/packet".cÂ·2 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x1") Hash () (? @"crypto".Hash) { if @"golang.org/x/crypto/openpgp/packet".cÂ·2 == nil || uint(@"golang.org/x/crypto/openpgp/packet".cÂ·2.DefaultHash) == uint(0x0) { return @"crypto".Hash(0x5) }; return @"golang.org/x/crypto/openpgp/packet".cÂ·2.DefaultHash }
-	func (@"golang.org/x/crypto/openpgp/packet".cÂ·2 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x1") Now () (? @"time".Time)
+	func (@"golang.org/x/crypto/openpgp/packet".cÂ·2 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x32") Now () (? @"time".Time)
 	func (@"golang.org/x/crypto/openpgp/packet".cÂ·2 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x1") PasswordHashIterations () (? int) { if @"golang.org/x/crypto/openpgp/packet".cÂ·2 == nil || @"golang.org/x/crypto/openpgp/packet".cÂ·2.S2KCount == int(0x0) { return int(0x0) }; return @"golang.org/x/crypto/openpgp/packet".cÂ·2.S2KCount }
 	func (@"golang.org/x/crypto/openpgp/packet".cÂ·2 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x22") Random () (? @"io".Reader) { if @"golang.org/x/crypto/openpgp/packet".cÂ·2 == nil || @"golang.org/x/crypto/openpgp/packet".cÂ·2.Rand == nil { return @"crypto/rand".Reader }; return @"golang.org/x/crypto/openpgp/packet".cÂ·2.Rand }
 	type @"golang.org/x/crypto/openpgp/packet".Signature struct { SigType @"golang.org/x/crypto/openpgp/packet".SignatureType; PubKeyAlgo @"golang.org/x/crypto/openpgp/packet".PublicKeyAlgorithm; Hash @"crypto".Hash; HashSuffix []byte; HashTag [2]byte; CreationTime @"time".Time; RSASignature @"golang.org/x/crypto/openpgp/packet".parsedMPI; DSASigR @"golang.org/x/crypto/openpgp/packet".parsedMPI; DSASigS @"golang.org/x/crypto/openpgp/packet".parsedMPI; ECDSASigR @"golang.org/x/crypto/openpgp/packet".parsedMPI; ECDSASigS @"golang.org/x/crypto/openpgp/packet".parsedMPI; @"golang.org/x/crypto/openpgp/packet".rawSubpackets []@"golang.org/x/crypto/openpgp/packet".outputSubpacket; SigLifetimeSecs *uint32; KeyLifetimeSecs *uint32; PreferredSymmetric []uint8; PreferredHash []uint8; PreferredCompression []uint8; IssuerKeyId *uint64; IsPrimaryId *bool; FlagsValid bool; FlagCertify bool; FlagSign bool; FlagEncryptCommunications bool; FlagEncryptStorage bool; RevocationReason *uint8; RevocationReasonText string; MDC bool; EmbeddedSignature *@"golang.org/x/crypto/openpgp/packet".Signature; @"golang.org/x/crypto/openpgp/packet".outSubpackets []@"golang.org/x/crypto/openpgp/packet".outputSubpacket }
@@ -324,7 +324,7 @@ package openpgp
 	func (@"golang.org/x/crypto/openpgp/packet".rÂ·2 *@"golang.org/x/crypto/openpgp/packet".Reader "esc:0x9") Push (@"golang.org/x/crypto/openpgp/packet".readerÂ·3 @"io".Reader) (@"golang.org/x/crypto/openpgp/packet".errÂ·1 error) { if len(@"golang.org/x/crypto/openpgp/packet".rÂ·2.@"golang.org/x/crypto/openpgp/packet".readers) >= int(0x20) { return @"golang.org/x/crypto/openpgp/errors".StructuralError(@"golang.org/x/crypto/openpgp/errors".StructuralError("too many layers of packets")) }; @"golang.org/x/crypto/openpgp/packet".rÂ·2.@"golang.org/x/crypto/openpgp/packet".readers = append(@"golang.org/x/crypto/openpgp/packet".rÂ·2.@"golang.org/x/crypto/openpgp/packet".readers, @"golang.org/x/crypto/openpgp/packet".readerÂ·3); return nil }
 	func (@"golang.org/x/crypto/openpgp/packet".rÂ·1 *@"golang.org/x/crypto/openpgp/packet".Reader "esc:0x9") Unread (@"golang.org/x/crypto/openpgp/packet".pÂ·2 @"golang.org/x/crypto/openpgp/packet".Packet) { @"golang.org/x/crypto/openpgp/packet".rÂ·1.@"golang.org/x/crypto/openpgp/packet".q = append(@"golang.org/x/crypto/openpgp/packet".rÂ·1.@"golang.org/x/crypto/openpgp/packet".q, @"golang.org/x/crypto/openpgp/packet".pÂ·2) }
 	func @"".ReadEntity (@"".packetsÂ·3 *@"golang.org/x/crypto/openpgp/packet".Reader "esc:0x9") (? *@"".Entity, ? error)
-	func @"".NewEntity (@"".nameÂ·3 string, @"".commentÂ·4 string, @"".emailÂ·5 string, @"".configÂ·6 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x9") (? *@"".Entity, ? error)
+	func @"".NewEntity (@"".nameÂ·3 string, @"".commentÂ·4 string, @"".emailÂ·5 string, @"".configÂ·6 *@"golang.org/x/crypto/openpgp/packet".Config) (? *@"".Entity, ? error)
 	var @"".SignatureType string
 	type @"golang.org/x/crypto/openpgp/packet".LiteralData struct { IsBinary bool; FileName string; Time uint32; Body @"io".Reader }
 	func (@"golang.org/x/crypto/openpgp/packet".lÂ·2 *@"golang.org/x/crypto/openpgp/packet".LiteralData "esc:0x1") ForEyesOnly () (? bool) { return @"golang.org/x/crypto/openpgp/packet".lÂ·2.FileName == string("_CONSOLE") }
@@ -332,7 +332,7 @@ package openpgp
 	type @"io".ReadCloser interface { Close() (? error); Read(@"io".p []byte) (@"io".n int, @"io".err error) }
 	type @"".MessageDetails struct { IsEncrypted bool; EncryptedToKeyIds []uint64; IsSymmetricallyEncrypted bool; DecryptedWith @"".Key; IsSigned bool; SignedByKeyId uint64; SignedBy *@"".Key; LiteralData *@"golang.org/x/crypto/openpgp/packet".LiteralData; UnverifiedBody @"io".Reader; SignatureError error; Signature *@"golang.org/x/crypto/openpgp/packet".Signature; @"".decrypted @"io".ReadCloser }
 	type @"".PromptFunction func(@"".keys []@"".Key, @"".symmetric bool) (? []byte, ? error)
-	func @"".ReadMessage (@"".rÂ·3 @"io".Reader, @"".keyringÂ·4 @"".KeyRing, @"".promptÂ·5 @"".PromptFunction "esc:0x1", @"".configÂ·6 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x9") (@"".mdÂ·1 *@"".MessageDetails, @"".errÂ·2 error)
+	func @"".ReadMessage (@"".rÂ·3 @"io".Reader, @"".keyringÂ·4 @"".KeyRing, @"".promptÂ·5 @"".PromptFunction "esc:0x10a", @"".configÂ·6 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x9") (@"".mdÂ·1 *@"".MessageDetails, @"".errÂ·2 error)
 	func @"".CheckDetachedSignature (@"".keyringÂ·3 @"".KeyRing, @"".signedÂ·4 @"io".Reader, @"".signatureÂ·5 @"io".Reader) (@"".signerÂ·1 *@"".Entity, @"".errÂ·2 error)
 	func @"".CheckArmoredDetachedSignature (@"".keyringÂ·3 @"".KeyRing, @"".signedÂ·4 @"io".Reader, @"".signatureÂ·5 @"io".Reader) (@"".signerÂ·1 *@"".Entity, @"".errÂ·2 error)
 	func @"".DetachSign (@"".wÂ·2 @"io".Writer, @"".signerÂ·3 *@"".Entity "esc:0x9", @"".messageÂ·4 @"io".Reader, @"".configÂ·5 *@"golang.org/x/crypto/openpgp/packet".Config "esc:0x9") (? error)
@@ -362,8 +362,8 @@ package openpgp
 	func (@"golang.org/x/crypto/openpgp/errors".sÂ·2 @"golang.org/x/crypto/openpgp/errors".StructuralError "esc:0x1") Error () (? string) { return string("openpgp: invalid data: ") + string(@"golang.org/x/crypto/openpgp/errors".sÂ·2) }
 
 $$
-_go_.o          0           0     0     644     272164    `
-go object darwin amd64 go1.6 X:none
+ _go_.o          0           0     0     644     272166    `
+go object darwin amd64 go1.6.2 X:none
 
 !
   go13ldhash.acrypto/rsa.aio.atime.aFgolang.org/x/crypto/openpgp/armor.aHgolang.org/x/crypto/openpgp/errors.aHgolang.org/x/crypto/openpgp/packet.acrypto.acrypto/sha256.astrconv.aBgolang.org/x/crypto/openpgp/s2k.a ş."".NewCanonicalTextHash  À  ÀeH‹%    H;a†»   Hƒì(1ÛH‰\$@H‰\$HH    H‰$è    H‹D$H‰D$ H‹l$0H‰(H‹l$8€=     ubH‰hHÇ@    H‰D$ H‹    1íH9ètH‹\$ H‰\$HH‰D$@HƒÄ(ÃH    H‰$H    H‰\$H    H‰\$è    H‹D$ë½L@L‰$H‰l$è    H‹D$ ë‰è    é(ÿÿÿÌÌÌÌÌÌÌÌ
