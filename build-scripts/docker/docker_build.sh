@@ -1,6 +1,9 @@
 #!/bin/bash
 
-GOLANG_IMAGE=golang:latest
+#
+# Base image name
+#
+GOLANG_IMAGE=nexo/golang:latest
 
 #
 #
@@ -65,7 +68,7 @@ function build() {
 	docker run --rm -v ${1}/src/:/usr/src/:Z \
 	-w /usr/src/${2} -e GOPATH=/usr/:${GOPATH} \
 	-e GOBIN=/usr/src/${2}/${BUILD_PATH} -e GOARCH=${4} \
-	-e GOOS=${3} ${GOLANG_IMAGE} \
+	-e GOOS=${3} --name golangbuild ${GOLANG_IMAGE} \
 	bash -c make install
 	if [ $? -ne 0 ]
 	then
@@ -89,7 +92,7 @@ then
 		# Get gopath
 		#
 		GO_PATH=${1}
-		if [ -z ${GO_PATH} ] 
+		if [ ! -d ${GO_PATH} ] 
 		then
 			echo "Invalid path to the gopath directory, aborting."
 			exit 1
@@ -98,9 +101,9 @@ then
 		# Get project relative path
 		#
 		PROJ_PATH=${2}
-		if [ -z ${PROJ_PATH} ] 
+		if [ ! -d ${GO_PATH}/src/${PROJ_PATH} ] 
 		then
-			echo "Invalid path to the project relative directory, aborting."
+			echo "Invalid path to the project directory, aborting."
 			exit 1
 		fi
 		#
