@@ -1,10 +1,12 @@
 3nigm4
 ======
-
 _A command line chat based on keybase._
 
 
 3nigm4 is a [Go](https://golang.org/) application developed by _nexocrew_. The purpose of the software is to provide users a GPG-based chat using [keybase](https://keybase.io) as a trusted key server.
+
+## Status
+[![Build Status](https://travis-ci.org/nexocrew/3nigm4.svg?branch=develop)](https://travis-ci.org/nexocrew/3nigm4)
 
 Table of contents
 ---------------------
