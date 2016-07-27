@@ -12,7 +12,6 @@
 
 # Go parameters
 GOCMD=go
-GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOINSTALL=$(GOCMD) install
 GOTEST=$(GOCMD) test -v
@@ -23,7 +22,7 @@ GOFMT=gofmt -w
 # the following folder is used for third party
 # dependencies (see http://peter.bourgon.org/go-in-production/ 
 # for tecnique description).
-GOPATH := $(CURDIR)/_vendor:$(GOPATH)
+GOPATH := $(GOPATH):$(CURDIR)/_vendor
 
 # test with benchmarking switch
 TEST_BENCHMARK ?= no
@@ -47,16 +46,13 @@ FMT_TEST = $(foreach int, $(ALL_LIST), $(int)_fmt)
 # All are .PHONY for now because dependencyness is hard
 .PHONY: $(CLEAN_LIST) $(TEST_LIST) $(FMT_LIST) $(INSTALL_LIST) $(BUILD_LIST) $(IREF_LIST)
 
-all: build
-build: $(BUILD_LIST)
+all: install
 clean: $(CLEAN_LIST)
 install: $(INSTALL_LIST)
 test: $(TEST_LIST)
 iref: $(IREF_LIST)
 fmt: $(FMT_TEST)
 
-$(BUILD_LIST): %_build: %_fmt %_iref
-	$(GOBUILD) $(TOPLEVEL_PKG)/$*
 $(CLEAN_LIST): %_clean:
 	$(GOCLEAN) $(TOPLEVEL_PKG)/$*
 $(INSTALL_LIST): %_install:
