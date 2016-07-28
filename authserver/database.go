@@ -15,7 +15,26 @@ import (
 	"gopkg.in/mgo.v2"
 )
 
-func mgoSession(address, bucket, user, password, auth string) (*mgo.Session, error) {
+type dbArgs struct {
+	addresses []string
+	user      string
+	password  string
+	authDb    string
+}
+
+func composeDbAddress(args *dbArgs) string {
+	dbAccess := fmt.Sprintf("mongodb://%s:%s@", args.user, args.password)
+	for idx, addr := range args.addresses {
+		dbAccess += addr
+		if idx != len(args.addresses)-1 {
+			dbAccess += ","
+		}
+	}
+	dbAccess += fmt.Sprintf("/?authSource=%s", args.authDb)
+	return dbAccess
+}
+
+func mgoSession(args *dbArgs) (*mgo.Session, error) {
 	// connect to db
-	return mgo.Dial(fmt.Sprintf(format, ...))
+	return mgo.Dial(composeDbAddress(args))
 }

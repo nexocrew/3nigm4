@@ -41,7 +41,7 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/mgo.v2-unstable/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type Mode int
@@ -146,10 +146,7 @@ var (
 	ErrCursor   = errors.New("invalid cursor")
 )
 
-const (
-	defaultPrefetch  = 0.25
-	maxUpsertRetries = 5
-)
+const defaultPrefetch = 0.25
 
 // Dial establishes a new session to the cluster identified by the given seed
 // server(s). The session will enable communication with all of the servers in
@@ -1584,8 +1581,6 @@ func (s *Session) Refresh() {
 }
 
 // SetMode changes the consistency mode for the session.
-// 
-// The default mode is Strong.
 //
 // In the Strong consistency mode reads and writes will always be made to
 // the primary server using a unique connection so that reads and writes are
@@ -1660,8 +1655,6 @@ func (s *Session) SetSyncTimeout(d time.Duration) {
 
 // SetSocketTimeout sets the amount of time to wait for a non-responding
 // socket to the database before it is forcefully closed.
-//
-// The default timeout is 1 minute.
 func (s *Session) SetSocketTimeout(d time.Duration) {
 	s.m.Lock()
 	s.sockTimeout = d
@@ -1791,9 +1784,6 @@ func (s *Session) Safe() (safe *Safe) {
 // If the safe parameter is not nil, any changing query (insert, update, ...)
 // will be followed by a getLastError command with the specified parameters,
 // to ensure the request was correctly processed.
-//
-// The default is &Safe{}, meaning check for errors and use the default
-// behavior for all fields.
 //
 // The safe.W parameter determines how many servers should confirm a write
 // before the operation is considered successful.  If set to 0 or 1, the
@@ -2342,7 +2332,8 @@ type queryError struct {
 	ErrMsg        string
 	Assertion     string
 	Code          int
-	AssertionCode int "assertionCode"
+	AssertionCode int        "assertionCode"
+	LastError     *LastError "lastErrorObject"
 }
 
 type QueryError struct {
@@ -2487,18 +2478,7 @@ func (c *Collection) Upsert(selector interface{}, update interface{}) (info *Cha
 		Flags:      1,
 		Upsert:     true,
 	}
-	var lerr *LastError
-	for i := 0; i < maxUpsertRetries; i++ {
-		lerr, err = c.writeOp(&op, true)
-		// Retry duplicate key errors on upserts.
-		// https://docs.mongodb.com/v3.2/reference/method/db.collection.update/#use-unique-indexes
-		if !IsDup(err) {
-			if i > 0 {
-				debugf("upsert retry succeeded after %d failure(s)", i)
-			}
-			break
-		}
-	}
+	lerr, err := c.writeOp(&op, true)
 	if err == nil && lerr != nil {
 		info = &ChangeInfo{}
 		if lerr.UpdatedExisting {
@@ -3003,6 +2983,9 @@ func checkQueryError(fullname string, d []byte) error {
 Error:
 	result := &queryError{}
 	bson.Unmarshal(d, result)
+	if result.LastError != nil {
+		return result.LastError
+	}
 	if result.Err == "" && result.ErrMsg == "" {
 		return nil
 	}
@@ -3020,7 +3003,7 @@ Error:
 // unmarshalled into by gobson.  This function blocks until either a result
 // is available or an error happens.  For example:
 //
-//     err := collection.Find(bson.M{"a", 1}).One(&result)
+//     err := collection.Find(bson.M{"a": 1}).One(&result)
 //
 // In case the resulting document includes a field named $err or errmsg, which
 // are standard ways for MongoDB to return query errors, the returned err will
@@ -3218,14 +3201,13 @@ func (db *Database) run(socket *mongoSocket, cmd, result interface{}) (err error
 	}
 	if result != nil {
 		err = bson.Unmarshal(data, result)
-		if err != nil {
-			debugf("Run command unmarshaling failed: %#v", op, err)
-			return err
-		}
-		if globalDebug && globalLogger != nil {
+		if err == nil {
 			var res bson.M
 			bson.Unmarshal(data, &res)
 			debugf("Run command unmarshaled: %#v, result: %#v", op, res)
+		} else {
+			debugf("Run command unmarshaling failed: %#v", op, err)
+			return err
 		}
 	}
 	return checkQueryError(op.collection, data)
@@ -3570,34 +3552,6 @@ func (iter *Iter) Close() error {
 	}
 	iter.m.Unlock()
 	return err
-}
-
-// Done returns true only if a follow up Next call is guaranteed
-// to return false.
-//
-// For an iterator created with Tail, Done may return false for
-// an iterator that has no more data. Otherwise it's guaranteed
-// to return false only if there is data or an error happened.
-//
-// Done may block waiting for a pending query to verify whether
-// more data is actually available or not.
-func (iter *Iter) Done() bool {
-	iter.m.Lock()
-	defer iter.m.Unlock()
-
-	for {
-		if iter.docData.Len() > 0 {
-			return false
-		}
-		if iter.docsToReceive > 1 {
-			return true
-		}
-		if iter.docsToReceive > 0 {
-			iter.gotReply.Wait()
-			continue
-		}
-		return iter.op.cursorId == 0
-	}
 }
 
 // Timeout returns true if Next returned false due to a timeout of
@@ -4254,20 +4208,8 @@ func (q *Query) Apply(change Change, result interface{}) (info *ChangeInfo, err 
 	session.SetMode(Strong, false)
 
 	var doc valueResult
-	for i := 0; i < maxUpsertRetries; i++ {
-		err = session.DB(dbname).Run(&cmd, &doc)
-
-		if err == nil {
-			if i > 0 {
-				debugf("upsert retry succeeded after %d failure(s)", i)
-			}
-			break
-		}
-		if change.Upsert && IsDup(err) {
-			// Retry duplicate key errors on upserts.
-			// https://docs.mongodb.com/v3.2/reference/method/db.collection.update/#use-unique-indexes
-			continue
-		}
+	err = session.DB(dbname).Run(&cmd, &doc)
+	if err != nil {
 		if qerr, ok := err.(*QueryError); ok && qerr.Message == "No matching object found" {
 			return nil, ErrNotFound
 		}
@@ -4316,12 +4258,12 @@ type BuildInfo struct {
 // equal to the provided version number. If more than one number is
 // provided, numbers will be considered as major, minor, and so on.
 func (bi *BuildInfo) VersionAtLeast(version ...int) bool {
-	for i, vi := range version {
+	for i := range version {
 		if i == len(bi.VersionArray) {
 			return false
 		}
-		if bivi := bi.VersionArray[i]; bivi != vi {
-			return bivi >= vi
+		if bi.VersionArray[i] < version[i] {
+			return false
 		}
 	}
 	return true
@@ -4583,7 +4525,7 @@ func (c *Collection) writeOp(op interface{}, ordered bool) (lerr *LastError, err
 				lerr.N += oplerr.N
 				lerr.modified += oplerr.modified
 				if err != nil {
-					for ei := range oplerr.ecases {
+					for ei := range lerr.ecases {
 						oplerr.ecases[ei].Index += i
 					}
 					lerr.ecases = append(lerr.ecases, oplerr.ecases...)

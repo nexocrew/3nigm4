@@ -36,7 +36,7 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/mgo.v2-unstable/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type GridFS struct {
@@ -131,7 +131,7 @@ func finalizeFile(file *GridFile) {
 //     }
 //     file, err := db.GridFS("fs").Create("myfile.txt")
 //     check(err)
-//     n, err := file.Write([]byte("Hello world!")
+//     n, err := file.Write([]byte("Hello world!"))
 //     check(err)
 //     err = file.Close()
 //     check(err)
@@ -359,7 +359,7 @@ func (file *GridFile) assertMode(mode gfsFileMode) {
 
 // SetChunkSize sets size of saved chunks.  Once the file is written to, it
 // will be split in blocks of that size and each block saved into an
-// independent chunk document.  The default chunk size is 255kb.
+// independent chunk document.  The default chunk size is 256kb.
 //
 // It is a runtime error to call this function once the file has started
 // being written to.

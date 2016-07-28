@@ -1,4 +1,4 @@
-package dbtest_test
+package testserver_test
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/dbtest"
+	"gopkg.in/mgo.v2/testserver"
 )
 
 type M map[string]interface{}
@@ -33,7 +33,7 @@ func (s *S) TearDownTest(c *C) {
 }
 
 func (s *S) TestWipeData(c *C) {
-	var server dbtest.DBServer
+	var server testserver.TestServer
 	server.SetPath(c.MkDir())
 	defer server.Stop()
 
@@ -56,7 +56,7 @@ func (s *S) TestWipeData(c *C) {
 }
 
 func (s *S) TestStop(c *C) {
-	var server dbtest.DBServer
+	var server testserver.TestServer
 	server.SetPath(c.MkDir())
 	defer server.Stop()
 
@@ -85,7 +85,7 @@ func (s *S) TestStop(c *C) {
 }
 
 func (s *S) TestCheckSessions(c *C) {
-	var server dbtest.DBServer
+	var server testserver.TestServer
 	server.SetPath(c.MkDir())
 	defer server.Stop()
 
@@ -95,7 +95,7 @@ func (s *S) TestCheckSessions(c *C) {
 }
 
 func (s *S) TestCheckSessionsDisabled(c *C) {
-	var server dbtest.DBServer
+	var server testserver.TestServer
 	server.SetPath(c.MkDir())
 	defer server.Stop()
 

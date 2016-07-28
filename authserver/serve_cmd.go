@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/rpc"
+	"strings"
 )
 
 // Internal dependencies
@@ -30,9 +31,10 @@ var ServeCmd = &cobra.Command{
 }
 
 func init() {
-	ServeCmd.PersistentFlags().StringVarP(&arguments.couchbaseCluster, "dbaddr", "d", "", "the database cluster addres")
-	ServeCmd.PersistentFlags().StringVarP(&arguments.couchbaseBucket, "dbbucket", "b", "", "the database target bucket")
-	ServeCmd.PersistentFlags().StringVarP(&arguments.couchbaseBucketPwd, "dbbucketpwd", "w", "", "the database bucket password")
+	ServeCmd.PersistentFlags().StringVarP(&arguments.dbAddresses, "dbaddrs", "d", "127.0.0.1:27017", "the database cluster addresses")
+	ServeCmd.PersistentFlags().StringVarP(&arguments.dbUsername, "dbuser", "u", "", "the database user name")
+	ServeCmd.PersistentFlags().StringVarP(&arguments.dbPassword, "dbpwd", "w", "", "the database password")
+	ServeCmd.PersistentFlags().StringVarP(&arguments.dbAuth, "dbauth", "", "admin", "the database auth db")
 	ServeCmd.PersistentFlags().StringVarP(&arguments.address, "address", "a", "0.0.0.0", "the RPC listening address")
 	ServeCmd.PersistentFlags().IntVarP(&arguments.port, "port", "9", 7931, "the RPC listening port")
 	// files parameters
@@ -43,15 +45,18 @@ func serve(cmd *cobra.Command, args []string) error {
 	printLogo()
 	// startup db
 	var err error
-	arguments.bucket, err = startupCouchbaseConnection(arguments.couchbaseCluster,
-		arguments.couchbaseBucket,
-		arguments.couchbaseBucketPwd)
+	arguments.session, err = mgoSession(&dbArgs{
+		addresses: strings.Split(arguments.dbAddresses, ","),
+		user:      arguments.dbUsername,
+		password:  arguments.dbPassword,
+		authDb:    arguments.dbAuth,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to start db connection cause %s", err.Error())
 	}
-	log.MessageLog("Bucket %s successfully opened on cluster %s.\n",
-		arguments.couchbaseBucket,
-		arguments.couchbaseCluster)
+	defer arguments.session.Close()
+
+	log.MessageLog("Mongodb %s successfully connected.\n", arguments.dbAddresses)
 
 	// register RPC calls
 	login := new(Login)

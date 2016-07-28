@@ -11,7 +11,7 @@ import (
 
 // Third party libs
 import (
-	"github.com/couchbase/gocb"
+	"gopkg.in/mgo.v2"
 )
 
 // User struct identify a registered
@@ -38,12 +38,13 @@ type args struct {
 	// server basic args
 	verbose bool
 	colored bool
-	// couchbase
-	couchbaseCluster   string
-	couchbaseBucket    string
-	couchbaseBucketPwd string
+	// mongodb
+	dbAddresses string
+	dbUsername  string
+	dbPassword  string
+	dbAuth      string
 	// runtime allocated
-	bucket *gocb.Bucket
+	session *mgo.Session
 	// service
 	address string
 	port    int

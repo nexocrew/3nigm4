@@ -39,7 +39,7 @@ import (
 	"time"
 
 	. "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2-unstable"
+	"gopkg.in/mgo.v2"
 )
 
 func (s *S) TestAuthLoginDatabase(c *C) {
@@ -904,7 +904,7 @@ func (s *S) TestAuthX509Cred(c *C) {
 		c.Skip("server does not support SSL")
 	}
 
-	clientCertPEM, err := ioutil.ReadFile("harness/certs/client.pem")
+	clientCertPEM, err := ioutil.ReadFile("testdb/client.pem")
 	c.Assert(err, IsNil)
 
 	clientCert, err := tls.X509KeyPair(clientCertPEM, clientCertPEM)
