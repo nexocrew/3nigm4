@@ -12,35 +12,10 @@ import (
 
 // Third party libs
 import (
-	"github.com/couchbase/gocb"
+	"gopkg.in/mgo.v2"
 )
 
-func startupCouchbaseConnection(cluster, bucket, password string) (*gocb.Bucket, error) {
+func mgoSession(address, bucket, user, password, auth string) (*mgo.Session, error) {
 	// connect to db
-	cl, err := gocb.Connect(cluster)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to connect to db cluster: %s.\n", err.Error())
-	}
-	buck, err := cl.OpenBucket(bucket, password)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to open bucket: %s.\n", err.Error())
-	}
-	return buck, nil
+	return mgo.Dial(fmt.Sprintf(format, ...))
 }
-
-/*
-// Test struct
-	tests := &User{
-		Username:     "user",
-		FullName:     "User name",
-		PasswordHash: []byte("a73d92ie023"),
-		Email:        "user@mail.com",
-		IsDisabled:   false,
-	}
-	cas, err := bucket.Insert("userA", &tests, 0)
-	if err != nil {
-		return fmt.Errorf("unable to insert document: %s", err.Error())
-
-	}
-	log.MessageLog("Doc inserted! %v.\n", cas)
-*/
