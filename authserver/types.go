@@ -9,28 +9,24 @@ import (
 	"time"
 )
 
-// Third party libs
-import (
-	"gopkg.in/mgo.v2"
-)
-
 // User struct identify a registered
 // user to the service.
 type User struct {
-	Username       string `json:"username"` // user name;
-	FullName       string `json:"fullname"` // complete full name;
-	HashedPassword []byte `json:"pwdhash"`  // hashed password;
-	Email          string `json:"email"`    // user's verified email;
-	IsDisabled     bool   `json:"disabled"` // user active (true) or not (false).
+	Username       string `bson:"username" ` // user name;
+	FullName       string `bson:"fullname"`  // complete full name;
+	HashedPassword []byte `bson:"pwdhash"`   // hashed password;
+	Email          string `bson:"email"`     // user's verified email;
+	IsDisabled     bool   `bson:"disabled"`  // user active (true) or not (false).
 }
 
 // Session contains information about loggedin
 // for authenticated users.
 type Session struct {
-	Token        []byte    `json:"token"`       // token for the session;
-	Username     string    `json:"username"`    // username associated to session;
-	LoginTime    time.Time `json:"login_ts"`    // timestamp of login time for this session;
-	LastSeenTime time.Time `json:"lastseen_ts"` // last call to an API done by the user.
+	Token        []byte        `bson:"token"`       // token for the session;
+	Username     string        `bson:"username"`    // username associated to session;
+	LoginTime    time.Time     `bson:"login_ts"`    // timestamp of login time for this session;
+	LastSeenTime time.Time     `bson:"lastseen_ts"` // last call to an API done by the user;
+	TimeToLive   time.Duration `bson:"timetolive"`  // time of validity of the session.
 }
 
 // Arguments management struct.
@@ -44,7 +40,7 @@ type args struct {
 	dbPassword  string
 	dbAuth      string
 	// runtime allocated
-	session *mgo.Session
+	dbclient database
 	// service
 	address string
 	port    int

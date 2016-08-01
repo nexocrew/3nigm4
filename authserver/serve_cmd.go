@@ -41,11 +41,13 @@ func init() {
 	ServeCmd.RunE = serve
 }
 
+// serve command expose a RPC service that exposes all authentication
+// related function to the outside.
 func serve(cmd *cobra.Command, args []string) error {
 	printLogo()
 	// startup db
 	var err error
-	arguments.session, err = mgoSession(&dbArgs{
+	arguments.dbclient, err = mgoSession(&dbArgs{
 		addresses: strings.Split(arguments.dbAddresses, ","),
 		user:      arguments.dbUsername,
 		password:  arguments.dbPassword,
@@ -54,7 +56,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to start db connection cause %s", err.Error())
 	}
-	defer arguments.session.Close()
+	defer arguments.dbclient.Close()
 
 	log.MessageLog("Mongodb %s successfully connected.\n", arguments.dbAddresses)
 
@@ -68,19 +70,4 @@ func serve(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to start rpc service %s", err.Error())
 	}
 	return http.Serve(listener, nil)
-}
-
-type LoginRequestArg struct {
-	Username       string
-	HashedPassword []byte
-}
-
-type LoginResponseArg struct {
-	Token []byte
-}
-
-type Login int
-
-func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
-	return nil
 }
