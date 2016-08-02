@@ -99,6 +99,9 @@ func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
 	if err != nil {
 		return fmt.Errorf("unable to get %s user: %s", args.Username, err.Error())
 	}
+	if reference.IsDisabled == true {
+		return fmt.Errorf("user is disabled, unable to proceed")
+	}
 	err = bcrypt.CompareHashAndPassword(reference.HashedPassword, []byte(args.Password))
 	if err != nil {
 		return fmt.Errorf("user not authenticated: %s", err.Error())
@@ -122,5 +125,43 @@ func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
 	}
 
 	response.Token = token
+	return nil
+}
+
+// LogoutRequest is the request passed to logout the
+// user's sessions.
+type LogoutRequest struct {
+	Token []byte // the session token used to identify the user.
+}
+
+// LogoutResponse is the void structure used to return the
+// list of invalidated sessions.
+type LogoutResponse struct {
+	Invalidated []byte
+}
+
+// Logout RPC exposed function logout a user, starting from a valid active
+// session and remove all opened session related to that user.
+func (t *Login) Logout(args *LogoutRequest, response *LogoutResponse) error {
+	// check for session
+	if arguments.dbclient == nil {
+		return fmt.Errorf("invalid db session, unable to proceed")
+	}
+	client := arguments.dbclient.Copy()
+	defer client.Close()
+
+	if args.Token == nil {
+		return fmt.Errorf("invalid session token")
+	}
+
+	// remove session, not verifying the actual validity, it
+	// would not matter having to be removed if timeout has been
+	// reached.
+	err := client.RemoveSession(args.Token)
+	if err != nil {
+		return fmt.Errorf("unable to remove session: %s", err.Error())
+	}
+
+	response.Invalidated = args.Token
 	return nil
 }

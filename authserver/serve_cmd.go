@@ -63,6 +63,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	// register RPC calls
 	login := new(Login)
 	rpc.Register(login)
+
 	// start listening
 	rpc.HandleHTTP()
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", arguments.address, arguments.port))

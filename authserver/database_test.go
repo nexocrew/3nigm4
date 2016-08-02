@@ -62,6 +62,11 @@ func (d *mockdb) SetUser(user *User) error {
 	return nil
 }
 
+func (d *mockdb) RemoveUser(username string) error {
+	delete(d.userStorage, username)
+	return nil
+}
+
 func (d *mockdb) GetSession(token []byte) (*Session, error) {
 	h := hex.EncodeToString(token)
 	session, ok := d.sessionStorage[h]
@@ -78,5 +83,11 @@ func (d *mockdb) SetSession(s *Session) error {
 		return fmt.Errorf("session %s already exist in the db", h)
 	}
 	d.sessionStorage[h] = s
+	return nil
+}
+
+func (d *mockdb) RemoveSession(token []byte) error {
+	h := hex.EncodeToString(token)
+	delete(d.sessionStorage, h)
 	return nil
 }
