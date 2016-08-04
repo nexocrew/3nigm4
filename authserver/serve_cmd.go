@@ -63,6 +63,8 @@ func serve(cmd *cobra.Command, args []string) error {
 	// register RPC calls
 	login := new(Login)
 	rpc.Register(login)
+	sessionauth := new(SessionAuth)
+	rpc.Register(sessionauth)
 
 	// start listening
 	rpc.HandleHTTP()

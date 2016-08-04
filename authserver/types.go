@@ -12,11 +12,11 @@ import (
 // User struct identify a registered
 // user to the service.
 type User struct {
-	Username       string `bson:"username" ` // user name;
-	FullName       string `bson:"fullname"`  // complete full name;
-	HashedPassword []byte `bson:"pwdhash"`   // hashed password;
-	Email          string `bson:"email"`     // user's verified email;
-	IsDisabled     bool   `bson:"disabled"`  // user active (true) or not (false).
+	Username       string `bson:"username" `          // user name;
+	FullName       string `bson:"fullname,omitempty"` // complete full name;
+	HashedPassword []byte `bson:"pwdhash"`            // hashed password;
+	Email          string `bson:"email,omitempty"`    // user's verified email;
+	IsDisabled     bool   `bson:"disabled"`           // user active (true) or not (false).
 }
 
 // Session contains information about loggedin

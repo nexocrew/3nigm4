@@ -78,10 +78,6 @@ func (d *mockdb) GetSession(token []byte) (*Session, error) {
 
 func (d *mockdb) SetSession(s *Session) error {
 	h := hex.EncodeToString(s.Token)
-	_, ok := d.sessionStorage[h]
-	if ok {
-		return fmt.Errorf("session %s already exist in the db", h)
-	}
 	d.sessionStorage[h] = s
 	return nil
 }

@@ -62,6 +62,9 @@ func generateSessionToken(username string) ([]byte, error) {
 	return hash[:], nil
 }
 
+// Login the RPC required custom type.
+type Login int
+
 // LoginRequestArg define the RPC request struct
 type LoginRequestArg struct {
 	Username string // the authenticating username;
@@ -73,9 +76,6 @@ type LoginRequestArg struct {
 type LoginResponseArg struct {
 	Token []byte // the session token to be used, from now on, to communicate with server.
 }
-
-// Login the RPC required custom type.
-type Login int
 
 // Login RPC exposed functions it's create a session token
 // after verifying that the username and password are already
@@ -89,7 +89,8 @@ func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
 	defer client.Close()
 
 	// check for arguments
-	if args.Username == "" ||
+	if args == nil ||
+		args.Username == "" ||
 		args.Password == "" {
 		return fmt.Errorf("invalid username and password")
 	}
@@ -119,6 +120,7 @@ func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
 		Username:     reference.Username,
 		LoginTime:    now,
 		LastSeenTime: now,
+		TimeToLive:   time.Duration(kTimeToLive) * time.Minute,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to save session: %s", err.Error())
