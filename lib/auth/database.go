@@ -10,12 +10,13 @@
 // In production this file is a simple wrapper around
 // mgo package.
 //
-package main
+package auth
 
 // Golang std libs
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // Third party libs
@@ -31,23 +32,24 @@ const (
 	kEnvDatabaseName           = "NEXO_AUTH_DATABASE"
 	kEnvUsersCollectionName    = "NEXO_AUTH_USERS_COLLECTION"
 	kEnvSessionsCollectionName = "NEXO_AUTH_SESSIONS_COLLECTION"
+	kMaxSessionExistance       = 32 * time.Hour
 )
 
-// dbArgs is the exposed arguments
+// DbArgs is the exposed arguments
 // required by each database interface
 // implementing structs.
-type dbArgs struct {
-	addresses []string // cluster addresses in form <addr>:<port>;
-	user      string   // authentication username;
-	password  string   // authentication password;
-	authDb    string   // the auth db.
+type DbArgs struct {
+	Addresses []string // cluster addresses in form <addr>:<port>;
+	User      string   // authentication username;
+	Password  string   // authentication password;
+	AuthDb    string   // the auth db.
 }
 
 // database an interface defyining a generic
 // db, package targeting, implementation.
-type database interface {
+type Database interface {
 	// db client related functions
-	Copy() database // retain the db client in a multi-coroutine environment;
+	Copy() Database // retain the db client in a multi-coroutine environment;
 	Close()         // release the client;
 	// user behaviour
 	GetUser(string) (*User, error) // gets a user struct from an argument username;
@@ -57,11 +59,12 @@ type database interface {
 	GetSession([]byte) (*Session, error) // search for a session in the db;
 	SetSession(*Session) error           // insert a session in the db;
 	RemoveSession([]byte) error          // remove an existing session;
+	RemoveAllSessions() error            // remove all sessions in the db.
 }
 
 // mongodb database, wrapping mgo session
 // structure.
-type mongodb struct {
+type Mongodb struct {
 	session *mgo.Session
 	// target nodes
 	database           string
@@ -70,26 +73,26 @@ type mongodb struct {
 }
 
 // composeDbAddress compose a string starting from dbArgs slice.
-func composeDbAddress(args *dbArgs) string {
-	dbAccess := fmt.Sprintf("mongodb://%s:%s@", args.user, args.password)
-	for idx, addr := range args.addresses {
+func composeDbAddress(args *DbArgs) string {
+	dbAccess := fmt.Sprintf("mongodb://%s:%s@", args.User, args.Password)
+	for idx, addr := range args.Addresses {
 		dbAccess += addr
-		if idx != len(args.addresses)-1 {
+		if idx != len(args.Addresses)-1 {
 			dbAccess += ","
 		}
 	}
-	dbAccess += fmt.Sprintf("/?authSource=%s", args.authDb)
+	dbAccess += fmt.Sprintf("/?authSource=%s", args.AuthDb)
 	return dbAccess
 }
 
 // mgoSession get a new session starting from the standard args
 // structure.
-func mgoSession(args *dbArgs) (*mongodb, error) {
+func MgoSession(args *DbArgs) (*Mongodb, error) {
 	s, err := mgo.Dial(composeDbAddress(args))
 	if err != nil {
 		return nil, err
 	}
-	db := &mongodb{
+	db := &Mongodb{
 		session: s,
 	}
 	// check for env vars
@@ -116,20 +119,20 @@ func mgoSession(args *dbArgs) (*mongodb, error) {
 }
 
 // Copy the internal session to permitt multi corutine usage.
-func (d *mongodb) Copy() database {
-	return &mongodb{
+func (d *Mongodb) Copy() Database {
+	return &Mongodb{
 		session: d.session.Copy(),
 	}
 }
 
 // Close releases the session client.
-func (d *mongodb) Close() {
+func (d *Mongodb) Close() {
 	d.session.Close()
 }
 
 // GetUser get user strucutre from a given username, if
 // something wrong returns an error.
-func (d *mongodb) GetUser(username string) (*User, error) {
+func (d *Mongodb) GetUser(username string) (*User, error) {
 	// build query
 	selector := bson.M{
 		"username": bson.M{"$eq": username},
@@ -145,7 +148,7 @@ func (d *mongodb) GetUser(username string) (*User, error) {
 
 // SetUser adds an argument User struct to the database,
 // returns an error if something went wrong.
-func (d *mongodb) SetUser(user *User) error {
+func (d *Mongodb) SetUser(user *User) error {
 	selector := bson.M{
 		"username": user.Username,
 	}
@@ -160,7 +163,7 @@ func (d *mongodb) SetUser(user *User) error {
 }
 
 // RemoveUser remove an existing user from the db.
-func (d *mongodb) RemoveUser(username string) error {
+func (d *Mongodb) RemoveUser(username string) error {
 	// build query
 	selector := bson.M{
 		"username": bson.M{"$eq": username},
@@ -176,7 +179,7 @@ func (d *mongodb) RemoveUser(username string) error {
 // GetSession check if a session is available and still valid
 // veryfing time of last seen contact against pre-defined
 // timeout value.
-func (d *mongodb) GetSession(token []byte) (*Session, error) {
+func (d *Mongodb) GetSession(token []byte) (*Session, error) {
 	// build query
 	selector := bson.M{
 		"token": bson.M{"$eq": token},
@@ -191,7 +194,7 @@ func (d *mongodb) GetSession(token []byte) (*Session, error) {
 }
 
 // SetSession add a session data to the database.
-func (d *mongodb) SetSession(session *Session) error {
+func (d *Mongodb) SetSession(session *Session) error {
 	selector := bson.M{
 		"token": session.Token,
 	}
@@ -206,7 +209,7 @@ func (d *mongodb) SetSession(session *Session) error {
 }
 
 // RemoveSession remove a session from the db.
-func (d *mongodb) RemoveSession(token []byte) error {
+func (d *Mongodb) RemoveSession(token []byte) error {
 	// build query
 	selector := bson.M{
 		"token": bson.M{"$eq": token},
@@ -219,10 +222,21 @@ func (d *mongodb) RemoveSession(token []byte) error {
 	return nil
 }
 
+// RemoveAllSessions remove all active and not active
+// sessions from the database instance.
+func (d *Mongodb) RemoveAllSessions() error {
+	// perform db remove all
+	_, err := d.session.DB(d.database).C(d.sessionsCollection).RemoveAll(bson.M{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // ensureMongodbIndexes assign mongodb indexes to the right
 // collections, this should be done only the first time the
 // collection is created.
-func (d *mongodb) ensureMongodbIndexes() error {
+func (d *Mongodb) EnsureMongodbIndexes() error {
 	usersIndex := mgo.Index{
 		Key:        []string{"username"},
 		Unique:     true,
@@ -245,11 +259,25 @@ func (d *mongodb) ensureMongodbIndexes() error {
 		Background: true,
 		Sparse:     false,
 	}
+	// the following index is used to
+	// clean out every session after 32 hours
+	// from the creation time.
+	cleanSessionIndex := mgo.Index{
+		Key:         []string{"login_ts"},
+		Unique:      false,
+		DropDups:    false,
+		Background:  true,
+		ExpireAfter: kMaxSessionExistance, // clean session at max every 32 hours (time.Duration type).
+	}
 	err = d.session.DB(d.database).C(d.sessionsCollection).EnsureIndex(sessionIndex)
 	if err != nil {
 		return err
 	}
 	err = d.session.DB(d.database).C(d.sessionsCollection).EnsureIndex(userSessionIndex)
+	if err != nil {
+		return err
+	}
+	err = d.session.DB(d.database).C(d.sessionsCollection).EnsureIndex(cleanSessionIndex)
 	if err != nil {
 		return err
 	}

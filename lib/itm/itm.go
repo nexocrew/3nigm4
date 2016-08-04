@@ -38,7 +38,7 @@ type IntegrationTestsDataSource struct {
 
 // Constant db values (usable in local contexts).
 const (
-	kDbAddress        = "192.168.0.9"
+	kDbAddress        = "127.0.0.1"
 	kDbPort           = 27017
 	kDbUserName       = ""
 	kDbPassword       = ""

@@ -8,7 +8,7 @@
 // concurrency safe and do not implement any performance
 // optimisation logic.
 //
-package main
+package auth
 
 // Golang std libs
 import (
@@ -27,18 +27,18 @@ type mockdb struct {
 	sessionStorage map[string]*Session
 }
 
-func newMockDb(args *dbArgs) *mockdb {
+func newMockDb(args *DbArgs) *mockdb {
 	return &mockdb{
 		addresses:      composeDbAddress(args),
-		user:           args.user,
-		password:       args.password,
-		authDb:         args.authDb,
+		user:           args.User,
+		password:       args.Password,
+		authDb:         args.AuthDb,
 		userStorage:    make(map[string]*User),
 		sessionStorage: make(map[string]*Session),
 	}
 }
 
-func (d *mockdb) Copy() database {
+func (d *mockdb) Copy() Database {
 	return d
 }
 
@@ -85,5 +85,10 @@ func (d *mockdb) SetSession(s *Session) error {
 func (d *mockdb) RemoveSession(token []byte) error {
 	h := hex.EncodeToString(token)
 	delete(d.sessionStorage, h)
+	return nil
+}
+
+func (d *mockdb) RemoveAllSessions() error {
+	d.sessionStorage = make(map[string]*Session)
 	return nil
 }

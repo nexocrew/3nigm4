@@ -15,7 +15,9 @@ import (
 )
 
 // Internal dependencies
-import ()
+import (
+	"github.com/nexocrew/3nigm4/lib/auth"
+)
 
 // Third party libs
 import (
@@ -46,24 +48,32 @@ func init() {
 func serve(cmd *cobra.Command, args []string) error {
 	printLogo()
 	// startup db
-	var err error
-	arguments.dbclient, err = mgoSession(&dbArgs{
-		addresses: strings.Split(arguments.dbAddresses, ","),
-		user:      arguments.dbUsername,
-		password:  arguments.dbPassword,
-		authDb:    arguments.dbAuth,
+	mgodb, err := auth.MgoSession(&auth.DbArgs{
+		Addresses: strings.Split(arguments.dbAddresses, ","),
+		User:      arguments.dbUsername,
+		Password:  arguments.dbPassword,
+		AuthDb:    arguments.dbAuth,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to start db connection cause %s", err.Error())
 	}
-	defer arguments.dbclient.Close()
+
+	// set global db
+	auth.SetGlobalDbClient(mgodb)
+	defer auth.CloseGlobalDbClient()
 
 	log.MessageLog("Mongodb %s successfully connected.\n", arguments.dbAddresses)
 
+	// ensure indexes
+	err = mgodb.EnsureMongodbIndexes()
+	if err != nil {
+		log.WarningLog("Ensuring indexes in Mongodb returned error %s.\n", err.Error())
+	}
+
 	// register RPC calls
-	login := new(Login)
+	login := new(auth.Login)
 	rpc.Register(login)
-	sessionauth := new(SessionAuth)
+	sessionauth := new(auth.SessionAuth)
 	rpc.Register(sessionauth)
 
 	// start listening

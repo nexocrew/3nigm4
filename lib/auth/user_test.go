@@ -3,7 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
-package main
+package auth
 
 // Golang std libs
 import (
@@ -14,18 +14,11 @@ import (
 
 func TestLoginRegularUser(t *testing.T) {
 	// startup mock and global vars
-	arguments = args{
-		dbAddresses: "127.0.0.1:27017,192.168.0.1:27017",
-		dbUsername:  "username",
-		dbPassword:  "password",
-		address:     "0.0.0.0",
-		port:        7300,
-	}
-	arguments.dbclient = newMockDb(&dbArgs{
-		addresses: strings.Split(arguments.dbAddresses, ","),
-		user:      arguments.dbUsername,
-		password:  arguments.dbPassword,
-		authDb:    arguments.dbAuth,
+	dbclient = newMockDb(&DbArgs{
+		Addresses: strings.Split("127.0.0.1:27017,192.168.0.1:27017", ","),
+		User:      "username",
+		Password:  "password",
+		AuthDb:    "admin",
 	})
 
 	// add test user
@@ -33,17 +26,23 @@ func TestLoginRegularUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to produce bcrypted password: %s.\n", err.Error())
 	}
-	err = arguments.dbclient.SetUser(&User{
+	err = dbclient.SetUser(&User{
 		Username:       "userA",
 		FullName:       "user A",
 		Email:          "userA@email.com",
 		IsDisabled:     false,
 		HashedPassword: hash,
+		Permissions: Permissions{
+			SuperAdmin: false,
+			Services: map[string]Level{
+				"test": LevelAdmin,
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("Unable to set user: %s.\n", err.Error())
 	}
-	defer arguments.dbclient.RemoveUser("userA")
+	defer dbclient.RemoveUser("userA")
 
 	// login func
 	var l Login
@@ -59,10 +58,10 @@ func TestLoginRegularUser(t *testing.T) {
 		len(response.Token) == 0 {
 		t.Fatalf("Unexpected token, should be not nil.\n")
 	}
-	defer arguments.dbclient.RemoveSession(response.Token)
+	defer dbclient.RemoveSession(response.Token)
 	t.Logf("Token: %v.\n", response.Token)
 
-	session, err := arguments.dbclient.GetSession(response.Token)
+	session, err := dbclient.GetSession(response.Token)
 	if err != nil {
 		t.Fatalf("Unable to find out session: %s.\n", err.Error())
 	}
@@ -88,18 +87,11 @@ func TestLoginRegularUser(t *testing.T) {
 
 func TestLoginIvalidUser(t *testing.T) {
 	// startup mock and global vars
-	arguments = args{
-		dbAddresses: "127.0.0.1:27017,192.168.0.1:27017",
-		dbUsername:  "username",
-		dbPassword:  "password",
-		address:     "0.0.0.0",
-		port:        7300,
-	}
-	arguments.dbclient = newMockDb(&dbArgs{
-		addresses: strings.Split(arguments.dbAddresses, ","),
-		user:      arguments.dbUsername,
-		password:  arguments.dbPassword,
-		authDb:    arguments.dbAuth,
+	dbclient = newMockDb(&DbArgs{
+		Addresses: strings.Split("127.0.0.1:27017,192.168.0.1:27017", ","),
+		User:      "username",
+		Password:  "password",
+		AuthDb:    "admin",
 	})
 
 	// add test user
@@ -107,17 +99,23 @@ func TestLoginIvalidUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to produce bcrypted password: %s.\n", err.Error())
 	}
-	err = arguments.dbclient.SetUser(&User{
+	err = dbclient.SetUser(&User{
 		Username:       "userA",
 		FullName:       "user A",
 		Email:          "userA@email.com",
 		IsDisabled:     false,
 		HashedPassword: hash,
+		Permissions: Permissions{
+			SuperAdmin: false,
+			Services: map[string]Level{
+				"test": LevelAdmin,
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("Unable to set user: %s.\n", err.Error())
 	}
-	defer arguments.dbclient.RemoveUser("userA")
+	defer dbclient.RemoveUser("userA")
 
 	// login func
 	var l Login
@@ -136,18 +134,11 @@ func TestLoginIvalidUser(t *testing.T) {
 
 func TestLoginDisabledUser(t *testing.T) {
 	// startup mock and global vars
-	arguments = args{
-		dbAddresses: "127.0.0.1:27017,192.168.0.1:27017",
-		dbUsername:  "username",
-		dbPassword:  "password",
-		address:     "0.0.0.0",
-		port:        7300,
-	}
-	arguments.dbclient = newMockDb(&dbArgs{
-		addresses: strings.Split(arguments.dbAddresses, ","),
-		user:      arguments.dbUsername,
-		password:  arguments.dbPassword,
-		authDb:    arguments.dbAuth,
+	dbclient = newMockDb(&DbArgs{
+		Addresses: strings.Split("127.0.0.1:27017,192.168.0.1:27017", ","),
+		User:      "username",
+		Password:  "password",
+		AuthDb:    "admin",
 	})
 
 	// add test user
@@ -155,17 +146,23 @@ func TestLoginDisabledUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to produce bcrypted password: %s.\n", err.Error())
 	}
-	err = arguments.dbclient.SetUser(&User{
+	err = dbclient.SetUser(&User{
 		Username:       "userA",
 		FullName:       "user A",
 		Email:          "userA@email.com",
 		IsDisabled:     true,
 		HashedPassword: hash,
+		Permissions: Permissions{
+			SuperAdmin: false,
+			Services: map[string]Level{
+				"test": LevelAdmin,
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("Unable to set user: %s.\n", err.Error())
 	}
-	defer arguments.dbclient.RemoveUser("userA")
+	defer dbclient.RemoveUser("userA")
 
 	// login func
 	var l Login
@@ -184,18 +181,11 @@ func TestLoginDisabledUser(t *testing.T) {
 
 func TestLoginAndLogoutOnRegularUser(t *testing.T) {
 	// startup mock and global vars
-	arguments = args{
-		dbAddresses: "127.0.0.1:27017,192.168.0.1:27017",
-		dbUsername:  "username",
-		dbPassword:  "password",
-		address:     "0.0.0.0",
-		port:        7300,
-	}
-	arguments.dbclient = newMockDb(&dbArgs{
-		addresses: strings.Split(arguments.dbAddresses, ","),
-		user:      arguments.dbUsername,
-		password:  arguments.dbPassword,
-		authDb:    arguments.dbAuth,
+	dbclient = newMockDb(&DbArgs{
+		Addresses: strings.Split("127.0.0.1:27017,192.168.0.1:27017", ","),
+		User:      "username",
+		Password:  "password",
+		AuthDb:    "admin",
 	})
 
 	// add test user
@@ -203,17 +193,23 @@ func TestLoginAndLogoutOnRegularUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to produce bcrypted password: %s.\n", err.Error())
 	}
-	err = arguments.dbclient.SetUser(&User{
+	err = dbclient.SetUser(&User{
 		Username:       "userA",
 		FullName:       "user A",
 		Email:          "userA@email.com",
 		IsDisabled:     false,
 		HashedPassword: hash,
+		Permissions: Permissions{
+			SuperAdmin: false,
+			Services: map[string]Level{
+				"test": LevelAdmin,
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("Unable to set user: %s.\n", err.Error())
 	}
-	defer arguments.dbclient.RemoveUser("userA")
+	defer dbclient.RemoveUser("userA")
 
 	// login func
 	var l Login
@@ -239,7 +235,7 @@ func TestLoginAndLogoutOnRegularUser(t *testing.T) {
 		t.Fatalf("Unable to logout user.\n")
 	}
 
-	if _, err = arguments.dbclient.GetSession(loginResponse.Token); err == nil {
+	if _, err = dbclient.GetSession(loginResponse.Token); err == nil {
 		t.Fatalf("Session should not be present but is still there.\n")
 	}
 }

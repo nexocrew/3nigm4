@@ -3,7 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
-package main
+package auth
 
 // Golang std libs
 import (
@@ -82,10 +82,10 @@ type LoginResponseArg struct {
 // registered in the system.
 func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
 	// check for session
-	if arguments.dbclient == nil {
+	if dbclient == nil {
 		return fmt.Errorf("invalid db session, unable to proceed")
 	}
-	client := arguments.dbclient.Copy()
+	client := dbclient.Copy()
 	defer client.Close()
 
 	// check for arguments
@@ -146,10 +146,10 @@ type LogoutResponse struct {
 // session and remove all opened session related to that user.
 func (t *Login) Logout(args *LogoutRequest, response *LogoutResponse) error {
 	// check for session
-	if arguments.dbclient == nil {
+	if dbclient == nil {
 		return fmt.Errorf("invalid db session, unable to proceed")
 	}
-	client := arguments.dbclient.Copy()
+	client := dbclient.Copy()
 	defer client.Close()
 
 	if args.Token == nil {
