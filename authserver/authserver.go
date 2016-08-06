@@ -33,8 +33,7 @@ var arguments args
 var AuthCmd = &cobra.Command{
 	Use:   "authserver",
 	Short: "Authentication server",
-	Long: `Authentication server is employed by 3nigm4
-		server applications to verify user's identity.`,
+	Long:  "Authentication server is employed by 3nigm4 server applications to verify user's identity.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		printLogo()
 		// Execution implementation

@@ -25,11 +25,10 @@ import (
 )
 
 var ServeCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Serve trougth RPC",
-	Long: `Launch RPC service to expose authentication
-		services.`,
-	Example: "authserver serve -v",
+	Use:     "serve",
+	Short:   "Serve trougth RPC",
+	Long:    "Launch RPC service to expose authentication services.",
+	Example: "authserver serve -d 127.0.0.1:27017 -u dbuser -w dbpwd -a 0.0.0.0 -p 7931 -v",
 }
 
 func init() {
@@ -38,7 +37,7 @@ func init() {
 	ServeCmd.PersistentFlags().StringVarP(&arguments.dbPassword, "dbpwd", "w", "", "the database password")
 	ServeCmd.PersistentFlags().StringVarP(&arguments.dbAuth, "dbauth", "", "admin", "the database auth db")
 	ServeCmd.PersistentFlags().StringVarP(&arguments.address, "address", "a", "0.0.0.0", "the RPC listening address")
-	ServeCmd.PersistentFlags().IntVarP(&arguments.port, "port", "9", 7931, "the RPC listening port")
+	ServeCmd.PersistentFlags().IntVarP(&arguments.port, "port", "p", 7931, "the RPC listening port")
 	// files parameters
 	ServeCmd.RunE = serve
 }
