@@ -12,11 +12,11 @@ import (
 const (
 	kANSIEscapedColorFormat = "\x1b[40m\x1b[%dm%s\x1b[0m" // defines the default format string to color a particular string.
 	kANSIEscapedBoldFormat  = "\x1b[40m\x1b[1m%s\x1b[0m"
-	kLogoSeparator          = `==============================`
-	kLogoLine0              = ` ___  _  _  __  `
-	kLogoLine1              = `(__ )( \( )/ ,) `
-	kLogoLine2              = ` (_ \ )  ((_  _)`
-	kLogoLine3              = `(___/(_)\_) (_) `
+	kLogoSeparator          = `===========================================================`
+	kLogoLine0              = `                      ___  _  _  __                      `
+	kLogoLine1              = `                     (__ )( \( )/ ,)                     `
+	kLogoLine2              = `                      (_ \ )  ((_  _)                    `
+	kLogoLine3              = `                     (___/(_)\_) (_)                     `
 	kLogoLine4              = `3nigm4 project`
 	kPrefixChar             = `*`
 	kPostfixChar            = `*`
