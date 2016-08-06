@@ -43,10 +43,15 @@ func init() {
 	ServeCmd.RunE = serve
 }
 
-// serve command expose a RPC service that exposes all authentication
-// related function to the outside.
-func serve(cmd *cobra.Command, args []string) error {
-	printLogo()
+// This var is used to permitt to switch to mock db implementation
+// in unit-tests, do not mess with it for other reasons.
+// The default, production targeting, implementation uses Mongodb
+// as backend database system.
+var databaseStartup func(*args) (auth.Database, error) = mgoStartup
+
+// mgoStartup implement startup logic for a mongodb based database
+// connection.
+func mgoStartup(arguments *args) (auth.Database, error) {
 	// startup db
 	mgodb, err := auth.MgoSession(&auth.DbArgs{
 		Addresses: strings.Split(arguments.dbAddresses, ","),
@@ -55,12 +60,8 @@ func serve(cmd *cobra.Command, args []string) error {
 		AuthDb:    arguments.dbAuth,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to start db connection cause %s", err.Error())
+		return nil, fmt.Errorf("failed to start db connection cause %s", err.Error())
 	}
-
-	// set global db
-	auth.SetGlobalDbClient(mgodb)
-	defer auth.CloseGlobalDbClient()
 
 	log.MessageLog("Mongodb %s successfully connected.\n", arguments.dbAddresses)
 
@@ -69,6 +70,22 @@ func serve(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		log.WarningLog("Ensuring indexes in Mongodb returned error %s.\n", err.Error())
 	}
+	return mgodb, nil
+}
+
+// serve command expose a RPC service that exposes all authentication
+// related function to the outside.
+func serve(cmd *cobra.Command, args []string) error {
+	printLogo()
+
+	db, err := databaseStartup(&arguments)
+	if err != nil {
+		return err
+	}
+
+	// set global db
+	auth.SetGlobalDbClient(db)
+	defer auth.CloseGlobalDbClient()
 
 	// register RPC calls
 	login := new(auth.Login)
@@ -76,11 +93,15 @@ func serve(cmd *cobra.Command, args []string) error {
 	sessionauth := new(auth.SessionAuth)
 	rpc.Register(sessionauth)
 
+	address := fmt.Sprintf("%s:%d", arguments.address, arguments.port)
+	log.MessageLog("Ready to serve via tcp on address %s.\n", address)
+
 	// start listening
 	rpc.HandleHTTP()
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", arguments.address, arguments.port))
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("unable to start rpc service %s", err.Error())
 	}
+
 	return http.Serve(listener, nil)
 }

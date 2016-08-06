@@ -21,7 +21,6 @@ import (
 // Third party libs
 import (
 	"github.com/spf13/cobra"
-	_ "golang.org/x/crypto/bcrypt"
 )
 
 // Logger global instance

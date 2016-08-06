@@ -58,6 +58,9 @@ func TestLoginRegularUser(t *testing.T) {
 		len(response.Token) == 0 {
 		t.Fatalf("Unexpected token, should be not nil.\n")
 	}
+	if len(response.Token) != 64 {
+		t.Fatalf("Invalid token size, having %d expecting 64.\n", len(response.Token))
+	}
 	defer dbclient.RemoveSession(response.Token)
 	t.Logf("Token: %v.\n", response.Token)
 
@@ -227,8 +230,8 @@ func TestLoginAndLogoutOnRegularUser(t *testing.T) {
 	}
 
 	// logout
-	logoutResponse := &LogoutResponse{}
-	err = l.Logout(&LogoutRequest{
+	logoutResponse := &LogoutResponseArg{}
+	err = l.Logout(&LogoutRequestArg{
 		Token: loginResponse.Token,
 	}, logoutResponse)
 	if err != nil {

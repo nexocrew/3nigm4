@@ -132,19 +132,19 @@ func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
 
 // LogoutRequest is the request passed to logout the
 // user's sessions.
-type LogoutRequest struct {
+type LogoutRequestArg struct {
 	Token []byte // the session token used to identify the user.
 }
 
-// LogoutResponse is the void structure used to return the
+// LogoutResponse is the structure used to return the
 // list of invalidated sessions.
-type LogoutResponse struct {
+type LogoutResponseArg struct {
 	Invalidated []byte
 }
 
 // Logout RPC exposed function logout a user, starting from a valid active
 // session and remove all opened session related to that user.
-func (t *Login) Logout(args *LogoutRequest, response *LogoutResponse) error {
+func (t *Login) Logout(args *LogoutRequestArg, response *LogoutResponseArg) error {
 	// check for session
 	if dbclient == nil {
 		return fmt.Errorf("invalid db session, unable to proceed")
