@@ -32,7 +32,7 @@ const (
 	kEnvDatabaseName           = "NEXO_AUTH_DATABASE"
 	kEnvUsersCollectionName    = "NEXO_AUTH_USERS_COLLECTION"
 	kEnvSessionsCollectionName = "NEXO_AUTH_SESSIONS_COLLECTION"
-	kMaxSessionExistance       = 32 * time.Hour
+	kMaxSessionExistance       = 24 * time.Hour
 )
 
 // DbArgs is the exposed arguments
@@ -45,7 +45,7 @@ type DbArgs struct {
 	AuthDb    string   // the auth db.
 }
 
-// database an interface defyining a generic
+// Database an interface defining a generic
 // db, package targeting, implementation.
 type Database interface {
 	// db client related functions
@@ -85,7 +85,7 @@ func composeDbAddress(args *DbArgs) string {
 	return dbAccess
 }
 
-// mgoSession get a new session starting from the standard args
+// MgoSession get a new session starting from the standard args
 // structure.
 func MgoSession(args *DbArgs) (*Mongodb, error) {
 	s, err := mgo.Dial(composeDbAddress(args))
@@ -121,7 +121,10 @@ func MgoSession(args *DbArgs) (*Mongodb, error) {
 // Copy the internal session to permitt multi corutine usage.
 func (d *Mongodb) Copy() Database {
 	return &Mongodb{
-		session: d.session.Copy(),
+		session:            d.session.Copy(),
+		database:           d.database,
+		usersCollection:    d.usersCollection,
+		sessionsCollection: d.sessionsCollection,
 	}
 }
 
@@ -263,11 +266,11 @@ func (d *Mongodb) EnsureMongodbIndexes() error {
 	// clean out every session after 32 hours
 	// from the creation time.
 	cleanSessionIndex := mgo.Index{
-		Key:         []string{"login_ts"},
+		Key:         []string{"lastseen_ts"},
 		Unique:      false,
 		DropDups:    false,
 		Background:  true,
-		ExpireAfter: kMaxSessionExistance, // clean session at max every 32 hours (time.Duration type).
+		ExpireAfter: kMaxSessionExistance, // clean session at max every 24 hours (time.Duration type).
 	}
 	err = d.session.DB(d.database).C(d.sessionsCollection).EnsureIndex(sessionIndex)
 	if err != nil {
