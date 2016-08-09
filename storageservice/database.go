@@ -136,13 +136,7 @@ func (d *mongodb) GetFileLog(filename string) (*FileLog, error) {
 // uploading successfully a data file to the S3
 // backend.
 func (d *mongodb) SetFileLog(fl *FileLog) error {
-	selector := bson.M{
-		"id": fl.Id,
-	}
-	update := bson.M{
-		"$set": fl,
-	}
-	_, err := d.session.DB(d.databaseName).C(d.filelogCollection).Upsert(selector, update)
+	err := d.session.DB(d.databaseName).C(d.filelogCollection).Insert(fl)
 	if err != nil {
 		return err
 	}
