@@ -35,7 +35,7 @@ func TestS3UploadInterface(t *testing.T) {
 
 	// create resonse listening routine
 	errorCounter := wq.AtomicCounter{}
-	uploaded := make([]string, 0)
+	uploaded := make([]UploadRequest, 0)
 	var lastError error
 	go func() {
 		for {
@@ -44,8 +44,8 @@ func TestS3UploadInterface(t *testing.T) {
 				errorCounter.Add(1)
 				lastError = err
 				t.Logf("%v", err)
-			case idUploaded := <-s3.UploadedChan:
-				uploaded = append(uploaded, idUploaded)
+			case rUploaded := <-s3.UploadedChan:
+				uploaded = append(uploaded, rUploaded)
 			case dataDownloaded := <-s3.DownloadedChan:
 				t.Logf("%v", dataDownloaded)
 			}
@@ -71,8 +71,11 @@ func TestS3UploadInterface(t *testing.T) {
 	}()
 	for {
 		if len(uploaded) == 1 {
-			if uploaded[0] != kFileId {
-				t.Fatalf("Unexpected file id having %s expecting %s.\n", uploaded[0], kFileId)
+			if uploaded[0].Id != kFileId {
+				t.Fatalf("Unexpected file id having %s expecting %s.\n", uploaded[0].Id, kFileId)
+			}
+			if uploaded[0].Error != nil {
+				t.Fatalf("Error must be nil but found a valid error.\n")
 			}
 			break
 		}
@@ -110,9 +113,9 @@ func TestS3DownloadInterface(t *testing.T) {
 				errorCounter.Add(1)
 				lastError = err
 				t.Logf("%v", err)
-			case idUploaded := <-s3.UploadedChan:
+			case rUploaded := <-s3.UploadedChan:
 				processedCounter.Add(1)
-				t.Logf("%v", idUploaded)
+				t.Logf("%v", rUploaded)
 			case dataDownloaded := <-s3.DownloadedChan:
 				downloaded = append(downloaded, dataDownloaded)
 			}

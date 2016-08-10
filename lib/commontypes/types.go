@@ -18,6 +18,12 @@ const (
 	SecurityTokenKey = "3x4-Security-Token" // header key used to pass security token coded as hexadecimal.
 )
 
+// Checksum of the uploaded file for later verify.
+type CheckSum struct {
+	Hash []byte `bson:"hash" json:"hash"` // checksum of data struct;
+	Type string `bson:"type" json:"hash"` // used algorithm.
+}
+
 // Permission represent the read permission on files.
 type Permission int
 
@@ -25,8 +31,8 @@ type Permission int
 // used to pass non specific messages like everything
 // is OK or an error occurred.
 type StandardResponse struct {
-	Status string `json:"status"` // Status string
-	Error  string `json:"error"`  // Error description
+	Status string `json:"status"` // status string;
+	Error  string `json:"error"`  // error description.
 }
 
 // Response status messages
@@ -44,4 +50,15 @@ type SechunkPostRequest struct {
 	TimeToLive   time.Duration `json:"ttl,omitempty"`     // required time to live for the data chunk;
 	Permission   Permission    `json:"permission"`        // the type of enforced permission;
 	SharingUsers []string      `json:"sharing,omitempty"` // usernames of users enabled to access the file (only in case of Shared permission type).
+}
+
+type SechunkPostResponse struct {
+	Id string `json:"id"` // id for the in processing upload.
+}
+
+type SechunkTxVerify struct {
+	Complete bool     `json:"complete"`           // the upload/download/delete tx has been completed;
+	Error    string   `json:"error,omitempty"`    // error description, if any;
+	Data     []byte   `json:"data,omitempty"`     // returned requested bytes;
+	CheckSum CheckSum `json:"checksum,omitempty"` // data related checksum if any.
 }

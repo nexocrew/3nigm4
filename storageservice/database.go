@@ -16,6 +16,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // Third party libs
@@ -27,9 +28,13 @@ import (
 const (
 	kDatabaseName              = "storageservice"
 	kFilesLogCollectionName    = "fileslog"
+	kAsyncTxCollectionName     = "asynctx"
 	kEnvDatabaseName           = "NEXO_FILESLOG_DATABASE"
-	kEnvFilesLogCollectionName = "NEXO_ILESLOG_COLLECTION"
+	kEnvFilesLogCollectionName = "NEXO_FILESLOG_COLLECTION"
+	kEnvAsyncTxCollectionName  = "NEXO_ASYNCTX_COLLECTION"
 )
+
+var MaxAsyncTxExistance = 1 * time.Hour
 
 // dbArgs is the exposed arguments
 // required by each database interface
@@ -49,8 +54,14 @@ type database interface {
 	Close()         // release the client;
 	// db create file log
 	SetFileLog(fl *FileLog) error             // add a new file log when a file is uploaded;
+	UpdateFileLog(fl *FileLog) error          // update an existing file log;
 	GetFileLog(file string) (*FileLog, error) // get infos to a previously uploaded file;
-	RemoveFileLog(file string) error          // remove a previously added file log.
+	RemoveFileLog(file string) error          // remove a previously added file log;
+	// async tx
+	SetAsyncTx(at *AsyncTx) error           // add a new async tx record;
+	UpdateAsyncTx(at *AsyncTx) error        // update an existing async tx;
+	GetAsyncTx(id string) (*AsyncTx, error) // get an existing tx;
+	RemoveAsyncTx(id string) error          // remove an existing tx (typically should be done automatically with a ttl setup).
 }
 
 // mongodb database, wrapping mgo session
@@ -60,6 +71,7 @@ type mongodb struct {
 	// target nodes
 	databaseName      string
 	filelogCollection string
+	asyncTxCollection string
 }
 
 // composeDbAddress compose a string starting from dbArgs slice.
@@ -98,6 +110,12 @@ func MgoSession(args *dbArgs) (*mongodb, error) {
 	} else {
 		db.filelogCollection = kFilesLogCollectionName
 	}
+	env = os.Getenv(kEnvAsyncTxCollectionName)
+	if env != "" {
+		db.asyncTxCollection = env
+	} else {
+		db.asyncTxCollection = kAsyncTxCollectionName
+	}
 	// connect to db
 	return db, nil
 }
@@ -108,6 +126,7 @@ func (d *mongodb) Copy() database {
 		session:           d.session.Copy(),
 		databaseName:      d.databaseName,
 		filelogCollection: d.filelogCollection,
+		asyncTxCollection: d.asyncTxCollection,
 	}
 }
 
@@ -143,6 +162,22 @@ func (d *mongodb) SetFileLog(fl *FileLog) error {
 	return nil
 }
 
+// UpdateFileLog update a previously created document
+// with updated argument structure.
+func (d *mongodb) UpdateFileLog(fl *FileLog) error {
+	selector := bson.M{
+		"id": fl.Id,
+	}
+	update := bson.M{
+		"$set": fl,
+	}
+	err := d.session.DB(d.databaseName).C(d.filelogCollection).Update(selector, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // RemoveFileLog remove an existing file log from the db.
 func (d *mongodb) RemoveFileLog(filename string) error {
 	// build query
@@ -157,10 +192,68 @@ func (d *mongodb) RemoveFileLog(filename string) error {
 	return nil
 }
 
+// GetAsyncTx returns an async tx document from the mongodb
+// instance.
+func (d *mongodb) GetAsyncTx(id string) (*AsyncTx, error) {
+	// build query
+	selector := bson.M{
+		"id": bson.M{"$eq": id},
+	}
+	// perform db query
+	var tx AsyncTx
+	err := d.session.DB(d.databaseName).C(d.asyncTxCollection).Find(selector).One(&tx)
+	if err != nil {
+		return nil, err
+	}
+	return &tx, nil
+}
+
+// SetAsyncTx add a new async tx document to the mongodb
+// instance.
+func (d *mongodb) SetAsyncTx(at *AsyncTx) error {
+	err := d.session.DB(d.databaseName).C(d.asyncTxCollection).Insert(at)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateAsyncTx update an existing tx with the argument passed
+// doc.
+func (d *mongodb) UpdateAsyncTx(at *AsyncTx) error {
+	selector := bson.M{
+		"id": at.Id,
+	}
+	update := bson.M{
+		"$set": at,
+	}
+	err := d.session.DB(d.databaseName).C(d.asyncTxCollection).Update(selector, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveAsyncTx removes an existing async tx from the mongodb
+// instance.
+func (d *mongodb) RemoveAsyncTx(id string) error {
+	// build query
+	selector := bson.M{
+		"id": bson.M{"$eq": id},
+	}
+	// perform db remove
+	err := d.session.DB(d.databaseName).C(d.asyncTxCollection).Remove(selector)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // ensureMongodbIndexes assign mongodb indexes to the right
 // collections, this should be done only the first time the
 // collection is created.
 func (d *mongodb) EnsureMongodbIndexes() error {
+	// file log
 	fileIndex := mgo.Index{
 		Key:        []string{"id"},
 		Unique:     true,
@@ -168,6 +261,31 @@ func (d *mongodb) EnsureMongodbIndexes() error {
 		Sparse:     false,
 	}
 	err := d.session.DB(d.databaseName).C(d.filelogCollection).EnsureIndex(fileIndex)
+	if err != nil {
+		return err
+	}
+	// async tx
+	idIndex := mgo.Index{
+		Key:        []string{"id"},
+		Unique:     true,
+		Background: true,
+		Sparse:     false,
+	}
+	// the following index is used to
+	// clean out every async tx after 1 hours
+	// from the creation time.
+	ttlIndex := mgo.Index{
+		Key:         []string{"ts"},
+		Unique:      false,
+		DropDups:    false,
+		Background:  true,
+		ExpireAfter: MaxAsyncTxExistance, // clean async tx at max every 1 hours (time.Duration type).
+	}
+	err = d.session.DB(d.databaseName).C(d.asyncTxCollection).EnsureIndex(idIndex)
+	if err != nil {
+		return err
+	}
+	err = d.session.DB(d.databaseName).C(d.asyncTxCollection).EnsureIndex(ttlIndex)
 	if err != nil {
 		return err
 	}

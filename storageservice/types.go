@@ -15,12 +15,6 @@ import (
 	ct "github.com/nexocrew/3nigm4/lib/commontypes"
 )
 
-// Checksum of the uploaded file for later verify.
-type CheckSum struct {
-	Hash []byte `bson:"hash"` // checksum of data struct;
-	Type string `bson:"type"` // used algorithm.
-}
-
 // Owner the file owner.
 type Owner struct {
 	Username  string `bson:"username"`            // the user uploading the file;
@@ -45,15 +39,29 @@ type Acl struct {
 // this record will be used, later on, to manage access to the file and
 // auto-remove policies.
 type FileLog struct {
-	Id                 string        `bson:"id"`            // the file name assiciated with S3 saved data;
-	Size               int           `bson:"size"`          // the size of the uploaded data blob;
-	Bucket             string        `bson:"bucket"`        // the S3 bucket where data has been saved;
-	CheckSum           CheckSum      `bson:"checksum"`      // checksum for the uploaded data;
-	Ownership          Owner         `bson:"ownership"`     // info related to the uploading user;
-	Acl                Acl           `bson:"acl"`           // access permissions;
-	Creation           time.Time     `bson:"creation_time"` // time of the upload;
-	TimeToLive         time.Duration `bson:"ttl,omitempty"` // time to live for the uploaded file;
-	S3SuccessfulUpload bool          `bson:"s3success"`     // bool used to mark async successfully upload.
+	Id         string        `bson:"id"`            // the file name assiciated with S3 saved data;
+	Size       int           `bson:"size"`          // the size of the uploaded data blob;
+	Bucket     string        `bson:"bucket"`        // the S3 bucket where data has been saved;
+	CheckSum   ct.CheckSum   `bson:"checksum"`      // checksum for the uploaded data;
+	Ownership  Owner         `bson:"ownership"`     // info related to the uploading user;
+	Acl        Acl           `bson:"acl"`           // access permissions;
+	Creation   time.Time     `bson:"creation_time"` // time of the upload;
+	TimeToLive time.Duration `bson:"ttl,omitempty"` // time to live for the uploaded file;
+	Complete   bool          `bson:"complete"`      // transaction completed.
+}
+
+// AsyncTx is the structure used to temporarly manage async
+// transaction: in particular let the system manage S3 destined
+// uploads that are managed via working queue and so not in sync
+// with the API handlers (operations are for that reason splitted
+// in two times a setting step and a verify step).
+type AsyncTx struct {
+	Id        string      `bson:"id"`                 // transaction id, tipically the FileLog Id;
+	Complete  bool        `bson:"complete"`           // transaction completed;
+	Error     error       `bson:"error,omitempty"`    // error setted on if a transaction error encountered;
+	Data      []byte      `bson:"data,omitempty"`     // data to be returned at the verify step;
+	CheckSum  ct.CheckSum `bson:"checksum,omitempty"` // checksum for the transaction returned data, if any;
+	TimeStamp time.Time   `bson:"ts"`                 // transaction creation time: tx records can survice at max n mins (see db implementation).
 }
 
 // Arguments management struct.

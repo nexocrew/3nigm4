@@ -24,7 +24,7 @@ import (
 
 // Third party
 import (
-	_ "github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 )
 
 // riseError rises an error returning a standard error
@@ -103,32 +103,45 @@ func postChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// init filelog struct
-	fl := new(FileLog)
-	// start getting and setting data infos
-	fl.Size = len(requestBody.Data)
-	checksum := sha256.Sum256(requestBody.Data)
-	fl.CheckSum.Hash = checksum[:]
-	fl.CheckSum.Type = "SHA256"
-	// setup ownership
-	fl.Ownership.Username = userInfo.Username
-	fl.Ownership.OriginIp = r.RemoteAddr
-	fl.Ownership.UserAgent = r.UserAgent()
-	// time infos
-	fl.Creation = time.Now()
-	fl.TimeToLive = requestBody.TimeToLive
-	// destination info
-	fl.Bucket = arguments.s3Bucket
-	fl.Id = requestBody.Id
-	// acl
-	fl.Acl.Permission = requestBody.Permission
-	fl.Acl.SharingUsers = requestBody.SharingUsers
-
 	// retain db
 	dbSession := db.Copy()
 	defer dbSession.Close()
-	// insert in the database
+
+	// insert file log in the database
+	checksum := sha256.Sum256(requestBody.Data)
+	fl := &FileLog{
+		Id:         requestBody.Id,
+		Size:       len(requestBody.Data),
+		Bucket:     arguments.s3Bucket,
+		Creation:   time.Now(),
+		TimeToLive: requestBody.TimeToLive,
+		CheckSum: ct.CheckSum{
+			Hash: checksum[:],
+			Type: "SHA256",
+		},
+		Ownership: Owner{
+			Username:  userInfo.Username,
+			OriginIp:  r.RemoteAddr,
+			UserAgent: r.UserAgent(),
+		},
+		Acl: Acl{
+			Permission:   requestBody.Permission,
+			SharingUsers: requestBody.SharingUsers,
+		},
+	}
 	err = dbSession.SetFileLog(fl)
+	if err != nil {
+		riseError(http.StatusInternalServerError,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+	// add async tx record
+	err = dbSession.SetAsyncTx(&AsyncTx{
+		Id:        fl.Id,
+		Complete:  false,
+		TimeStamp: fl.Creation,
+	})
 	if err != nil {
 		riseError(http.StatusInternalServerError,
 			err.Error(), w,
@@ -144,18 +157,17 @@ func postChunk(w http.ResponseWriter, r *http.Request) {
 	}
 	s3backend.Upload(fl.Bucket, fl.Id, requestBody.Data, expireTime)
 
-	// return std message
+	// return upload response message
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(
-		ct.StandardResponse{
-			ct.AckResponse,
-			"Upload request accepted, waiting for upload verification",
+		&ct.SechunkPostResponse{
+			Id: fl.Id,
 		})
 	if err != nil {
 		panic(err)
 	}
 	if arguments.verbose {
-		log.MessageLog("Upload request %s accepted, waiting for upload verification", fl.Id)
+		log.VerboseLog("Upload request %s accepted, waiting for upload verification", fl.Id)
 	}
 }
 
@@ -165,6 +177,60 @@ func getChunk(w http.ResponseWriter, r *http.Request) {
 
 func deleteChunk(w http.ResponseWriter, r *http.Request) {
 
+}
+
+// getVerifyTx responds to a request of info regarding a
+// previously produced async request (upload, download of
+// delete). It returns available infos based on the originally
+// required operation (for example Data field is only available
+// on download requests). After completing the query flow it
+// removes the async tx record.
+func getVerifyTx(w http.ResponseWriter, r *http.Request) {
+	// get id from url
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok || id == "" {
+		riseError(http.StatusBadRequest,
+			"unable to proceed with nil id", w,
+			r.RemoteAddr)
+		return
+	}
+
+	// retain db
+	dbSession := db.Copy()
+	defer dbSession.Close()
+	// get tx status
+	at, err := dbSession.GetAsyncTx(id)
+	if err != nil {
+		riseError(http.StatusNotFound,
+			fmt.Sprintf("unable to find required request, verification must be done at max %d min from order request", MaxAsyncTxExistance),
+			w, r.RemoteAddr)
+		return
+	}
+	// clean db tx
+	if at.Complete == true {
+		err = dbSession.RemoveAsyncTx(id)
+		if arguments.verbose &&
+			err != nil {
+			log.WarningLog("Unable to remove async tx from database: %s.\n", err.Error())
+		}
+	}
+
+	// return verify message
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(
+		&ct.SechunkTxVerify{
+			Complete: at.Complete,
+			Error:    at.Error.Error(),
+			Data:     at.Data,
+			CheckSum: at.CheckSum,
+		})
+	if err != nil {
+		panic(err)
+	}
+	if arguments.verbose {
+		log.VerboseLog("Verify request %s correcly replyied.\n", id)
+	}
 }
 
 // Ping function to verify if the service is on

@@ -134,60 +134,6 @@ func s3backendStartup(a *args) (*s3c.S3BackendSession, error) {
 	return s3, nil
 }
 
-// manageS3chans manages chan messages from working queue
-// async S3 upload/download.
-func manageS3chans(s3backend *s3c.S3BackendSession) {
-	errc_closed := false
-	uploadedc_closed := false
-	downloadedc_closed := false
-	for {
-		if errc_closed == true {
-			log.CriticalLog("S3 error chan is closed, unable to proceed managing chan queue.\n")
-			return
-		}
-		if uploadedc_closed == true {
-			log.CriticalLog("S3 upload chan is closed, unable to proceed managing chan queue.\n")
-			return
-		}
-		if downloadedc_closed == true {
-			log.CriticalLog("S3 download chan is closed, unable to proceed managing chan queue.\n")
-			return
-		}
-		// select on channels
-		select {
-		case err, errc_ok := <-s3backend.ErrorChan:
-			if !errc_ok {
-				errc_closed = true
-			} else {
-				go func() {
-					log.ErrorLog("Error while uploading with S3 working queue: %s.\n", err.Error())
-				}()
-			}
-		case uploaded, uploadedc_ok := <-s3backend.UploadedChan:
-			if !uploadedc_ok {
-				uploadedc_closed = true
-			} else {
-				go func() {
-					session := db.Copy()
-					defer session.Close()
-					// TODO
-					// update uploaded flag in the database
-					log.MessageLog("Uploading message: %v.\n", uploaded)
-				}()
-			}
-		case downloaded, downloadedc_ok := <-s3backend.DownloadedChan:
-			if !downloadedc_ok {
-				downloadedc_closed = true
-			} else {
-				// TODO
-				// manage downloading logic
-				log.MessageLog("Downloading message: %v.\n", downloaded)
-				continue
-			}
-		}
-	}
-}
-
 // serve command expose a RPC service that exposes all authentication
 // related function to the outside.
 func serve(cmd *cobra.Command, args []string) error {
@@ -221,8 +167,9 @@ func serve(cmd *cobra.Command, args []string) error {
 	route := mux.NewRouter()
 	// define  primary routes
 	route.HandleFunc("/sechunk/{id:[A-Fa-f0-9]+}", getChunk).Methods("GET")
-	route.HandleFunc("/sechunk/{id:[A-Fa-f0-9]+}", getChunk).Methods("DELETE")
+	route.HandleFunc("/sechunk/{id:[A-Fa-f0-9]+}", deleteChunk).Methods("DELETE")
 	route.HandleFunc("/sechunk", postChunk).Methods("POST")
+	route.HandleFunc("/sechunk/{id:[A-Fa-f0-9]+}/verifytx", getVerifyTx).Methods("GET")
 	// utility routes
 	route.HandleFunc("/ping", getPing).Methods("GET")
 	// root routes
