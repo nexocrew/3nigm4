@@ -112,11 +112,11 @@ func rpcClientStartup(a *args) (*rpc.Client, error) {
 
 // S3 backend service managed with working
 // queue.
-var s3backend *s3c.S3BackendSession
+var s3backend *s3c.Session
 
 // s3backendStartup initialise the global s3 backend session.
-func s3backendStartup(a *args) (*s3c.S3BackendSession, error) {
-	s3, err := s3c.NewS3BackendSession(
+func s3backendStartup(a *args) (*s3c.Session, error) {
+	s3, err := s3c.NewSession(
 		a.s3Endpoint,
 		a.s3Region,
 		a.s3Id,
@@ -166,6 +166,7 @@ func serve(cmd *cobra.Command, args []string) error {
 	// create router
 	route := mux.NewRouter()
 	// define  primary routes
+	route.HandleFunc("/login", login).Methods("POST")
 	route.HandleFunc("/sechunk/{id:[A-Fa-f0-9]+}", getChunk).Methods("GET")
 	route.HandleFunc("/sechunk/{id:[A-Fa-f0-9]+}", deleteChunk).Methods("DELETE")
 	route.HandleFunc("/sechunk", postChunk).Methods("POST")

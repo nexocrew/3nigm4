@@ -67,6 +67,10 @@ func authoriseGettingUserInfos(authToken string) (*auth.UserInfoResponseArg, err
 	return &authResponse, nil
 }
 
+func login(w http.ResponseWriter, r *http.Request) {
+
+}
+
 // postChunk upload a data chunk to the S3 backend service
 // after authorising the user. it interacts in sync with multiple
 // services in order to obtain user authentication, s3 backend and

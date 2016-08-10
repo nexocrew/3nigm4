@@ -17,14 +17,14 @@ func updateUploadRequestStatus(ur s3c.UploadRequest) {
 	session := db.Copy()
 	defer session.Close()
 
-	at, err := session.GetAsyncTx(ur.Id)
+	at, err := session.GetAsyncTx(ur.ID)
 	if err != nil {
-		log.ErrorLog("Retrieving tx async doc %s produced error %s, ignoring.\n", ur.Id, err.Error())
+		log.ErrorLog("Retrieving tx async doc %s produced error %s, ignoring.\n", ur.ID, err.Error())
 		return
 	}
-	fl, err := session.GetFileLog(ur.Id)
+	fl, err := session.GetFileLog(ur.ID)
 	if err != nil {
-		log.ErrorLog("Retrieving log doc %s produced error %s, ignoring.\n", ur.Id, err.Error())
+		log.ErrorLog("Retrieving log doc %s produced error %s, ignoring.\n", ur.ID, err.Error())
 		return
 	}
 
@@ -63,7 +63,7 @@ func manageAsyncError(err error) {
 
 // manageS3chans manages chan messages from working queue
 // async S3 upload/download.
-func manageS3chans(s3backend *s3c.S3BackendSession) {
+func manageS3chans(s3backend *s3c.Session) {
 	var errc_closed, uploadedc_closed, downloadedc_closed bool
 	for {
 		if errc_closed == true {

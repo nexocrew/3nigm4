@@ -1,12 +1,10 @@
-//
-// 3nigm4 crypto package
+// 3nigm4 s3backend package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
-//
-// This package expose S3 interaction capabilities backended
+
+// Package s3backend expose S3 interaction capabilities backended
 // by the FileManager package. All operations are managed by a
 // concurrent working queue and tend to be asyncronous.
-//
 package s3backend
 
 import (
@@ -34,9 +32,9 @@ import (
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
-// The Backend session struct is composed of several private
+// Session struct is composed of several private
 // fields and expose the async mechanism chans.
-type S3BackendSession struct {
+type Session struct {
 	// private vars
 	workingQueue *wq.WorkingQueue
 	s3           *s3.S3
@@ -46,24 +44,24 @@ type S3BackendSession struct {
 	DownloadedChan chan DownloadRequest // return chan for async downloaded chunks.
 }
 
-// Returned by asyng download routines should be matching the
-// requested id field.
+// DownloadRequest is returned by asyng download routines should
+// be matching the requested id field.
 type DownloadRequest struct {
 	Data      []byte // actual data;
-	RequestId string // unique id for the retrieved file.
+	RequestID string // unique id for the retrieved file.
 }
 
 // UploadRequest this struct represent the status of an upload
 // operation: it can return the simple id of completed upload
 // operation or an error if something went wrong.
 type UploadRequest struct {
-	Id    string // request id string;
+	ID    string // request id string;
 	Error error  // setted if an error was produced fro the upload instruction.
 }
 
-// NewS3BackendSession initialise a new S3 session for the file
+// NewSession initialise a new S3 session for the file
 // storage capabilities-
-func NewS3BackendSession(endpoint, region, id, secret, token string, workersize, queuesize int, verbose bool) (*S3BackendSession, error) {
+func NewSession(endpoint, region, id, secret, token string, workersize, queuesize int, verbose bool) (*Session, error) {
 	// get credentials
 	creds := credentials.NewStaticCredentials(id, secret, token)
 
@@ -73,7 +71,7 @@ func NewS3BackendSession(endpoint, region, id, secret, token string, workersize,
 		logLevel = aws.LogDebug
 	}
 
-	session := &S3BackendSession{
+	session := &Session{
 		s3: s3.New(session.New(), &aws.Config{
 			Endpoint:    &endpoint,
 			Region:      &region,
@@ -95,8 +93,8 @@ func NewS3BackendSession(endpoint, region, id, secret, token string, workersize,
 
 // Close close the actual opened connection with S3 storage,
 // should normally be used with the defer keyword after
-// invoking the NewS3BackendSession function.
-func (bs *S3BackendSession) Close() {
+// invoking the NewSession function.
+func (bs *Session) Close() {
 	bs.workingQueue.Close()
 }
 
@@ -105,7 +103,7 @@ type args struct {
 	bucketName string
 	id         string
 	// s3
-	backendSession *S3BackendSession
+	backendSession *Session
 	// put specifics
 	fileType string
 	fileData []byte
@@ -137,7 +135,7 @@ func upload(a interface{}) error {
 	_, err := arguments.backendSession.s3.PutObject(params)
 	if err != nil {
 		arguments.backendSession.UploadedChan <- UploadRequest{
-			Id:    arguments.id,
+			ID:    arguments.id,
 			Error: err,
 		}
 		return err
@@ -145,7 +143,7 @@ func upload(a interface{}) error {
 
 	// send result back in chan
 	arguments.backendSession.UploadedChan <- UploadRequest{
-		Id:    arguments.id,
+		ID:    arguments.id,
 		Error: nil,
 	}
 	return nil
@@ -194,7 +192,7 @@ func download(a interface{}) error {
 	buf.ReadFrom(response.Body)
 	arguments.backendSession.DownloadedChan <- DownloadRequest{
 		Data:      buf.Bytes(),
-		RequestId: arguments.id,
+		RequestID: arguments.id,
 	}
 
 	return nil
@@ -202,7 +200,7 @@ func download(a interface{}) error {
 }
 
 // Delete removes a identified file from a S3 storage bucket.
-func (bs *S3BackendSession) Delete(bucketName, id string) {
+func (bs *Session) Delete(bucketName, id string) {
 	a := &args{
 		bucketName:     bucketName,
 		id:             id,
@@ -212,7 +210,7 @@ func (bs *S3BackendSession) Delete(bucketName, id string) {
 }
 
 // Upload send a single data blob to a S3 storage.
-func (bs *S3BackendSession) Upload(bucketName, id string, data []byte, expires *time.Time) {
+func (bs *Session) Upload(bucketName, id string, data []byte, expires *time.Time) {
 	a := &args{
 		bucketName:     bucketName,
 		id:             id,
@@ -226,7 +224,7 @@ func (bs *S3BackendSession) Upload(bucketName, id string, data []byte, expires *
 }
 
 // Download get a single file from a S3 bucket.
-func (bs *S3BackendSession) Download(bucketName, id string) {
+func (bs *Session) Download(bucketName, id string) {
 	a := &args{
 		bucketName:     bucketName,
 		id:             id,
@@ -239,7 +237,7 @@ func (bs *S3BackendSession) Download(bucketName, id string) {
 // SaveChunks start the async upload of all argument passed chunks
 // generating a single name for each one (that must be keeped in
 // order to get back the file later on).
-func (bs *S3BackendSession) SaveChunks(filename, bucket string, chunks [][]byte, hashedValue []byte, expirets *time.Time) ([]string, error) {
+func (bs *Session) SaveChunks(filename, bucket string, chunks [][]byte, hashedValue []byte, expirets *time.Time) ([]string, error) {
 	paths := make([]string, len(chunks))
 	for idx, chunk := range chunks {
 		id, err := fm.ChunkFileId(filename, idx, hashedValue)
@@ -255,7 +253,7 @@ func (bs *S3BackendSession) SaveChunks(filename, bucket string, chunks [][]byte,
 // RetrieveChunks starts the async retrieve of previously uploaded
 // chunks starting from the returned files names. The actual downloaded
 // data is then returned on the DownloadedChan.
-func (bs *S3BackendSession) RetrieveChunks(bucket string, files []string) []string {
+func (bs *Session) RetrieveChunks(bucket string, files []string) []string {
 	for _, fname := range files {
 		bs.Download(bucket, fname)
 	}
