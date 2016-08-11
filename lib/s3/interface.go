@@ -39,24 +39,26 @@ type Session struct {
 	workingQueue *wq.WorkingQueue
 	s3           *s3.S3
 	// exposed vars
-	ErrorChan      chan error           // returned errors;
-	UploadedChan   chan UploadRequest   // status of uploads;
-	DownloadedChan chan DownloadRequest // return chan for async downloaded chunks.
+	ErrorChan      chan error    // returned errors;
+	UploadedChan   chan OpResult // status of uploads;
+	DownloadedChan chan OpResult // return chan for async downloaded chunks;
+	DeletedChan    chan OpResult // manage deletion results from wq.
+
 }
 
-// DownloadRequest is returned by asyng download routines should
-// be matching the requested id field.
-type DownloadRequest struct {
-	Data      []byte // actual data;
-	RequestID string // unique id for the retrieved file.
-}
-
-// UploadRequest this struct represent the status of an upload
-// operation: it can return the simple id of completed upload
-// operation or an error if something went wrong.
-type UploadRequest struct {
-	ID    string // request id string;
-	Error error  // setted if an error was produced fro the upload instruction.
+// OpResult this struct represent the status of an async
+// operation, of any type (upload, download, delete, ...).
+// Not all field will be present: Error and Data properties
+// will be only present if an error occurred or a download
+// transaction has been required. Notice that two id are
+// managed: a file id (used to identify the target file on S3)
+// and RequestID used to associate a request with the async
+// result produced.
+type OpResult struct {
+	ID        string // file id string;
+	RequestID string // request (tx) id string (not file id);
+	Data      []byte // downloaded data, if any;
+	Error     error  // setted if an error was produced fro the upload instruction.
 }
 
 // NewSession initialise a new S3 session for the file
@@ -79,8 +81,9 @@ func NewSession(endpoint, region, id, secret, token string, workersize, queuesiz
 			LogLevel:    &logLevel,
 		}),
 		ErrorChan:      make(chan error, workersize),
-		UploadedChan:   make(chan UploadRequest, workersize),
-		DownloadedChan: make(chan DownloadRequest, workersize),
+		UploadedChan:   make(chan OpResult, workersize),
+		DownloadedChan: make(chan OpResult, workersize),
+		DeletedChan:    make(chan OpResult, workersize),
 	}
 
 	// create working queue
@@ -108,13 +111,15 @@ type args struct {
 	fileType string
 	fileData []byte
 	expires  *time.Time
+	// transaction id
+	requestID string
 }
 
 func upload(a interface{}) error {
 	var arguments *args
 	var ok bool
 	if arguments, ok = a.(*args); !ok {
-		// in this case no id can be retrieved, thats
+		// in this case no id can be retrieved, that's
 		// why no upload response is retuned.
 		return fmt.Errorf("unexpected argument type, having %s expecting *args", reflect.TypeOf(a))
 	}
@@ -134,17 +139,19 @@ func upload(a interface{}) error {
 	}
 	_, err := arguments.backendSession.s3.PutObject(params)
 	if err != nil {
-		arguments.backendSession.UploadedChan <- UploadRequest{
-			ID:    arguments.id,
-			Error: err,
+		arguments.backendSession.UploadedChan <- OpResult{
+			ID:        arguments.id,
+			Error:     err,
+			RequestID: arguments.requestID,
 		}
 		return err
 	}
 
 	// send result back in chan
-	arguments.backendSession.UploadedChan <- UploadRequest{
-		ID:    arguments.id,
-		Error: nil,
+	arguments.backendSession.UploadedChan <- OpResult{
+		ID:        arguments.id,
+		Error:     nil,
+		RequestID: arguments.requestID,
 	}
 	return nil
 }
@@ -153,6 +160,8 @@ func delete(a interface{}) error {
 	var arguments *args
 	var ok bool
 	if arguments, ok = a.(*args); !ok {
+		// in this case no id can be retrieved, that's
+		// why no upload response is retuned.
 		return fmt.Errorf("unexpected argument type, having %s expecting *args", reflect.TypeOf(a))
 	}
 
@@ -164,9 +173,20 @@ func delete(a interface{}) error {
 
 	_, err := arguments.backendSession.s3.DeleteObject(params)
 	if err != nil {
+		arguments.backendSession.DeletedChan <- OpResult{
+			ID:        arguments.id,
+			Error:     err,
+			RequestID: arguments.requestID,
+		}
 		return err
 	}
 
+	// send deletion result back to chan
+	arguments.backendSession.DeletedChan <- OpResult{
+		ID:        arguments.id,
+		Error:     nil,
+		RequestID: arguments.requestID,
+	}
 	return nil
 }
 
@@ -174,6 +194,8 @@ func download(a interface{}) error {
 	var arguments *args
 	var ok bool
 	if arguments, ok = a.(*args); !ok {
+		// in this case no id can be retrieved, that's
+		// why no upload response is retuned.
 		return fmt.Errorf("unexpected argument type, having %s expecting *args", reflect.TypeOf(a))
 	}
 
@@ -185,32 +207,40 @@ func download(a interface{}) error {
 
 	response, err := arguments.backendSession.s3.GetObject(params)
 	if err != nil {
-		return nil
+		arguments.backendSession.DownloadedChan <- OpResult{
+			ID:        arguments.id,
+			Error:     err,
+			RequestID: arguments.requestID,
+			Data:      nil,
+		}
+		return err
 	}
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(response.Body)
-	arguments.backendSession.DownloadedChan <- DownloadRequest{
+	// send download result back to chan
+	arguments.backendSession.DownloadedChan <- OpResult{
+		ID:        arguments.id,
+		Error:     nil,
+		RequestID: arguments.requestID,
 		Data:      buf.Bytes(),
-		RequestID: arguments.id,
 	}
-
 	return nil
-
 }
 
 // Delete removes a identified file from a S3 storage bucket.
-func (bs *Session) Delete(bucketName, id string) {
+func (bs *Session) Delete(bucketName, id, requestid string) {
 	a := &args{
 		bucketName:     bucketName,
 		id:             id,
 		backendSession: bs,
+		requestID:      requestid,
 	}
 	bs.workingQueue.SendJob(delete, a)
 }
 
 // Upload send a single data blob to a S3 storage.
-func (bs *Session) Upload(bucketName, id string, data []byte, expires *time.Time) {
+func (bs *Session) Upload(bucketName, id, requestid string, data []byte, expires *time.Time) {
 	a := &args{
 		bucketName:     bucketName,
 		id:             id,
@@ -218,17 +248,19 @@ func (bs *Session) Upload(bucketName, id string, data []byte, expires *time.Time
 		fileData:       data,
 		expires:        expires,
 		backendSession: bs,
+		requestID:      requestid,
 	}
 
 	bs.workingQueue.SendJob(upload, a)
 }
 
 // Download get a single file from a S3 bucket.
-func (bs *Session) Download(bucketName, id string) {
+func (bs *Session) Download(bucketName, id, requestid string) {
 	a := &args{
 		bucketName:     bucketName,
 		id:             id,
 		backendSession: bs,
+		requestID:      requestid,
 	}
 
 	bs.workingQueue.SendJob(download, a)
@@ -244,7 +276,7 @@ func (bs *Session) SaveChunks(filename, bucket string, chunks [][]byte, hashedVa
 		if err != nil {
 			return nil, err
 		}
-		bs.Upload(bucket, id, chunk, expirets)
+		bs.Upload(bucket, id, id, chunk, expirets)
 		paths[idx] = id
 	}
 	return paths, nil
@@ -255,7 +287,7 @@ func (bs *Session) SaveChunks(filename, bucket string, chunks [][]byte, hashedVa
 // data is then returned on the DownloadedChan.
 func (bs *Session) RetrieveChunks(bucket string, files []string) []string {
 	for _, fname := range files {
-		bs.Download(bucket, fname)
+		bs.Download(bucket, fname, fname)
 	}
 	return files
 }

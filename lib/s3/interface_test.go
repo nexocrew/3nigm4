@@ -35,7 +35,7 @@ func TestS3UploadInterface(t *testing.T) {
 
 	// create resonse listening routine
 	errorCounter := wq.AtomicCounter{}
-	var uploaded []UploadRequest
+	var uploaded []OpResult
 	var lastError error
 	go func() {
 		for {
@@ -53,7 +53,7 @@ func TestS3UploadInterface(t *testing.T) {
 	}()
 
 	// upload data
-	s3.Upload(itm.S().S3Bucket(), fileID, []byte(fileContent), nil)
+	s3.Upload(itm.S().S3Bucket(), fileID, fileID, []byte(fileContent), nil)
 
 	// the following timeout time is used to ensure
 	// that all goroutines have compleated their
@@ -104,7 +104,7 @@ func TestS3DownloadInterface(t *testing.T) {
 	// create resonse listening routine
 	errorCounter := wq.AtomicCounter{}
 	processedCounter := wq.AtomicCounter{}
-	var downloaded []DownloadRequest
+	var downloaded []OpResult
 	var lastError error
 	go func() {
 		for {
@@ -123,7 +123,7 @@ func TestS3DownloadInterface(t *testing.T) {
 	}()
 
 	// download data
-	s3.Download(itm.S().S3Bucket(), fileID)
+	s3.Download(itm.S().S3Bucket(), fileID, fileID)
 
 	// the following timeout time is used to ensure
 	// that all goroutines have compleated their

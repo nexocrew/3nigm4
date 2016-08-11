@@ -19,7 +19,7 @@ import (
 // Internal libs
 import (
 	"github.com/nexocrew/3nigm4/lib/auth"
-	ct "github.com/nexocrew/3nigm4/lib/commontypes"
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
 // Third party
@@ -67,8 +67,90 @@ func authoriseGettingUserInfos(authToken string) (*auth.UserInfoResponseArg, err
 	return &authResponse, nil
 }
 
+// login is used to provide login functionality based on the
+// RPC service.
 func login(w http.ResponseWriter, r *http.Request) {
+	// get message BODY
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r.Body)
+	body := buf.Bytes()
+	// parse json body
+	var requestBody ct.LoginRequest
+	err := json.Unmarshal(body, &requestBody)
+	if err != nil {
+		riseError(http.StatusBadRequest,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+	if requestBody.Username == "" ||
+		requestBody.Password == "" {
+		riseError(http.StatusBadRequest,
+			"username or password in request body are nil", w,
+			r.RemoteAddr)
+		return
+	}
 
+	// perform login on RPC service
+	var loginResponse auth.LoginResponseArg
+	err = rpcClient.Call("Login.Login", &auth.LoginRequestArg{
+		Username: requestBody.Username,
+		Password: requestBody.Password,
+	}, &loginResponse)
+	if err != nil {
+		riseError(http.StatusUnauthorized,
+			"unable to login with provided credentials", w,
+			r.RemoteAddr)
+		return
+	}
+	// return the session token
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(
+		&ct.LoginResponse{
+			Token: hex.EncodeToString(loginResponse.Token),
+		})
+	if err != nil {
+		panic(err)
+	}
+}
+
+// logout implements, redirecting to RPC service, the
+// user's session invalidation.
+func logout(w http.ResponseWriter, r *http.Request) {
+	authToken := r.Header.Get(ct.SecurityTokenKey)
+	if authToken == "" {
+		riseError(http.StatusBadRequest,
+			"auth token is nil", w,
+			r.RemoteAddr)
+		return
+	}
+
+	rawToken, err := hex.DecodeString(authToken)
+	if err != nil {
+		riseError(http.StatusBadRequest,
+			"auth token is malformed", w,
+			r.RemoteAddr)
+		return
+	}
+	var logoutResponse auth.LogoutResponseArg
+	err = rpcClient.Call("Login.Logout", &auth.LogoutRequestArg{
+		Token: rawToken,
+	}, &logoutResponse)
+	if err != nil {
+		riseError(http.StatusUnauthorized,
+			"unable to logout with provided credentials", w,
+			r.RemoteAddr)
+		return
+	}
+	// return the session token
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(
+		&ct.LogoutResponse{
+			Invalidated: authToken,
+		})
+	if err != nil {
+		panic(err)
+	}
 }
 
 // postChunk upload a data chunk to the S3 backend service
@@ -107,17 +189,18 @@ func postChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// get time stamp
+	now := time.Now()
 	// retain db
 	dbSession := db.Copy()
 	defer dbSession.Close()
-
 	// insert file log in the database
 	checksum := sha256.Sum256(requestBody.Data)
 	fl := &FileLog{
-		Id:         requestBody.Id,
+		Id:         requestBody.ID,
 		Size:       len(requestBody.Data),
 		Bucket:     arguments.s3Bucket,
-		Creation:   time.Now(),
+		Creation:   now,
 		TimeToLive: requestBody.TimeToLive,
 		CheckSum: ct.CheckSum{
 			Hash: checksum[:],
@@ -140,11 +223,16 @@ func postChunk(w http.ResponseWriter, r *http.Request) {
 			r.RemoteAddr)
 		return
 	}
+
+	// generate tx id
+	txId := generateTranscationId(fl.Id, userInfo.Username, &now)
+
 	// add async tx record
 	err = dbSession.SetAsyncTx(&AsyncTx{
-		Id:        fl.Id,
+		Id:        txId,
 		Complete:  false,
 		TimeStamp: fl.Creation,
+		Ownership: fl.Ownership,
 	})
 	if err != nil {
 		riseError(http.StatusInternalServerError,
@@ -159,13 +247,13 @@ func postChunk(w http.ResponseWriter, r *http.Request) {
 		ttl := fl.Creation.Add(fl.TimeToLive)
 		expireTime = &ttl
 	}
-	s3backend.Upload(fl.Bucket, fl.Id, requestBody.Data, expireTime)
+	s3backend.Upload(fl.Bucket, fl.Id, txId, requestBody.Data, expireTime)
 
 	// return upload response message
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(
 		&ct.SechunkPostResponse{
-			Id: fl.Id,
+			ID: txId,
 		})
 	if err != nil {
 		panic(err)
@@ -192,10 +280,20 @@ func deleteChunk(w http.ResponseWriter, r *http.Request) {
 func getVerifyTx(w http.ResponseWriter, r *http.Request) {
 	// get id from url
 	vars := mux.Vars(r)
-	id, ok := vars["id"]
+	id, ok := vars["requestid"]
 	if !ok || id == "" {
 		riseError(http.StatusBadRequest,
 			"unable to proceed with nil id", w,
+			r.RemoteAddr)
+		return
+	}
+
+	// authorise and get user's info
+	// extract token from headers
+	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
+	if err == nil {
+		riseError(http.StatusUnauthorized,
+			err.Error(), w,
 			r.RemoteAddr)
 		return
 	}
@@ -211,6 +309,15 @@ func getVerifyTx(w http.ResponseWriter, r *http.Request) {
 			w, r.RemoteAddr)
 		return
 	}
+
+	// check ownership
+	if at.Ownership.Username != userInfo.Username {
+		riseError(http.StatusUnauthorized,
+			fmt.Sprintf("user is not authorised to verify %s request id", id), w,
+			r.RemoteAddr)
+		return
+	}
+
 	// clean db tx
 	if at.Complete == true {
 		err = dbSession.RemoveAsyncTx(id)

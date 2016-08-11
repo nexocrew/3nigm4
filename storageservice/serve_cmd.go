@@ -167,10 +167,14 @@ func serve(cmd *cobra.Command, args []string) error {
 	route := mux.NewRouter()
 	// define  primary routes
 	route.HandleFunc("/login", login).Methods("POST")
-	route.HandleFunc("/sechunk/{id:[A-Fa-f0-9]+}", getChunk).Methods("GET")
-	route.HandleFunc("/sechunk/{id:[A-Fa-f0-9]+}", deleteChunk).Methods("DELETE")
+	route.HandleFunc("/logout", logout).Methods("GET")
+	// Resources are exposed with a two step logic: the first
+	// API call request a resource, the verify call return the
+	// first step resulting message (data, error or ack).
+	route.HandleFunc("/sechunk/{resorceid:[A-Fa-f0-9]+}", getChunk).Methods("GET")
+	route.HandleFunc("/sechunk/{resourceid:[A-Fa-f0-9]+}", deleteChunk).Methods("DELETE")
 	route.HandleFunc("/sechunk", postChunk).Methods("POST")
-	route.HandleFunc("/sechunk/{id:[A-Fa-f0-9]+}/verifytx", getVerifyTx).Methods("GET")
+	route.HandleFunc("/sechunk/verify/{requestid:[A-Fa-f0-9]+}", getVerifyTx).Methods("GET")
 	// utility routes
 	route.HandleFunc("/ping", getPing).Methods("GET")
 	// root routes

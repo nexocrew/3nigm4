@@ -6,16 +6,15 @@
 package messages
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"golang.org/x/crypto/openpgp"
-	"io"
 	"time"
 )
 
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	crypto3n "github.com/nexocrew/3nigm4/lib/crypto"
 )
 
@@ -49,26 +48,16 @@ const (
 	kSharedKeySize = 128 // Shared key size.
 )
 
-// randomBytesForLen creates a random data blob
-// of length "size".
-func randomBytesForLen(size int) ([]byte, error) {
-	randData := make([]byte, size)
-	if _, err := io.ReadFull(rand.Reader, randData); err != nil {
-		return nil, err
-	}
-	return randData, nil
-}
-
 // NewSessionKeys creates a new session struct assigning random
 // keys and required configurations.
 func NewSessionKeys(creatorId string, preshared []byte, recipients []string) (*SessionKeys, error) {
 	sk := SessionKeys{}
 	var err error
-	sk.MainSymmetricKey, err = randomBytesForLen(kSharedKeySize)
+	sk.MainSymmetricKey, err = ct.RandomBytesForLen(kSharedKeySize)
 	if err != nil {
 		return nil, err
 	}
-	sk.ServerSymmetricKey, err = randomBytesForLen(kSharedKeySize)
+	sk.ServerSymmetricKey, err = ct.RandomBytesForLen(kSharedKeySize)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +198,7 @@ func (sk *SessionKeys) getKeyandAndSalt() ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 	// random salt
-	salt, err := randomBytesForLen(8)
+	salt, err := ct.RandomBytesForLen(8)
 	if err != nil {
 		return nil, nil, err
 	}

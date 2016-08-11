@@ -5,21 +5,47 @@
 //
 package main
 
+// Standard golang
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"time"
+)
+
 // Internal dependencies
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	s3c "github.com/nexocrew/3nigm4/lib/s3"
 )
+
+// generateTranscationId generate a randomised tx id to
+// avoid conflicts caused, for example, by multiple accesses
+// to the same file in a short time range.
+func generateTranscationId(id, user string, t *time.Time) string {
+	var raw []byte
+	randoms, _ := ct.RandomBytesForLen(16)
+	raw = append(raw, randoms...)
+	composed := fmt.Sprintf("%s.%s.%d.%d",
+		id,
+		user,
+		t.Unix(),
+		t.UnixNano())
+	raw = append(raw, []byte(composed)...)
+	checksum := sha256.Sum256(raw)
+	return hex.EncodeToString(checksum[:])
+}
 
 // updateUploadRequestStatus update the tx status when a
 // status update is returned from the working queue to the
 // UploadedChan chan (s3 client).
-func updateUploadRequestStatus(ur s3c.UploadRequest) {
+func updateUploadRequestStatus(ur s3c.OpResult) {
 	session := db.Copy()
 	defer session.Close()
 
-	at, err := session.GetAsyncTx(ur.ID)
+	at, err := session.GetAsyncTx(ur.RequestID)
 	if err != nil {
-		log.ErrorLog("Retrieving tx async doc %s produced error %s, ignoring.\n", ur.ID, err.Error())
+		log.ErrorLog("Retrieving tx async doc %s produced error %s, ignoring.\n", ur.RequestID, err.Error())
 		return
 	}
 	fl, err := session.GetFileLog(ur.ID)
@@ -49,7 +75,14 @@ func updateUploadRequestStatus(ur s3c.UploadRequest) {
 // updateDownloadRequestStatus manage workingqueue messages from
 // completed S3 download operations.
 // TODO: implement the update status logic.
-func updateDownloadRequestStatus(dr s3c.DownloadRequest) {
+func updateDownloadRequestStatus(dr s3c.OpResult) {
+
+}
+
+// updateDeleteRequestStatus update status related to an async
+// delete operation.
+// TODO: implemeny the update status logic.
+func updateDeleteRequestStatus(dr s3c.OpResult) {
 
 }
 
@@ -64,7 +97,7 @@ func manageAsyncError(err error) {
 // manageS3chans manages chan messages from working queue
 // async S3 upload/download.
 func manageS3chans(s3backend *s3c.Session) {
-	var errc_closed, uploadedc_closed, downloadedc_closed bool
+	var errc_closed, uploadedc_closed, downloadedc_closed, deletedc_closed bool
 	for {
 		if errc_closed == true {
 			log.CriticalLog("S3 error chan is closed, unable to proceed managing chan queue.\n")
@@ -76,6 +109,10 @@ func manageS3chans(s3backend *s3c.Session) {
 		}
 		if downloadedc_closed == true {
 			log.CriticalLog("S3 download chan is closed, unable to proceed managing chan queue.\n")
+			return
+		}
+		if deletedc_closed == true {
+			log.CriticalLog("S3 delete chan is closed, unable to proceed managing chan queue.\n")
 			return
 		}
 		// select on channels
@@ -97,6 +134,12 @@ func manageS3chans(s3backend *s3c.Session) {
 				downloadedc_closed = true
 			} else {
 				go updateDownloadRequestStatus(downloaded)
+			}
+		case deleted, deletedc_ok := <-s3backend.DeletedChan:
+			if !deletedc_ok {
+				deletedc_closed = true
+			} else {
+				go updateDeleteRequestStatus(deleted)
 			}
 		}
 	}

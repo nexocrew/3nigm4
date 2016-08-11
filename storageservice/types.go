@@ -12,7 +12,7 @@ import (
 
 // Internal libs
 import (
-	ct "github.com/nexocrew/3nigm4/lib/commontypes"
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
 // Owner the file owner.
@@ -56,11 +56,12 @@ type FileLog struct {
 // with the API handlers (operations are for that reason splitted
 // in two times a setting step and a verify step).
 type AsyncTx struct {
-	Id        string      `bson:"id"`                 // transaction id, tipically the FileLog Id;
+	Id        string      `bson:"id"`                 // transaction id, different from resource id;
 	Complete  bool        `bson:"complete"`           // transaction completed;
 	Error     error       `bson:"error,omitempty"`    // error setted on if a transaction error encountered;
 	Data      []byte      `bson:"data,omitempty"`     // data to be returned at the verify step;
 	CheckSum  ct.CheckSum `bson:"checksum,omitempty"` // checksum for the transaction returned data, if any;
+	Ownership Owner       `bson:"ownership"`          // info related to the uploading user;
 	TimeStamp time.Time   `bson:"ts"`                 // transaction creation time: tx records can survice at max n mins (see db implementation).
 }
 
