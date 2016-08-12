@@ -48,8 +48,6 @@ func riseError(status int, msg string, w http.ResponseWriter, ipa string) {
 // and return user associated data. If returns a nil value
 // it means something went wrong.
 func authoriseGettingUserInfos(authToken string) (*auth.UserInfoResponseArg, error) {
-	// verify token and retrieve user infos
-	var authResponse auth.UserInfoResponseArg
 	if authToken == "" {
 		return nil, fmt.Errorf("authorisation token is nil")
 	}
@@ -58,17 +56,15 @@ func authoriseGettingUserInfos(authToken string) (*auth.UserInfoResponseArg, err
 	if err != nil {
 		return nil, fmt.Errorf("authorisation token is malformed (%s)", err.Error())
 	}
-	err = rpcClient.Call("SessionAuth.UserInfo", &auth.AuthenticateRequestArg{
-		Token: token,
-	}, &authResponse)
+	authResponse, err := authClient.AuthoriseAndGetInfo(token)
 	if err != nil {
 		return nil, err
 	}
-	return &authResponse, nil
+	return authResponse, nil
 }
 
 // login is used to provide login functionality based on the
-// RPC service.
+// auth service.
 func login(w http.ResponseWriter, r *http.Request) {
 	// get message BODY
 	buf := new(bytes.Buffer)
@@ -91,12 +87,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// perform login on RPC service
-	var loginResponse auth.LoginResponseArg
-	err = rpcClient.Call("Login.Login", &auth.LoginRequestArg{
-		Username: requestBody.Username,
-		Password: requestBody.Password,
-	}, &loginResponse)
+	// perform login on auth service
+	token, err := authClient.Login(requestBody.Username, requestBody.Password)
 	if err != nil {
 		riseError(http.StatusUnauthorized,
 			"unable to login with provided credentials", w,
@@ -107,14 +99,14 @@ func login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(
 		&ct.LoginResponse{
-			Token: hex.EncodeToString(loginResponse.Token),
+			Token: hex.EncodeToString(token),
 		})
 	if err != nil {
 		panic(err)
 	}
 }
 
-// logout implements, redirecting to RPC service, the
+// logout implements, redirecting to auth service, the
 // user's session invalidation.
 func logout(w http.ResponseWriter, r *http.Request) {
 	authToken := r.Header.Get(ct.SecurityTokenKey)
@@ -132,10 +124,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 			r.RemoteAddr)
 		return
 	}
-	var logoutResponse auth.LogoutResponseArg
-	err = rpcClient.Call("Login.Logout", &auth.LogoutRequestArg{
-		Token: rawToken,
-	}, &logoutResponse)
+	invalidated, err := authClient.Logout(rawToken)
 	if err != nil {
 		riseError(http.StatusUnauthorized,
 			"unable to logout with provided credentials", w,
@@ -146,7 +135,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(
 		&ct.LogoutResponse{
-			Invalidated: authToken,
+			Invalidated: hex.EncodeToString(invalidated),
 		})
 	if err != nil {
 		panic(err)
@@ -250,34 +239,217 @@ func postChunk(w http.ResponseWriter, r *http.Request) {
 	s3backend.Upload(fl.Bucket, fl.Id, txId, requestBody.Data, expireTime)
 
 	// return upload response message
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusAccepted)
 	err = json.NewEncoder(w).Encode(
-		&ct.SechunkPostResponse{
+		&ct.SechunkAsyncResponse{
 			ID: txId,
 		})
 	if err != nil {
 		panic(err)
 	}
 	if arguments.verbose {
-		log.VerboseLog("Upload request %s accepted, waiting for upload verification", fl.Id)
+		log.VerboseLog("Upload request %s accepted, waiting for upload verification", txId)
 	}
 }
 
+// checkAclPermission verify all possible acl scenarios and check if the
+// requiring user has required permissions to access the file. If user can
+// download it it'll return true otherwise false.
+func checkAclPermission(userInfo *auth.UserInfoResponseArg, fileLog *FileLog) bool {
+	// check access credentials
+	switch fileLog.Acl.Permission {
+	case Private:
+		if fileLog.Ownership.Username == userInfo.Username {
+			return true
+		}
+	case Public:
+		return true
+	case Shared:
+		for _, permitted := range fileLog.Acl.SharingUsers {
+			if permitted == userInfo.Username {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// getChunk implements the first step of a file download request it is exposed
+// via a REST GET method and returns a txId usable with the verify API call to
+// retrieve the actual downloaded data (from S3 storage). The user must be
+// correctly authenticated to be able to access the requested resource.
 func getChunk(w http.ResponseWriter, r *http.Request) {
-	//vars := mux.Vars(r)
+	vars := mux.Vars(r)
+	id, ok := vars["resourceid"]
+	if !ok || id == "" {
+		riseError(http.StatusBadRequest,
+			"unable to proceed with nil id", w,
+			r.RemoteAddr)
+		return
+	}
+
+	// authorise and get user's info
+	// extract token from headers
+	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
+	if err == nil {
+		riseError(http.StatusUnauthorized,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+
+	// retain db
+	dbSession := db.Copy()
+	defer dbSession.Close()
+	// get resources info
+	fileLog, err := dbSession.GetFileLog(id)
+	if err != nil {
+		riseError(http.StatusNotFound,
+			fmt.Sprintf("requested file not found"), w,
+			r.RemoteAddr)
+		return
+	}
+
+	// check permission
+	granted := checkAclPermission(userInfo, fileLog)
+	if !granted {
+		riseError(http.StatusUnauthorized,
+			fmt.Sprintf("you are not authorised to access this resource"), w,
+			r.RemoteAddr)
+		return
+	}
+
+	now := time.Now()
+	// generate tx id
+	txId := generateTranscationId(id, userInfo.Username, &now)
+	// add async tx record
+	err = dbSession.SetAsyncTx(&AsyncTx{
+		Id:        txId,
+		Complete:  false,
+		TimeStamp: now,
+		Ownership: Owner{
+			Username:  userInfo.Username,
+			OriginIp:  r.RemoteAddr,
+			UserAgent: r.UserAgent(),
+		},
+	})
+	if err != nil {
+		riseError(http.StatusInternalServerError,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+
+	// require S3 download
+	s3backend.Download(arguments.s3Bucket, id, txId)
+
+	// return download response message
+	w.WriteHeader(http.StatusAccepted)
+	err = json.NewEncoder(w).Encode(
+		&ct.SechunkAsyncResponse{
+			ID: txId,
+		})
+	if err != nil {
+		panic(err)
+	}
+	if arguments.verbose {
+		log.VerboseLog("Download request %s accepted, waiting for download verification", txId)
+	}
 }
 
+// deleteChunk remove a file from the S3 storage: only the original file
+// owner (who uploaded it) can remove a file from there.
 func deleteChunk(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, ok := vars["resourceid"]
+	if !ok || id == "" {
+		riseError(http.StatusBadRequest,
+			"unable to proceed with nil id", w,
+			r.RemoteAddr)
+		return
+	}
 
+	// authorise and get user's info
+	// extract token from headers
+	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
+	if err == nil {
+		riseError(http.StatusUnauthorized,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+
+	// retain db
+	dbSession := db.Copy()
+	defer dbSession.Close()
+	// get resources info
+	fileLog, err := dbSession.GetFileLog(id)
+	if err != nil {
+		riseError(http.StatusNotFound,
+			fmt.Sprintf("requested file not found"), w,
+			r.RemoteAddr)
+		return
+	}
+
+	// check permission
+	var granted bool
+	// strict acl verification: only the file owner is able
+	// to delete it.
+	if fileLog.Ownership.Username == userInfo.Username {
+		granted = true
+	}
+	if !granted {
+		riseError(http.StatusUnauthorized,
+			fmt.Sprintf("you are not authorised to delete this resource"), w,
+			r.RemoteAddr)
+		return
+	}
+
+	now := time.Now()
+	// generate tx id
+	txId := generateTranscationId(id, userInfo.Username, &now)
+	// add async tx record
+	err = dbSession.SetAsyncTx(&AsyncTx{
+		Id:        txId,
+		Complete:  false,
+		TimeStamp: now,
+		Ownership: Owner{
+			Username:  userInfo.Username,
+			OriginIp:  r.RemoteAddr,
+			UserAgent: r.UserAgent(),
+		},
+	})
+	if err != nil {
+		riseError(http.StatusInternalServerError,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+
+	// require S3 download
+	s3backend.Delete(arguments.s3Bucket, id, txId)
+
+	// return download response message
+	w.WriteHeader(http.StatusAccepted)
+	err = json.NewEncoder(w).Encode(
+		&ct.SechunkAsyncResponse{
+			ID: txId,
+		})
+	if err != nil {
+		panic(err)
+	}
+	if arguments.verbose {
+		log.VerboseLog("Delete request %s accepted, waiting for delete verification", txId)
+	}
 }
 
-// getVerifyTx responds to a request of info regarding a
+// getQueue responds to a request of info regarding a
 // previously produced async request (upload, download of
 // delete). It returns available infos based on the originally
 // required operation (for example Data field is only available
 // on download requests). After completing the query flow it
 // removes the async tx record.
-func getVerifyTx(w http.ResponseWriter, r *http.Request) {
+func getQueue(w http.ResponseWriter, r *http.Request) {
 	// get id from url
 	vars := mux.Vars(r)
 	id, ok := vars["requestid"]
@@ -304,7 +476,7 @@ func getVerifyTx(w http.ResponseWriter, r *http.Request) {
 	// get tx status
 	at, err := dbSession.GetAsyncTx(id)
 	if err != nil {
-		riseError(http.StatusNotFound,
+		riseError(http.StatusGone,
 			fmt.Sprintf("unable to find required request, verification must be done at max %d min from order request", MaxAsyncTxExistance),
 			w, r.RemoteAddr)
 		return

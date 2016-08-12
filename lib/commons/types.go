@@ -73,10 +73,10 @@ type SechunkPostRequest struct {
 	SharingUsers []string      `json:"sharing,omitempty"` // usernames of users enabled to access the file (only in case of Shared permission type).
 }
 
-// SechunkPostResponse the returned message from the
+// SechunkAsyncResponse the returned message from the
 // pre-flight call, the returned id should be used for
 // the verify call.
-type SechunkPostResponse struct {
+type SechunkAsyncResponse struct {
 	ID string `json:"id"` // id for the in processing upload.
 }
 

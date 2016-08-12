@@ -9,7 +9,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"net/rpc"
 	"strings"
 )
 
@@ -94,18 +93,25 @@ func mgoStartup(a *args) (database, error) {
 }
 
 // RPC client instance, usable by different goroutines simultaneously.
-var rpcClient *rpc.Client
+var authClient AuthClient
+
+// This var is used to permitt to switch to mock auth implementation
+// in unit-tests, do not mess with it for other reasons.
+// The default, production targeting, implementation uses RPC Auth
+// service to manage authentication.
+var authClientStartup func(*args) (AuthClient, error) = rpcClientStartup
 
 // rpcClientStartup creates an RPC client and returns it if no error
 // encountered. It manage a success log if all went right.
-func rpcClientStartup(a *args) (*rpc.Client, error) {
-	address := fmt.Sprintf("%s:%s", a.authServiceAddress, a.authServicePort)
-	client, err := rpc.DialHTTP("tcp", address)
+func rpcClientStartup(a *args) (AuthClient, error) {
+	client, err := NewAuthRpc(arguments.authServiceAddress, arguments.authServicePort)
 	if err != nil {
 		return nil, err
 	}
 
-	log.MessageLog("Initialised connection with auth RPC service: %s.\n", address)
+	log.MessageLog("Initialised connection with auth RPC service: %s:%d.\n",
+		arguments.authServiceAddress,
+		arguments.authServicePort)
 
 	return client, nil
 }
@@ -148,11 +154,11 @@ func serve(cmd *cobra.Command, args []string) error {
 	defer db.Close()
 
 	// startup RPC auth service
-	rpcClient, err = rpcClientStartup(&arguments)
+	authClient, err = authClientStartup(&arguments)
 	if err != nil {
 		return fmt.Errorf("unable to start RPC client connection: %s", err.Error())
 	}
-	defer rpcClient.Close()
+	defer authClient.Close()
 
 	// startup S3 backend
 	s3backend, err = s3backendStartup(&arguments)
@@ -166,17 +172,21 @@ func serve(cmd *cobra.Command, args []string) error {
 	// create router
 	route := mux.NewRouter()
 	// define  primary routes
-	route.HandleFunc("/login", login).Methods("POST")
-	route.HandleFunc("/logout", logout).Methods("GET")
-	// Resources are exposed with a two step logic: the first
+	route.HandleFunc("/v1/login", login).Methods("POST")
+	route.HandleFunc("/v1/logout", logout).Methods("GET")
+	// resources are exposed with a two step logic: the first
 	// API call request a resource, the verify call return the
 	// first step resulting message (data, error or ack).
-	route.HandleFunc("/sechunk/{resorceid:[A-Fa-f0-9]+}", getChunk).Methods("GET")
-	route.HandleFunc("/sechunk/{resourceid:[A-Fa-f0-9]+}", deleteChunk).Methods("DELETE")
-	route.HandleFunc("/sechunk", postChunk).Methods("POST")
-	route.HandleFunc("/sechunk/verify/{requestid:[A-Fa-f0-9]+}", getVerifyTx).Methods("GET")
+	route.HandleFunc("/v1/secstorage", postChunk).Methods("POST")
+	route.HandleFunc("/v1/secstorage/{resourceid:[A-Fa-f0-9]+}", getChunk).Methods("GET")
+	route.HandleFunc("/v1/secstorage/{resourceid:[A-Fa-f0-9]+}", deleteChunk).Methods("DELETE")
+	// queue handler is a shortpath to maintain RESTful form in an
+	// async context, tipically the queue should return to a produced resource
+	// but in this case it'll pass the data requested at the first step (to
+	// be more efficient and avoiding maintain data in the db too long).
+	route.HandleFunc("/v1/queue/{requestid:[A-Fa-f0-9]+}", getQueue).Methods("GET")
 	// utility routes
-	route.HandleFunc("/ping", getPing).Methods("GET")
+	route.HandleFunc("/v1/ping", getPing).Methods("GET")
 	// root routes
 	http.Handle("/", route)
 

@@ -8,6 +8,7 @@
 // concurrency safe and do not implement any performance
 // optimisation logic.
 //
+
 package main
 
 // Golang std libs
