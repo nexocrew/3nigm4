@@ -3,6 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
+
 package auth
 
 // Golang std libs

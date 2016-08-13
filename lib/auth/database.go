@@ -3,13 +3,14 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
-// Database wrapper used to permitt, defining a db
-// interface, avoiding integration tests using a real
-// mongodb instance. A mockdb struct is defined in the
-// database_test.go file to implement offline tests.
+
+// Package auth is a database wrapper used to permitt,
+// defining a db interface, avoiding integration tests
+// using a real mongodb instance. A mockdb struct is
+// defined in the database_test.go file to implement
+// offline tests.
 // In production this file is a simple wrapper around
 // mgo package.
-//
 package auth
 
 // Golang std libs
@@ -62,7 +63,7 @@ type Database interface {
 	RemoveAllSessions() error            // remove all sessions in the db.
 }
 
-// mongodb database, wrapping mgo session
+// Mongodb database, wrapping mgo session
 // structure.
 type Mongodb struct {
 	session *mgo.Session
@@ -236,7 +237,7 @@ func (d *Mongodb) RemoveAllSessions() error {
 	return nil
 }
 
-// ensureMongodbIndexes assign mongodb indexes to the right
+// EnsureMongodbIndexes assign mongodb indexes to the right
 // collections, this should be done only the first time the
 // collection is created.
 func (d *Mongodb) EnsureMongodbIndexes() error {

@@ -3,6 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/03/2016
 //
+
 package filemanager
 
 import (
@@ -162,7 +163,7 @@ func TestNewEncryptedChunksNoCompression(t *testing.T) {
 		t.Fatalf("Unexpected number of chunks: should have %d but found %d.\n", (len(kTestFileContent)/kChunkSize)+delta, len(chunks.chunks))
 	}
 
-	recomposedData := make([]byte, 0)
+	var recomposedData []byte
 	for idx, value := range chunks.chunks {
 		if len(value) == 0 {
 			t.Fatalf("Unexpected data chunk, lenght should be not nil")

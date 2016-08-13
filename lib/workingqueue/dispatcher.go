@@ -3,13 +3,15 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/03/2016
 //
+
 package workingqueue
 
+// Std golang packages
 import (
 	"fmt"
 )
 
-// Dispatcher implement a working queue to optimise
+// dispatcher implement a working queue to optimise
 // access to shared messaging queue from the input
 // components.
 type dispatcher struct {
@@ -21,7 +23,7 @@ type dispatcher struct {
 	quit       chan bool     // stop activity chan.
 }
 
-// NewDispatcher creates a new dispatcher object to be
+// newDispatcher creates a new dispatcher object to be
 // filled with required workers.
 func newDispatcher(maxWorkers int, errorc chan error, jobQueue chan job) *dispatcher {
 	return &dispatcher{
@@ -34,7 +36,7 @@ func newDispatcher(maxWorkers int, errorc chan error, jobQueue chan job) *dispat
 	}
 }
 
-// Run start all workers and put the dispatcher
+// run start all workers and put the dispatcher
 // in listening mode on the job queue.
 func (d *dispatcher) run() error {
 	// starting workers
@@ -55,19 +57,19 @@ func (d *dispatcher) run() error {
 // workers.
 func (d *dispatcher) dispatch() {
 	// define boolean conditions
-	jobc_closed := false
+	jobcClosed := false
 
 	for {
 		// check for closed channel
-		if jobc_closed == true {
+		if jobcClosed == true {
 			d.errorChan <- fmt.Errorf("unable to dispatch queue, job channel is closed")
 			return
 		}
 		// select on channels
 		select {
-		case job, jobc_ok := <-d.jobQueue:
-			if !jobc_ok {
-				jobc_closed = true
+		case job, jobcOk := <-d.jobQueue:
+			if !jobcOk {
+				jobcClosed = true
 			} else {
 				// a job request has been received
 				go func() {
@@ -87,7 +89,7 @@ func (d *dispatcher) dispatch() {
 	}
 }
 
-// Stop method signals the workers to stop.
+// stop method signals the workers to stop.
 func (d *dispatcher) stop() {
 	// stop queue consuming
 	go func() {

@@ -3,6 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
+
 package main
 
 // Standard golang
@@ -144,47 +145,47 @@ func manageAsyncError(err error) {
 // manageS3chans manages chan messages from working queue
 // async S3 upload/download.
 func manageS3chans(s3backend *s3c.Session) {
-	var errc_closed, uploadedc_closed, downloadedc_closed, deletedc_closed bool
+	var errcClosed, uploadedcClosed, downloadedcClosed, deletedcClosed bool
 	for {
-		if errc_closed == true {
+		if errcClosed == true {
 			log.CriticalLog("S3 error chan is closed, unable to proceed managing chan queue.\n")
 			return
 		}
-		if uploadedc_closed == true {
+		if uploadedcClosed == true {
 			log.CriticalLog("S3 upload chan is closed, unable to proceed managing chan queue.\n")
 			return
 		}
-		if downloadedc_closed == true {
+		if downloadedcClosed == true {
 			log.CriticalLog("S3 download chan is closed, unable to proceed managing chan queue.\n")
 			return
 		}
-		if deletedc_closed == true {
+		if deletedcClosed == true {
 			log.CriticalLog("S3 delete chan is closed, unable to proceed managing chan queue.\n")
 			return
 		}
 		// select on channels
 		select {
-		case err, errc_ok := <-s3backend.ErrorChan:
-			if !errc_ok {
-				errc_closed = true
+		case err, errcOk := <-s3backend.ErrorChan:
+			if !errcOk {
+				errcClosed = true
 			} else {
 				go manageAsyncError(err)
 			}
-		case uploaded, uploadedc_ok := <-s3backend.UploadedChan:
-			if !uploadedc_ok {
-				uploadedc_closed = true
+		case uploaded, uploadedcOk := <-s3backend.UploadedChan:
+			if !uploadedcOk {
+				uploadedcClosed = true
 			} else {
 				go updateUploadRequestStatus(uploaded)
 			}
-		case downloaded, downloadedc_ok := <-s3backend.DownloadedChan:
-			if !downloadedc_ok {
-				downloadedc_closed = true
+		case downloaded, downloadedcOk := <-s3backend.DownloadedChan:
+			if !downloadedcOk {
+				downloadedcClosed = true
 			} else {
 				go updateDownloadRequestStatus(downloaded)
 			}
-		case deleted, deletedc_ok := <-s3backend.DeletedChan:
-			if !deletedc_ok {
-				deletedc_closed = true
+		case deleted, deletedcOk := <-s3backend.DeletedChan:
+			if !deletedcOk {
+				deletedcClosed = true
 			} else {
 				go updateDeleteRequestStatus(deleted)
 			}

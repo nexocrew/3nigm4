@@ -3,8 +3,17 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/03/2016
 //
+
+// Package workingqueue implement a concurrent working queue
+// able to process any passed payload (having a standard
+// function signature) managing the maximum number of active
+// workers. This is intended to be used on high volumes of
+// processing to manage efficiently workloads without doing
+// auto Ddos creating always new goroutines.
 package workingqueue
 
+// WorkingQueue base struct used to
+// represent the working queue.
 type WorkingQueue struct {
 	jobQueue   chan job    // A buffered channel that we can send work requests on;
 	dispatcher *dispatcher // The work dispatcher.

@@ -3,6 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
+
 package main
 
 // Golang std libs
@@ -29,8 +30,9 @@ var log *logger.LogFacility
 // Cobra parsed arguments
 var arguments args
 
-// Root command
-var AuthCmd = &cobra.Command{
+// RootCmd is the base command used by cobra in the storageservice
+// exec.
+var RootCmd = &cobra.Command{
 	Use:   "storageservice",
 	Short: "Storage REST API backend",
 	Long:  "Server that interface via REST API the access for file storage on S3 backend.",
@@ -43,14 +45,14 @@ var AuthCmd = &cobra.Command{
 
 func init() {
 	// global flags
-	AuthCmd.PersistentFlags().BoolVarP(&arguments.verbose, "verbose", "v", false, "activate logging verbosity")
-	AuthCmd.PersistentFlags().BoolVarP(&arguments.colored, "colored", "C", true, "activate colored logs")
+	RootCmd.PersistentFlags().BoolVarP(&arguments.verbose, "verbose", "v", false, "activate logging verbosity")
+	RootCmd.PersistentFlags().BoolVarP(&arguments.colored, "colored", "C", true, "activate colored logs")
 }
 
 // AddCommands adds available commands
 // to the root command
 func AddCommands() {
-	AuthCmd.AddCommand(ServeCmd)
+	RootCmd.AddCommand(ServeCmd)
 }
 
 // Execute parsing and execute selected
@@ -60,7 +62,7 @@ func Execute() error {
 	AddCommands()
 
 	// execute actual command
-	_, err := AuthCmd.ExecuteC()
+	_, err := RootCmd.ExecuteC()
 	if err != nil {
 		return err
 	}

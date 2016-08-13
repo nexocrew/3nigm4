@@ -3,6 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
+
 package auth
 
 // Golang std libs
@@ -49,7 +50,7 @@ func generateSessionToken(username string) ([]byte, error) {
 	// add 32 random bytes
 	plain := make([]byte, len(context)+32)
 	// copy time dependand string
-	for idx, _ := range context {
+	for idx := range context {
 		plain[idx] = context[idx]
 	}
 	randBytes := plain[len(context):]
@@ -130,13 +131,13 @@ func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
 	return nil
 }
 
-// LogoutRequest is the request passed to logout the
+// LogoutRequestArg is the request passed to logout the
 // user's sessions.
 type LogoutRequestArg struct {
 	Token []byte // the session token used to identify the user.
 }
 
-// LogoutResponse is the structure used to return the
+// LogoutResponseArg is the structure used to return the
 // list of invalidated sessions.
 type LogoutResponseArg struct {
 	Invalidated []byte

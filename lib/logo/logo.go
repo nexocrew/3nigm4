@@ -3,6 +3,9 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 21/03/2016
 //
+
+// Package logo can be used to print, on screen, the app
+// colored logo at startup (or at any other desired moment).
 package logo
 
 import (
@@ -59,7 +62,7 @@ func composeSeparator(destination *string) {
 	*destination += colorString(kLogoSeparator, kFrameColor) + "\n"
 }
 
-// Returns the logo string ready to be printed
+// Logo returns the logo string ready to be printed
 // at application startup.
 func Logo(componentName string, version string, startupInfos map[string]string) string {
 	logo := "\n"

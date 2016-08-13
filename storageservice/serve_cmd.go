@@ -23,6 +23,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ServeCmd start the http/https server listening
+// on exec args, used to register to cobra lib root
+// command.
 var ServeCmd = &cobra.Command{
 	Use:     "serve",
 	Short:   "Serve trougth http/https",

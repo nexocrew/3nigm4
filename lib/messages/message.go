@@ -3,13 +3,18 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/03/2016
 //
+
+// Package messages implements the basic messaging system
+// usable for chatting in the 3nigm4 framework. It defines
+// basic exchanged strutures and the basic flow.
 package messages
 
+// Std golang lib
 import (
 	"time"
 )
 
-// RecipientsKys is replicated for each recipient and
+// RecipientKeys is replicated for each recipient and
 // used in handshake flow to exchange, in encrypted form,
 // all required symmetric keys.
 type RecipientKeys struct {
@@ -25,7 +30,7 @@ type ServerKey struct {
 	TimeToLive         uint64 `json:"ttl" xml:"ttl"`         // time to live in seconds.
 }
 
-// Handshake request to require a new session to the server
+// HandshakeReq request to require a new session to the server
 // All the request will be encoded and encrypted using server
 // pgp public key.
 type HandshakeReq struct {
@@ -34,7 +39,7 @@ type HandshakeReq struct {
 	ServerKey      ServerKey       `json:"serverk" xml:"serverk"`         // key that'll be used by the server to encrypt a random generated key;
 }
 
-// Handshake successful server response returns all needed
+// HandshakeRes successful server response returns all needed
 // informations to start exchanging messages with required
 // recipients.
 type HandshakeRes struct {

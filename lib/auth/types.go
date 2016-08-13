@@ -3,6 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
+
 package auth
 
 import (
@@ -13,6 +14,8 @@ import (
 // levels.
 type Level uint
 
+// Common levels used to identify tipical figures
+// that can access a service, this list can be expanded.
 const (
 	LevelUser  Level = iota // common user, will not be able to administer a service;
 	LevelAdmin Level = iota // administrator will be able to perform maintainance tasks.

@@ -3,19 +3,21 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/03/2016
 //
+
 package workingqueue
 
+// Std golang libs
 import (
 	"fmt"
 )
 
-// The job to be done
+// job to be done
 type job struct {
 	function func(interface{}) error
 	args     interface{}
 }
 
-// Worker represent the worker that
+// worker represent the worker that
 // executes the job.
 type worker struct {
 	workerPool   chan chan job
@@ -26,7 +28,7 @@ type worker struct {
 	id           int
 }
 
-// NewWorker creates a new worker and
+// newWorker creates a new worker and
 // init internal properties.
 func newWorker(id int, workerPool chan chan job, errorChan chan error) (*worker, error) {
 	return &worker{
@@ -38,21 +40,21 @@ func newWorker(id int, workerPool chan chan job, errorChan chan error) (*worker,
 	}, nil
 }
 
-// CountedJobs returns the number of counted
+// countedJobs returns the number of counted
 // processed jobs.
 func (w *worker) countedJobs() int64 {
 	return w.counter.Value()
 }
 
-// Start method starts the run loop for the worker,
+// start method starts the run loop for the worker,
 // listening for a quit channel in case we need to
 // stop it.
 func (w *worker) start() {
 	go func() {
-		jobc_closed := false
+		jobcClosed := false
 		for {
 			// check for closed channel
-			if jobc_closed == true {
+			if jobcClosed == true {
 				w.errorChannel <- fmt.Errorf("unable to dispatch queue, job channel is closed")
 				return
 			}
@@ -61,9 +63,9 @@ func (w *worker) start() {
 			w.workerPool <- w.jobChannel
 			// manage channels
 			select {
-			case job, jobc_ok := <-w.jobChannel:
-				if !jobc_ok {
-					jobc_closed = true
+			case job, jobcOk := <-w.jobChannel:
+				if !jobcOk {
+					jobcClosed = true
 				} else {
 					// worker recived a job
 					err := job.function(job.args)
@@ -83,7 +85,7 @@ func (w *worker) start() {
 	}()
 }
 
-// Stop method signals the worker to stop
+// stop method signals the worker to stop
 // listening for work requests.
 func (w *worker) stop() {
 	go func() {

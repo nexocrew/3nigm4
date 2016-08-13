@@ -3,6 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
+
 package main
 
 // Golang std libs
@@ -85,7 +86,7 @@ func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobP
 	}
 
 	// upload data to the S3 backend
-	var expireTime *time.Time = nil
+	var expireTime *time.Time
 	if fl.TimeToLive != 0 {
 		ttl := fl.Creation.Add(fl.TimeToLive)
 		expireTime = &ttl

@@ -22,6 +22,8 @@ type Owner struct {
 	UserAgent string `bson:"useragent,omitempty"` // client origin useragent.
 }
 
+// These are the available permission types applicable to the stored
+// files.
 const (
 	Private ct.Permission = iota // The file will be accessible only by the uploading user;
 	Shared  ct.Permission = iota // it'll be available to the list of users specified by the SharingUsers property;

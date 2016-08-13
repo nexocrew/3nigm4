@@ -29,7 +29,7 @@ var log *logger.LogFacility
 // Cobra parsed arguments
 var arguments args
 
-// Root command
+// AuthCmd root command
 var AuthCmd = &cobra.Command{
 	Use:   "authserver",
 	Short: "Authentication server",

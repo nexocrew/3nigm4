@@ -3,6 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/03/2016
 //
+
 package workingqueue
 
 import (
@@ -12,17 +13,16 @@ import (
 )
 
 const (
-	kWorkersNumber         = 8
-	kSleepTimeMilliseconds = 5
+	workersNumber         = 8
+	sleepTimeMilliseconds = 5
+	dispatchWorks         = 500
 )
-
-const kDispatchWorks = 500
 
 func TestDispatcher(t *testing.T) {
 	dispatchc := make(chan job)
 	errc := make(chan error)
 
-	dispatcher := newDispatcher(kWorkersNumber, errc, dispatchc)
+	dispatcher := newDispatcher(workersNumber, errc, dispatchc)
 	if dispatcher == nil {
 		t.Fatalf("Dispatcher was not created.\n")
 	}
@@ -48,13 +48,13 @@ func TestDispatcher(t *testing.T) {
 		}
 	}()
 	// send messages
-	for idx := 0; idx < kDispatchWorks*kWorkersNumber; idx++ {
+	for idx := 0; idx < dispatchWorks*workersNumber; idx++ {
 		wg.Add(1)
 		go func(i int) {
 			arg := Args{
 				Data:  []byte("This is some fake data"),
 				Index: i,
-				Sleep: kSleepTimeMilliseconds,
+				Sleep: sleepTimeMilliseconds,
 			}
 			work := job{
 				function: processing,
@@ -83,7 +83,7 @@ func TestDispatcher(t *testing.T) {
 	var processedCount int64
 	for {
 		if timeoutCounter.Value() != 0 {
-			t.Fatalf("Some message missing, having %d expecting %d.\n", processedCount, kDispatchWorks*kWorkersNumber)
+			t.Fatalf("Some message missing, having %d expecting %d.\n", processedCount, dispatchWorks*workersNumber)
 		}
 		if counter.Value() != 0 {
 			t.Fatalf("Some error occurred: %d.\n", counter.Value())
@@ -92,7 +92,7 @@ func TestDispatcher(t *testing.T) {
 		for _, worker := range dispatcher.workers {
 			processedCount += worker.countedJobs()
 		}
-		if processedCount == int64(kDispatchWorks*kWorkersNumber) {
+		if processedCount == int64(dispatchWorks*workersNumber) {
 			break
 		}
 		time.Sleep(3 * time.Millisecond)

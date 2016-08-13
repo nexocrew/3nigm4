@@ -10,6 +10,7 @@
 // In production this file is a simple wrapper around
 // mgo package.
 //
+
 package main
 
 // Golang std libs
@@ -26,14 +27,17 @@ import (
 )
 
 const (
-	kDatabaseName              = "storageservice"
-	kFilesLogCollectionName    = "fileslog"
-	kAsyncTxCollectionName     = "asynctx"
-	kEnvDatabaseName           = "NEXO_FILESLOG_DATABASE"
-	kEnvFilesLogCollectionName = "NEXO_FILESLOG_COLLECTION"
-	kEnvAsyncTxCollectionName  = "NEXO_ASYNCTX_COLLECTION"
+	defaultDatabaseName           = "storageservice"
+	defaultFilesLogCollectionName = "fileslog"
+	defaultAsyncTxCollectionName  = "asynctx"
+	envDatabaseName               = "NEXO_FILESLOG_DATABASE"
+	envFilesLogCollectionName     = "NEXO_FILESLOG_COLLECTION"
+	envAsyncTxCollectionName      = "NEXO_ASYNCTX_COLLECTION"
 )
 
+// MaxAsyncTxExistance represent the maximum time
+// that an async job can remain pending in the database
+// before being automatically deleted.
 var MaxAsyncTxExistance = 1 * time.Hour
 
 // dbArgs is the exposed arguments
@@ -87,7 +91,7 @@ func composeDbAddress(args *dbArgs) string {
 	return dbAccess
 }
 
-// mgoSession get a new session starting from the standard args
+// MgoSession get a new session starting from the standard args
 // structure.
 func MgoSession(args *dbArgs) (*mongodb, error) {
 	s, err := mgo.Dial(composeDbAddress(args))
@@ -98,23 +102,23 @@ func MgoSession(args *dbArgs) (*mongodb, error) {
 		session: s,
 	}
 	// check for env vars
-	env := os.Getenv(kEnvDatabaseName)
+	env := os.Getenv(envDatabaseName)
 	if env != "" {
 		db.databaseName = env
 	} else {
-		db.databaseName = kDatabaseName
+		db.databaseName = defaultDatabaseName
 	}
-	env = os.Getenv(kEnvFilesLogCollectionName)
+	env = os.Getenv(envFilesLogCollectionName)
 	if env != "" {
 		db.filelogCollection = env
 	} else {
-		db.filelogCollection = kFilesLogCollectionName
+		db.filelogCollection = defaultFilesLogCollectionName
 	}
-	env = os.Getenv(kEnvAsyncTxCollectionName)
+	env = os.Getenv(envAsyncTxCollectionName)
 	if env != "" {
 		db.asyncTxCollection = env
 	} else {
-		db.asyncTxCollection = kAsyncTxCollectionName
+		db.asyncTxCollection = defaultAsyncTxCollectionName
 	}
 	// connect to db
 	return db, nil

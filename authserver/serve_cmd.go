@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ServeCmd serve via RPC cobra command.
 var ServeCmd = &cobra.Command{
 	Use:     "serve",
 	Short:   "Serve trougth RPC",
