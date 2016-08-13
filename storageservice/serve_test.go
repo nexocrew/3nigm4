@@ -785,7 +785,7 @@ func TestStorageUploadResourceDuplicated(t *testing.T) {
 	}
 }
 
-func TestStorageDownloadJobDuplicated(t *testing.T) {
+func TestStorageDeleteJobDuplicated(t *testing.T) {
 	// Login the user
 	loginBody := ct.LoginRequest{
 		Username: mockUserInfo.Username,
