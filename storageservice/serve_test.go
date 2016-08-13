@@ -310,10 +310,10 @@ func verifyJobCompletion(t *testing.T, jobID, token string, timeout time.Duratio
 			case http.StatusOK:
 				completeCounter.Add(1)
 				getBody, _ = ioutil.ReadAll(resp.Body)
-				break
+				return
 			default:
 				errorChan <- fmt.Errorf("unexpected status having %d.\n", resp.StatusCode)
-				break
+				return
 			}
 			resp.Body.Close()
 			time.Sleep(500 * time.Millisecond)
@@ -573,5 +573,386 @@ func TestStorageResourceFlow(t *testing.T) {
 	}
 	if completedDelete.CheckSum.Type != "" {
 		t.Fatalf("Unexpected checksum type, should be nil but found %s.\n", completedDelete.CheckSum.Type)
+	}
+}
+
+func TestStorageGetResourceNotAuthenticated(t *testing.T) {
+	// define request body
+	jobUpload := ct.JobPostRequest{
+		Command: "UPLOAD",
+		Arguments: &ct.CommandArguments{
+			ResourceID: fileID,
+			Data:       []byte(fileContent),
+			Permission: Public,
+		},
+	}
+	body, err := json.Marshal(&jobUpload)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+
+	client := &http.Client{}
+	// create job
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/storage/job", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the storage/job request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, "e837ndiefh93h34")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform job request on server: %s.\n", err.Error())
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("Should return unhautorised %d but returneded %d.\n", http.StatusUnauthorized, resp.StatusCode)
+	}
+}
+
+func TestStorageUploadResourceDuplicated(t *testing.T) {
+	// Login the user
+	loginBody := ct.LoginRequest{
+		Username: mockUserInfo.Username,
+		Password: mockUserPassword,
+	}
+	body, err := json.Marshal(&loginBody)
+	if err != nil {
+		t.Fatalf("Unable to marshal request body: %s.\n", err.Error())
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/authsession", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the login request: %s.\n", err.Error())
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform login request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to access login service, returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	var session ct.LoginResponse
+	err = json.Unmarshal(respBody, &session)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if session.Token == "" ||
+		len(session.Token) == 0 {
+		t.Fatalf("Invalid token: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	if fileID == "" {
+		t.Fatalf("Resource name cannot be nil.\n")
+	}
+
+	// define request body
+	jobUpload := ct.JobPostRequest{
+		Command: "UPLOAD",
+		Arguments: &ct.CommandArguments{
+			ResourceID: fileID,
+			Data:       []byte(fileContent),
+			Permission: Public,
+		},
+	}
+	body, err = json.Marshal(&jobUpload)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+
+	// create job
+	req, err = http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/storage/job", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the storage/job request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform job request on server: %s.\n", err.Error())
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("Unable to submit resource, returned %d but expected %d.\n", resp.StatusCode, http.StatusAccepted)
+	}
+	respBody, _ = ioutil.ReadAll(resp.Body)
+	var jobUploadResponse ct.JobPostResponse
+	err = json.Unmarshal(respBody, &jobUploadResponse)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if jobUploadResponse.JobID == "" {
+		t.Fatalf("Invalid job id: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	// get job completed
+	completedBody := verifyJobCompletion(t, jobUploadResponse.JobID, session.Token, 30*time.Second)
+
+	// get response body
+	var completedUpload ct.JobGetRequest
+	err = json.Unmarshal(completedBody, &completedUpload)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal data: %s.\n", err.Error())
+	}
+
+	// define request body
+	jobUpload2 := ct.JobPostRequest{
+		Command: "UPLOAD",
+		Arguments: &ct.CommandArguments{
+			ResourceID: fileID,
+			Data:       []byte(fileContent),
+			Permission: Public,
+		},
+	}
+	body, err = json.Marshal(&jobUpload2)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+
+	// repeat job
+	req, err = http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/storage/job", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the storage/job request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform job request on server: %s.\n", err.Error())
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("Should return the statues error %d but returned %d.\n", http.StatusInternalServerError, resp.StatusCode)
+	}
+
+	// delete resource
+	jobDelete := ct.JobPostRequest{
+		Command: "DELETE",
+		Arguments: &ct.CommandArguments{
+			ResourceID: fileID,
+		},
+	}
+	body, err = json.Marshal(&jobDelete)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+	// create job
+	req, err = http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/storage/job", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the storage/job request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform job request on server: %s.\n", err.Error())
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("Unable to delete resource, returned %d but expected %d.\n", resp.StatusCode, http.StatusAccepted)
+	}
+	respBody, _ = ioutil.ReadAll(resp.Body)
+
+	var jobDeleteResponse ct.JobPostResponse
+	err = json.Unmarshal(respBody, &jobDeleteResponse)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if jobDeleteResponse.JobID == "" {
+		t.Fatalf("Invalid job id: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	// get job completed
+	completedDeleteBody := verifyJobCompletion(t, jobDeleteResponse.JobID, session.Token, 30*time.Second)
+	// get response body
+	var completedDelete ct.JobGetRequest
+	err = json.Unmarshal(completedDeleteBody, &completedDelete)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal data: %s.\n", err.Error())
+	}
+}
+
+func TestStorageDownloadJobDuplicated(t *testing.T) {
+	// Login the user
+	loginBody := ct.LoginRequest{
+		Username: mockUserInfo.Username,
+		Password: mockUserPassword,
+	}
+	body, err := json.Marshal(&loginBody)
+	if err != nil {
+		t.Fatalf("Unable to marshal request body: %s.\n", err.Error())
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/authsession", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the login request: %s.\n", err.Error())
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform login request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to access login service, returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	var session ct.LoginResponse
+	err = json.Unmarshal(respBody, &session)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if session.Token == "" ||
+		len(session.Token) == 0 {
+		t.Fatalf("Invalid token: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	if fileID == "" {
+		t.Fatalf("Resource name cannot be nil.\n")
+	}
+
+	// define request body
+	jobUpload := ct.JobPostRequest{
+		Command: "UPLOAD",
+		Arguments: &ct.CommandArguments{
+			ResourceID: fileID,
+			Data:       []byte(fileContent),
+			Permission: Public,
+		},
+	}
+	body, err = json.Marshal(&jobUpload)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+
+	// create job
+	req, err = http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/storage/job", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the storage/job request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform job request on server: %s.\n", err.Error())
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("Unable to submit resource, returned %d but expected %d.\n", resp.StatusCode, http.StatusAccepted)
+	}
+	respBody, _ = ioutil.ReadAll(resp.Body)
+	var jobUploadResponse ct.JobPostResponse
+	err = json.Unmarshal(respBody, &jobUploadResponse)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if jobUploadResponse.JobID == "" {
+		t.Fatalf("Invalid job id: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	// get job completed
+	completedBody := verifyJobCompletion(t, jobUploadResponse.JobID, session.Token, 30*time.Second)
+
+	// get response body
+	var completedUpload ct.JobGetRequest
+	err = json.Unmarshal(completedBody, &completedUpload)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal data: %s.\n", err.Error())
+	}
+
+	// delete resource
+	jobDelete := ct.JobPostRequest{
+		Command: "DELETE",
+		Arguments: &ct.CommandArguments{
+			ResourceID: fileID,
+		},
+	}
+	body, err = json.Marshal(&jobDelete)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+	// create job
+	req, err = http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/storage/job", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the storage/job request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform job request on server: %s.\n", err.Error())
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("Unable to delete resource, returned %d but expected %d.\n", resp.StatusCode, http.StatusAccepted)
+	}
+	respBody, _ = ioutil.ReadAll(resp.Body)
+
+	var jobDeleteResponse ct.JobPostResponse
+	err = json.Unmarshal(respBody, &jobDeleteResponse)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if jobDeleteResponse.JobID == "" {
+		t.Fatalf("Invalid job id: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	// get job completed
+	completedDeleteBody := verifyJobCompletion(t, jobDeleteResponse.JobID, session.Token, 30*time.Second)
+	// get response body
+	var completedDelete ct.JobGetRequest
+	err = json.Unmarshal(completedDeleteBody, &completedDelete)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal data: %s.\n", err.Error())
+	}
+
+	// delete resource repeted
+	jobDelete2 := ct.JobPostRequest{
+		Command: "DELETE",
+		Arguments: &ct.CommandArguments{
+			ResourceID: fileID,
+		},
+	}
+	body, err = json.Marshal(&jobDelete2)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+	// create job
+	req, err = http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/storage/job", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the storage/job request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform job request on server: %s.\n", err.Error())
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("Deleting again a resource should produce an error, returned %d but expected %d.\n", resp.StatusCode, http.StatusNotFound)
 	}
 }

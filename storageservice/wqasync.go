@@ -114,6 +114,13 @@ func updateDeleteRequestStatus(dr s3c.OpResult) {
 		return
 	}
 
+	// delete file record in db
+	err = session.RemoveFileLog(dr.ID)
+	if err != nil {
+		log.ErrorLog("Unable to remove required %s doc from the database cause %s, continuing", dr.ID, err.Error())
+		// this error will not block the operation (cause the file on S3 has been already deleted).
+	}
+
 	// update status
 	at.Complete = true
 	at.Error = dr.Error

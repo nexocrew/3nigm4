@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // Internal libs
@@ -228,7 +229,7 @@ func getJob(w http.ResponseWriter, r *http.Request) {
 	at, err := dbSession.GetAsyncTx(id)
 	if err != nil {
 		riseError(http.StatusGone,
-			fmt.Sprintf("unable to find required request, verification must be done at max %d min from order request", MaxAsyncTxExistance),
+			fmt.Sprintf("unable to find %s job, verification must be done at max %d min from request creation", id, MaxAsyncTxExistance/time.Minute),
 			w, r.RemoteAddr)
 		return
 	}
