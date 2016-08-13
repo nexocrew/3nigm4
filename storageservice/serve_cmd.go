@@ -171,20 +171,14 @@ func serve(cmd *cobra.Command, args []string) error {
 
 	// create router
 	route := mux.NewRouter()
-	// define  primary routes
-	route.HandleFunc("/v1/login", login).Methods("POST")
-	route.HandleFunc("/v1/logout", logout).Methods("GET")
-	// resources are exposed with a two step logic: the first
-	// API call request a resource, the verify call return the
-	// first step resulting message (data, error or ack).
-	route.HandleFunc("/v1/secstorage", postChunk).Methods("POST")
-	route.HandleFunc("/v1/secstorage/{resourceid:[A-Fa-f0-9]+}", getChunk).Methods("GET")
-	route.HandleFunc("/v1/secstorage/{resourceid:[A-Fa-f0-9]+}", deleteChunk).Methods("DELETE")
-	// queue handler is a shortpath to maintain RESTful form in an
-	// async context, tipically the queue should return to a produced resource
-	// but in this case it'll pass the data requested at the first step (to
-	// be more efficient and avoiding maintain data in the db too long).
-	route.HandleFunc("/v1/queue/{requestid:[A-Fa-f0-9]+}", getQueue).Methods("GET")
+	// define auth routes
+	route.HandleFunc("/v1/authsession", login).Methods("POST")
+	route.HandleFunc("/v1/authsession", logout).Methods("DELETE")
+	// define async storage routes: the REST resource is a job. Every type a
+	// job is created using a POST method the status of the request can be
+	// vefified using the FET method on the returned jobid.
+	route.HandleFunc("/v1/storage/job", postJob).Methods("POST")
+	route.HandleFunc("/v1/storage/job/{jobid:[A-Fa-f0-9]+}", getJob).Methods("GET")
 	// utility routes
 	route.HandleFunc("/v1/ping", getPing).Methods("GET")
 	// root routes

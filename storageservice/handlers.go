@@ -8,12 +8,10 @@ package main
 // Golang std libs
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 )
 
 // Internal libs
@@ -142,15 +140,14 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// postChunk upload a data chunk to the S3 backend service
-// after authorising the user. it interacts in sync with multiple
-// services in order to obtain user authentication, s3 backend and
-// database logging functionalities.
-func postChunk(w http.ResponseWriter, r *http.Request) {
+// postJob creates a new async job request passing in the body
+// the requested command to be executed with all required
+// arguments.
+func postJob(w http.ResponseWriter, r *http.Request) {
 	// authorise and get user's info
 	// extract token from headers
 	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
-	if err == nil {
+	if err != nil {
 		riseError(http.StatusUnauthorized,
 			err.Error(), w,
 			r.RemoteAddr)
@@ -162,297 +159,51 @@ func postChunk(w http.ResponseWriter, r *http.Request) {
 	buf.ReadFrom(r.Body)
 	body := buf.Bytes()
 	// parse json body
-	var requestBody ct.SechunkPostRequest
-	err = json.Unmarshal(body, &requestBody)
+	var job ct.JobPostRequest
+	err = json.Unmarshal(body, &job)
 	if err != nil {
 		riseError(http.StatusBadRequest,
 			err.Error(), w,
 			r.RemoteAddr)
 		return
 	}
-	if requestBody.Data == nil ||
-		len(requestBody.Data) == 0 {
+	// check for arguments
+	if job.Arguments == nil ||
+		job.Arguments.ResourceID == "" {
 		riseError(http.StatusBadRequest,
-			"data in request body is nil", w,
+			"unable to process requests with nil arguments", w,
 			r.RemoteAddr)
 		return
 	}
+	// TODO: eventually add a regex to validate the
+	// passed resource id.
 
-	// get time stamp
-	now := time.Now()
-	// retain db
-	dbSession := db.Copy()
-	defer dbSession.Close()
-	// insert file log in the database
-	checksum := sha256.Sum256(requestBody.Data)
-	fl := &FileLog{
-		Id:         requestBody.ID,
-		Size:       len(requestBody.Data),
-		Bucket:     arguments.s3Bucket,
-		Creation:   now,
-		TimeToLive: requestBody.TimeToLive,
-		CheckSum: ct.CheckSum{
-			Hash: checksum[:],
-			Type: "SHA256",
-		},
-		Ownership: Owner{
-			Username:  userInfo.Username,
-			OriginIp:  r.RemoteAddr,
-			UserAgent: r.UserAgent(),
-		},
-		Acl: Acl{
-			Permission:   requestBody.Permission,
-			SharingUsers: requestBody.SharingUsers,
-		},
-	}
-	err = dbSession.SetFileLog(fl)
-	if err != nil {
-		riseError(http.StatusInternalServerError,
-			err.Error(), w,
-			r.RemoteAddr)
-		return
-	}
-
-	// generate tx id
-	txId := generateTranscationId(fl.Id, userInfo.Username, &now)
-
-	// add async tx record
-	err = dbSession.SetAsyncTx(&AsyncTx{
-		Id:        txId,
-		Complete:  false,
-		TimeStamp: fl.Creation,
-		Ownership: fl.Ownership,
-	})
-	if err != nil {
-		riseError(http.StatusInternalServerError,
-			err.Error(), w,
-			r.RemoteAddr)
-		return
-	}
-
-	// upload data to the S3 backend
-	var expireTime *time.Time = nil
-	if fl.TimeToLive != 0 {
-		ttl := fl.Creation.Add(fl.TimeToLive)
-		expireTime = &ttl
-	}
-	s3backend.Upload(fl.Bucket, fl.Id, txId, requestBody.Data, expireTime)
-
-	// return upload response message
-	w.WriteHeader(http.StatusAccepted)
-	err = json.NewEncoder(w).Encode(
-		&ct.SechunkAsyncResponse{
-			ID: txId,
-		})
-	if err != nil {
-		panic(err)
-	}
-	if arguments.verbose {
-		log.VerboseLog("Upload request %s accepted, waiting for upload verification", txId)
-	}
-}
-
-// checkAclPermission verify all possible acl scenarios and check if the
-// requiring user has required permissions to access the file. If user can
-// download it it'll return true otherwise false.
-func checkAclPermission(userInfo *auth.UserInfoResponseArg, fileLog *FileLog) bool {
-	// check access credentials
-	switch fileLog.Acl.Permission {
-	case Private:
-		if fileLog.Ownership.Username == userInfo.Username {
-			return true
-		}
-	case Public:
-		return true
-	case Shared:
-		for _, permitted := range fileLog.Acl.SharingUsers {
-			if permitted == userInfo.Username {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// getChunk implements the first step of a file download request it is exposed
-// via a REST GET method and returns a txId usable with the verify API call to
-// retrieve the actual downloaded data (from S3 storage). The user must be
-// correctly authenticated to be able to access the requested resource.
-func getChunk(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, ok := vars["resourceid"]
-	if !ok || id == "" {
+	// select the right command implementation
+	switch job.Command {
+	case "UPLOAD":
+		createStorageResource(w, r, &job, userInfo)
+	case "DOWNLOAD":
+		retrieveStorageResource(w, r, &job, userInfo)
+	case "DELETE":
+		deleteStorageResource(w, r, &job, userInfo)
+	default:
 		riseError(http.StatusBadRequest,
-			"unable to proceed with nil id", w,
+			"unknown command", w,
 			r.RemoteAddr)
 		return
-	}
-
-	// authorise and get user's info
-	// extract token from headers
-	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
-	if err == nil {
-		riseError(http.StatusUnauthorized,
-			err.Error(), w,
-			r.RemoteAddr)
-		return
-	}
-
-	// retain db
-	dbSession := db.Copy()
-	defer dbSession.Close()
-	// get resources info
-	fileLog, err := dbSession.GetFileLog(id)
-	if err != nil {
-		riseError(http.StatusNotFound,
-			fmt.Sprintf("requested file not found"), w,
-			r.RemoteAddr)
-		return
-	}
-
-	// check permission
-	granted := checkAclPermission(userInfo, fileLog)
-	if !granted {
-		riseError(http.StatusUnauthorized,
-			fmt.Sprintf("you are not authorised to access this resource"), w,
-			r.RemoteAddr)
-		return
-	}
-
-	now := time.Now()
-	// generate tx id
-	txId := generateTranscationId(id, userInfo.Username, &now)
-	// add async tx record
-	err = dbSession.SetAsyncTx(&AsyncTx{
-		Id:        txId,
-		Complete:  false,
-		TimeStamp: now,
-		Ownership: Owner{
-			Username:  userInfo.Username,
-			OriginIp:  r.RemoteAddr,
-			UserAgent: r.UserAgent(),
-		},
-	})
-	if err != nil {
-		riseError(http.StatusInternalServerError,
-			err.Error(), w,
-			r.RemoteAddr)
-		return
-	}
-
-	// require S3 download
-	s3backend.Download(arguments.s3Bucket, id, txId)
-
-	// return download response message
-	w.WriteHeader(http.StatusAccepted)
-	err = json.NewEncoder(w).Encode(
-		&ct.SechunkAsyncResponse{
-			ID: txId,
-		})
-	if err != nil {
-		panic(err)
-	}
-	if arguments.verbose {
-		log.VerboseLog("Download request %s accepted, waiting for download verification", txId)
 	}
 }
 
-// deleteChunk remove a file from the S3 storage: only the original file
-// owner (who uploaded it) can remove a file from there.
-func deleteChunk(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, ok := vars["resourceid"]
-	if !ok || id == "" {
-		riseError(http.StatusBadRequest,
-			"unable to proceed with nil id", w,
-			r.RemoteAddr)
-		return
-	}
-
-	// authorise and get user's info
-	// extract token from headers
-	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
-	if err == nil {
-		riseError(http.StatusUnauthorized,
-			err.Error(), w,
-			r.RemoteAddr)
-		return
-	}
-
-	// retain db
-	dbSession := db.Copy()
-	defer dbSession.Close()
-	// get resources info
-	fileLog, err := dbSession.GetFileLog(id)
-	if err != nil {
-		riseError(http.StatusNotFound,
-			fmt.Sprintf("requested file not found"), w,
-			r.RemoteAddr)
-		return
-	}
-
-	// check permission
-	var granted bool
-	// strict acl verification: only the file owner is able
-	// to delete it.
-	if fileLog.Ownership.Username == userInfo.Username {
-		granted = true
-	}
-	if !granted {
-		riseError(http.StatusUnauthorized,
-			fmt.Sprintf("you are not authorised to delete this resource"), w,
-			r.RemoteAddr)
-		return
-	}
-
-	now := time.Now()
-	// generate tx id
-	txId := generateTranscationId(id, userInfo.Username, &now)
-	// add async tx record
-	err = dbSession.SetAsyncTx(&AsyncTx{
-		Id:        txId,
-		Complete:  false,
-		TimeStamp: now,
-		Ownership: Owner{
-			Username:  userInfo.Username,
-			OriginIp:  r.RemoteAddr,
-			UserAgent: r.UserAgent(),
-		},
-	})
-	if err != nil {
-		riseError(http.StatusInternalServerError,
-			err.Error(), w,
-			r.RemoteAddr)
-		return
-	}
-
-	// require S3 download
-	s3backend.Delete(arguments.s3Bucket, id, txId)
-
-	// return download response message
-	w.WriteHeader(http.StatusAccepted)
-	err = json.NewEncoder(w).Encode(
-		&ct.SechunkAsyncResponse{
-			ID: txId,
-		})
-	if err != nil {
-		panic(err)
-	}
-	if arguments.verbose {
-		log.VerboseLog("Delete request %s accepted, waiting for delete verification", txId)
-	}
-}
-
-// getQueue responds to a request of info regarding a
+// getJob responds to a request of info regarding a
 // previously produced async request (upload, download of
 // delete). It returns available infos based on the originally
 // required operation (for example Data field is only available
 // on download requests). After completing the query flow it
 // removes the async tx record.
-func getQueue(w http.ResponseWriter, r *http.Request) {
+func getJob(w http.ResponseWriter, r *http.Request) {
 	// get id from url
 	vars := mux.Vars(r)
-	id, ok := vars["requestid"]
+	id, ok := vars["jobid"]
 	if !ok || id == "" {
 		riseError(http.StatusBadRequest,
 			"unable to proceed with nil id", w,
@@ -463,7 +214,7 @@ func getQueue(w http.ResponseWriter, r *http.Request) {
 	// authorise and get user's info
 	// extract token from headers
 	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
-	if err == nil {
+	if err != nil {
 		riseError(http.StatusUnauthorized,
 			err.Error(), w,
 			r.RemoteAddr)
@@ -490,21 +241,22 @@ func getQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// clean db tx
-	if at.Complete == true {
-		err = dbSession.RemoveAsyncTx(id)
-		if arguments.verbose &&
-			err != nil {
-			log.WarningLog("Unable to remove async tx from database: %s.\n", err.Error())
-		}
+	// in case the processing is not yet completed
+	if at.Complete == false {
+		w.WriteHeader(http.StatusAccepted)
+		return
 	}
 
+	var errstr string
+	if at.Error != nil {
+		errstr = at.Error.Error()
+	}
 	// return verify message
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(
-		&ct.SechunkTxVerify{
+		&ct.JobGetRequest{
 			Complete: at.Complete,
-			Error:    at.Error.Error(),
+			Error:    errstr,
 			Data:     at.Data,
 			CheckSum: at.CheckSum,
 		})
@@ -513,6 +265,13 @@ func getQueue(w http.ResponseWriter, r *http.Request) {
 	}
 	if arguments.verbose {
 		log.VerboseLog("Verify request %s correcly replyied.\n", id)
+	}
+
+	// remove obsolete job db document
+	err = dbSession.RemoveAsyncTx(id)
+	if arguments.verbose &&
+		err != nil {
+		log.WarningLog("Unable to remove async tx from database: %s.\n", err.Error())
 	}
 }
 

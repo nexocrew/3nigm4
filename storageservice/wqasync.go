@@ -74,16 +74,56 @@ func updateUploadRequestStatus(ur s3c.OpResult) {
 
 // updateDownloadRequestStatus manage workingqueue messages from
 // completed S3 download operations.
-// TODO: implement the update status logic.
 func updateDownloadRequestStatus(dr s3c.OpResult) {
+	session := db.Copy()
+	defer session.Close()
 
+	at, err := session.GetAsyncTx(dr.RequestID)
+	if err != nil {
+		log.ErrorLog("Retrieving tx async doc %s produced error %s, ignoring.\n", dr.RequestID, err.Error())
+		return
+	}
+
+	// update status
+	at.Complete = true
+	at.Error = dr.Error
+	at.Data = dr.Data
+	hash := sha256.Sum256(at.Data)
+	at.CheckSum = ct.CheckSum{
+		Hash: hash[:],
+		Type: "SHA256",
+	}
+
+	// update in the db
+	err = session.UpdateAsyncTx(at)
+	if err != nil {
+		log.ErrorLog("Unable to update %s tx async doc cause %s, ignoring.\n", at.Id, err.Error())
+		return
+	}
 }
 
 // updateDeleteRequestStatus update status related to an async
 // delete operation.
-// TODO: implemeny the update status logic.
 func updateDeleteRequestStatus(dr s3c.OpResult) {
+	session := db.Copy()
+	defer session.Close()
 
+	at, err := session.GetAsyncTx(dr.RequestID)
+	if err != nil {
+		log.ErrorLog("Retrieving tx async doc %s produced error %s, ignoring.\n", dr.RequestID, err.Error())
+		return
+	}
+
+	// update status
+	at.Complete = true
+	at.Error = dr.Error
+
+	// update in the db
+	err = session.UpdateAsyncTx(at)
+	if err != nil {
+		log.ErrorLog("Unable to update %s tx async doc cause %s, ignoring.\n", at.Id, err.Error())
+		return
+	}
 }
 
 // manageAsyncError handles error returned by S3 workers

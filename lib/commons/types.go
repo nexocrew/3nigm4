@@ -23,7 +23,7 @@ const (
 // CheckSum of the uploaded file for later verify.
 type CheckSum struct {
 	Hash []byte `bson:"hash" json:"hash"` // checksum of data struct;
-	Type string `bson:"type" json:"hash"` // used algorithm.
+	Type string `bson:"type" json:"type"` // used algorithm.
 }
 
 // Permission represent the read permission on files.
@@ -63,27 +63,37 @@ type LogoutResponse struct {
 	Invalidated string `json:"invalidated"` // the invalidated session token.
 }
 
-// SechunkPostRequest upload API request struct is used
-// in pre-flight API call to pass all needed infos.
-type SechunkPostRequest struct {
-	ID           string        `json:"id"`                // id assigned to the chunk;
-	Data         []byte        `json:"data"`              // the data blob to be uploaded;
-	TimeToLive   time.Duration `json:"ttl,omitempty"`     // required time to live for the data chunk;
-	Permission   Permission    `json:"permission"`        // the type of enforced permission;
-	SharingUsers []string      `json:"sharing,omitempty"` // usernames of users enabled to access the file (only in case of Shared permission type).
+// JobPostRequest body for the POST job API that creates a new
+// async job evaluating the value of the "Command" property.
+type JobPostRequest struct {
+	Command   string            `json:"command"`   // the command type, available commands are: "UPLOAD", "DOWNLOAD", "DELETE";
+	Arguments *CommandArguments `json:"arguments"` // command arguments.
 }
 
-// SechunkAsyncResponse the returned message from the
+// CommandArguments argument for various commands
+// the presence of some or all the properties depends
+// on the invoked command.
+type CommandArguments struct {
+	// used by all commands
+	ResourceID string `json:"resourceid"` // id assigned to the chunk (required for all commands);
+	// upload specifics
+	Data         []byte        `json:"data,omitempty"`       // the data blob to be uploaded (required for upload);
+	TimeToLive   time.Duration `json:"ttl,omitempty"`        // required time to live for the data chunk;
+	Permission   Permission    `json:"permission,omitempty"` // the type of enforced permission (required for upload);
+	SharingUsers []string      `json:"sharing,omitempty"`    // usernames of users enabled to access the file (only in case of Shared permission type).
+}
+
+// JobPostResponse the returned message from the
 // pre-flight call, the returned id should be used for
 // the verify call.
-type SechunkAsyncResponse struct {
-	ID string `json:"id"` // id for the in processing upload.
+type JobPostResponse struct {
+	JobID string `json:"jobid"` // id for the in processing upload.
 }
 
-// SechunkTxVerify verify API call struct returned to check
+// JobGetRequest verify API call struct returned to check
 // is a required transaction (upload, download, delete) has
 // been correctly performed.
-type SechunkTxVerify struct {
+type JobGetRequest struct {
 	Complete bool     `json:"complete"`           // the upload/download/delete tx has been completed;
 	Error    string   `json:"error,omitempty"`    // error description, if any;
 	Data     []byte   `json:"data,omitempty"`     // returned requested bytes;
