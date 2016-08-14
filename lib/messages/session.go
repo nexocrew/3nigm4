@@ -1,5 +1,5 @@
 //
-// 3nigm4 crypto package
+// 3nigm4 messages package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 21/03/2016
 //
