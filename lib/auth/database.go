@@ -3,13 +3,14 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
-// Database wrapper used to permitt, defining a db
-// interface, avoiding integration tests using a real
-// mongodb instance. A mockdb struct is defined in the
-// database_test.go file to implement offline tests.
+
+// Package auth is a database wrapper used to permitt,
+// defining a db interface, avoiding integration tests
+// using a real mongodb instance. A mockdb struct is
+// defined in the database_test.go file to implement
+// offline tests.
 // In production this file is a simple wrapper around
 // mgo package.
-//
 package auth
 
 // Golang std libs
@@ -32,7 +33,7 @@ const (
 	kEnvDatabaseName           = "NEXO_AUTH_DATABASE"
 	kEnvUsersCollectionName    = "NEXO_AUTH_USERS_COLLECTION"
 	kEnvSessionsCollectionName = "NEXO_AUTH_SESSIONS_COLLECTION"
-	kMaxSessionExistance       = 32 * time.Hour
+	kMaxSessionExistance       = 24 * time.Hour
 )
 
 // DbArgs is the exposed arguments
@@ -45,7 +46,7 @@ type DbArgs struct {
 	AuthDb    string   // the auth db.
 }
 
-// database an interface defyining a generic
+// Database an interface defining a generic
 // db, package targeting, implementation.
 type Database interface {
 	// db client related functions
@@ -62,7 +63,7 @@ type Database interface {
 	RemoveAllSessions() error            // remove all sessions in the db.
 }
 
-// mongodb database, wrapping mgo session
+// Mongodb database, wrapping mgo session
 // structure.
 type Mongodb struct {
 	session *mgo.Session
@@ -85,7 +86,7 @@ func composeDbAddress(args *DbArgs) string {
 	return dbAccess
 }
 
-// mgoSession get a new session starting from the standard args
+// MgoSession get a new session starting from the standard args
 // structure.
 func MgoSession(args *DbArgs) (*Mongodb, error) {
 	s, err := mgo.Dial(composeDbAddress(args))
@@ -121,7 +122,10 @@ func MgoSession(args *DbArgs) (*Mongodb, error) {
 // Copy the internal session to permitt multi corutine usage.
 func (d *Mongodb) Copy() Database {
 	return &Mongodb{
-		session: d.session.Copy(),
+		session:            d.session.Copy(),
+		database:           d.database,
+		usersCollection:    d.usersCollection,
+		sessionsCollection: d.sessionsCollection,
 	}
 }
 
@@ -233,7 +237,7 @@ func (d *Mongodb) RemoveAllSessions() error {
 	return nil
 }
 
-// ensureMongodbIndexes assign mongodb indexes to the right
+// EnsureMongodbIndexes assign mongodb indexes to the right
 // collections, this should be done only the first time the
 // collection is created.
 func (d *Mongodb) EnsureMongodbIndexes() error {
@@ -263,11 +267,11 @@ func (d *Mongodb) EnsureMongodbIndexes() error {
 	// clean out every session after 32 hours
 	// from the creation time.
 	cleanSessionIndex := mgo.Index{
-		Key:         []string{"login_ts"},
+		Key:         []string{"lastseen_ts"},
 		Unique:      false,
 		DropDups:    false,
 		Background:  true,
-		ExpireAfter: kMaxSessionExistance, // clean session at max every 32 hours (time.Duration type).
+		ExpireAfter: kMaxSessionExistance, // clean session at max every 24 hours (time.Duration type).
 	}
 	err = d.session.DB(d.database).C(d.sessionsCollection).EnsureIndex(sessionIndex)
 	if err != nil {

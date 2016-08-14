@@ -3,8 +3,13 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/03/2016
 //
+
+// Package client implements all client used functions
+// that relates to the interaction with external services
+// typically APIs.
 package client
 
+// Std golib dependencies
 import (
 	"bytes"
 	"encoding/json"
@@ -16,10 +21,14 @@ import (
 	"strconv"
 )
 
+// Internal dependencies
 import (
 	"github.com/nexocrew/3nigm4/lib/messages"
 )
 
+// Client represent the base in memory structure
+// used to represent the user acting and all service
+// related infos.
 type Client struct {
 	Sessions        []messages.SessionKeys        `json:"-" xml:"-"` // client opened sessions;
 	PrivateKey      *openpgp.Entity               `json:"-" xml:"-"` // user's in memory private key;
@@ -47,15 +56,17 @@ func NewClient(keyringPath string, keyserverUrl string, serverUrl string) *Clien
 	return &c
 }
 
-// Keybase response structures,
+// KeybaseStatusRes keybase response structures
 // see https://keybase.io/docs/api/1.0/call/user/lookup
 // for details.
-
 type KeybaseStatusRes struct {
 	Code int    `json:"code"`
 	Name string `json:"name"`
 }
 
+// KeybaseBasicsRes keybase response structures
+// see https://keybase.io/docs/api/1.0/call/user/lookup
+// for details.
 type KeybaseBasicsRes struct {
 	Username      string `json:"username"`
 	Ctime         uint   `json:"ctime"`
@@ -66,16 +77,25 @@ type KeybaseBasicsRes struct {
 	UsernameCased string `json:"username_cased"`
 }
 
+// KeybasePictureRes keybase response structures
+// see https://keybase.io/docs/api/1.0/call/user/lookup
+// for details.
 type KeybasePictureRes struct {
 	Url    string `json:"url"`
 	Width  uint   `json:"width"`
 	Height uint   `json:"height"`
 }
 
+// KeybasePicturesRes keybase response structures
+// see https://keybase.io/docs/api/1.0/call/user/lookup
+// for details.
 type KeybasePicturesRes struct {
 	Primary KeybasePictureRes `json:"primary"`
 }
 
+// KeybasePublicKeyRes keybase response structures
+// see https://keybase.io/docs/api/1.0/call/user/lookup
+// for details.
 type KeybasePublicKeyRes struct {
 	KeyFingerprint string `json:"key_fingerprint"`
 	Kid            string `json:"kid"`
@@ -93,6 +113,9 @@ type KeybasePublicKeyRes struct {
 	ExpirationTime uint   `json:"etime"`
 }
 
+// KeybaseProfileRes keybase response structures
+// see https://keybase.io/docs/api/1.0/call/user/lookup
+// for details.
 type KeybaseProfileRes struct {
 	Mtime    uint   `json:"mtime"`
 	FullName string `json:"full_name"`
@@ -100,11 +123,17 @@ type KeybaseProfileRes struct {
 	Bio      string `json:"bio"`
 }
 
+// KeybasePublicKeysRes keybase response structures
+// see https://keybase.io/docs/api/1.0/call/user/lookup
+// for details.
 type KeybasePublicKeysRes struct {
 	Primary       KeybasePublicKeyRes `json:"primary"`
 	PgpPublicKeys []string            `json:"pgp_public_keys"`
 }
 
+// KeybaseThemRes keybase response structures
+// see https://keybase.io/docs/api/1.0/call/user/lookup
+// for details.
 type KeybaseThemRes struct {
 	Id         string               `json:"id"`
 	Basics     KeybaseBasicsRes     `json:"basics"`
@@ -114,13 +143,17 @@ type KeybaseThemRes struct {
 	Profile    KeybaseProfileRes    `json:"profile"`
 }
 
+// KeybaseUserLookupRes keybase response structures
+// see https://keybase.io/docs/api/1.0/call/user/lookup
+// for details.
 type KeybaseUserLookupRes struct {
 	Status KeybaseStatusRes `json:"status"`
 	Them   []KeybaseThemRes `json:"them"`
 }
 
+// Constant Keybase root paths.
 const (
-	RootLookupUrl = "_/api/1.0/user/lookup.json"
+	RootLookupUrl = "_/api/1.0/user/lookup.json" // base URL path.
 )
 
 func (c *Client) composeKeyserverUrl() (*url.URL, error) {
@@ -153,6 +186,8 @@ func (c *Client) serverUrl(path string) (*url.URL, error) {
 	return u, nil
 }
 
+// GetRecipientPublicKey uses Keybase APIs to retrieve recipient's
+// PGP public key, if any.
 func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLookupRes, error) {
 	u, err := c.composeKeyserverUrl()
 	if err != nil {
@@ -204,13 +239,17 @@ func (c *Client) GetRecipientPublicKey(recipientIds []string) (*KeybaseUserLooku
 	return &lr, nil
 }
 
-// Handshake message
+// HandshakeMsg is the message used in
+// handshake operations for the chat functionality
+// this structure is used to exchange all session
+// related keys.
 type HandshakeMsg struct {
 	SessionKeys []byte `json:"sessionk"`
 	ServerKeys  []byte `json:"serverk"`
 }
 
-// Response while creating a new session
+// PostNewSessionResp struct used to create
+// a new session for chatting via REST APIs.
 type PostNewSessionResp struct {
 	SessionId []byte `json:"sessionid"`
 }
@@ -278,16 +317,21 @@ func (c *Client) PostNewSession(session *messages.SessionKeys, recipients openpg
 	return &sessionResponse, nil
 }
 
-// Message struct
+// MessageRequest structu represent a chat
+// message.
 type MessageRequest struct {
 	SessionId   []byte `json:"sessionid"`
 	MessageBody []byte `json:"messagebody"`
 }
 
+// MessageResponse is returned by the server
+// when a message request is sent.
 type MessageResponse struct {
 	Counter uint64 `json:"counter"`
 }
 
+// PostMessage send a new chat message to the server and
+// manage the produced response.
 func (c *Client) PostMessage(session *messages.SessionKeys, message []byte) (uint64, error) {
 	if len(message) == 0 ||
 		session == nil {

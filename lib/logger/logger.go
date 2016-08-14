@@ -3,6 +3,11 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
+
+// Package logger manage a colored concurrent safe
+// logger to substitute golang log package. This
+// implementation is heavely base on github.com/fatih/color
+// package (for all the coloring stuff).
 package logger
 
 import (
@@ -16,7 +21,7 @@ import (
 	"github.com/fatih/color"
 )
 
-// Single colored logger
+// Logger single colored logger structure.
 type Logger struct {
 	mu        sync.Mutex   // ensures atomic writes; protects the following fields;
 	color     *color.Color // actual color printer;
@@ -43,18 +48,18 @@ func NewLogger(color *color.Color,
 
 // formatHeader create a rightly formatted
 // header for logging messages.
-func (f *Logger) formatHeader(logt string) string {
+func (l *Logger) formatHeader(logt string) string {
 	var header string
-	if f.prefix != "" {
-		header += fmt.Sprintf("[%s] ", f.prefix)
+	if l.prefix != "" {
+		header += fmt.Sprintf("[%s] ", l.prefix)
 	}
-	if f.timestamp {
+	if l.timestamp {
 		header += fmt.Sprintf("[%s] ", time.Now().Format(time.UnixDate))
 	}
-	if f.prefix != "" ||
-		f.timestamp {
+	if l.prefix != "" ||
+		l.timestamp {
 		if logt != "" {
-			c := f.color.SprintFunc()
+			c := l.color.SprintFunc()
 			header += c(fmt.Sprintf("[%s]", logt)) + " "
 		}
 		c := color.New(color.BgBlack, color.FgHiWhite)

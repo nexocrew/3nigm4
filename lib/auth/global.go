@@ -6,6 +6,7 @@
 // Global variable is used to globally access a unique
 // db client (that will be copyied by all functions).
 //
+
 package auth
 
 import (

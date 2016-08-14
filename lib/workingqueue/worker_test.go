@@ -14,7 +14,7 @@ import (
 )
 
 // messages target
-const kWorks = 500
+const worksNumber = 500
 
 type Args struct {
 	Data   []byte
@@ -54,7 +54,7 @@ func TestWorker(t *testing.T) {
 	resultingc := AtomicCounter{}
 	var wg sync.WaitGroup
 
-	resultingStrings := make([]string, 0)
+	var resultingStrings []string
 
 	// manage errors and workerpool
 	go func() {
@@ -71,7 +71,7 @@ func TestWorker(t *testing.T) {
 		}
 	}()
 	// send messages
-	for idx := 0; idx < kWorks; idx++ {
+	for idx := 0; idx < worksNumber; idx++ {
 		wg.Add(1)
 		go func(i int) {
 			arg := Args{
@@ -105,7 +105,7 @@ func TestWorker(t *testing.T) {
 	}()
 	for {
 		if timeoutCounter.Value() != 0 {
-			t.Fatalf("Unexpected number of processed messages: having %d expecting %d.\n", processedc.Value(), kWorks+1)
+			t.Fatalf("Unexpected number of processed messages: having %d expecting %d.\n", processedc.Value(), worksNumber+1)
 		}
 		if counter.Value() != 0 {
 			t.Fatalf("Some error occurred: %d.\n", counter.Value())
@@ -113,14 +113,14 @@ func TestWorker(t *testing.T) {
 		// check with +1 cause workerpool is passed before
 		// blocking in the switch block (so it we'll be done
 		// even after reciving the last message).
-		if processedc.Value() == kWorks+1 &&
-			resultingc.Value() == kWorks {
+		if processedc.Value() == worksNumber+1 &&
+			resultingc.Value() == worksNumber {
 			break
 		}
 		time.Sleep(3 * time.Millisecond)
 	}
-	if len(resultingStrings) != kWorks {
-		t.Fatalf("Unexpected number of results having %d expecting %d.\n", len(resultingStrings), kWorks)
+	if len(resultingStrings) != worksNumber {
+		t.Fatalf("Unexpected number of results having %d expecting %d.\n", len(resultingStrings), worksNumber)
 	}
 	for i, value := range resultingStrings {
 		var selfc uint
@@ -153,7 +153,7 @@ func TestWorkerWithError(t *testing.T) {
 	resultingc := AtomicCounter{}
 	var wg sync.WaitGroup
 
-	resultingStrings := make([]string, 0)
+	var resultingStrings []string
 
 	// manage errors and workerpool
 	go func() {
@@ -170,7 +170,7 @@ func TestWorkerWithError(t *testing.T) {
 		}
 	}()
 	// send messages
-	for idx := 0; idx < kWorks; idx++ {
+	for idx := 0; idx < worksNumber; idx++ {
 		wg.Add(1)
 		go func(i int) {
 			var generic interface{}
@@ -211,12 +211,12 @@ func TestWorkerWithError(t *testing.T) {
 	}()
 	for {
 		if timeoutCounter.Value() != 0 {
-			t.Fatalf("Unexpected number of processed messages: having %d expecting %d.\n", processedc.Value(), kWorks+1)
+			t.Fatalf("Unexpected number of processed messages: having %d expecting %d.\n", processedc.Value(), worksNumber+1)
 		}
 		// check with +1 cause workerpool is passed before
 		// blocking in the switch block (so it we'll be done
 		// even after reciving the last message).
-		if processedc.Value() == kWorks+1 {
+		if processedc.Value() == worksNumber+1 {
 			break
 		}
 		time.Sleep(3 * time.Millisecond)
@@ -224,7 +224,7 @@ func TestWorkerWithError(t *testing.T) {
 	if counter.Value() != 3 {
 		t.Fatalf("Expected %d errors but found %d.\n", 3, counter.Value())
 	}
-	if resultingc.Value() != kWorks-3 {
-		t.Fatalf("Expected returning %d correctly processed jobs but founded %d.\n", kWorks-3, resultingc.Value())
+	if resultingc.Value() != worksNumber-3 {
+		t.Fatalf("Expected returning %d correctly processed jobs but founded %d.\n", worksNumber-3, resultingc.Value())
 	}
 }

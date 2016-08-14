@@ -3,23 +3,25 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 21/03/2016
 //
+
 package messages
 
+// Std golang lib
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"golang.org/x/crypto/openpgp"
-	"io"
 	"time"
 )
 
+// Internal imports
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	crypto3n "github.com/nexocrew/3nigm4/lib/crypto"
 )
 
-// Struct that contains all required keys to
+// SessionKeys contains all required keys to
 // participate to a chat session. This structure will be
 // encrypted using pgp before being inserted in a Recipient
 // keys struct for being sent to the server.
@@ -49,26 +51,16 @@ const (
 	kSharedKeySize = 128 // Shared key size.
 )
 
-// randomBytesForLen creates a random data blob
-// of length "size".
-func randomBytesForLen(size int) ([]byte, error) {
-	randData := make([]byte, size)
-	if _, err := io.ReadFull(rand.Reader, randData); err != nil {
-		return nil, err
-	}
-	return randData, nil
-}
-
 // NewSessionKeys creates a new session struct assigning random
 // keys and required configurations.
 func NewSessionKeys(creatorId string, preshared []byte, recipients []string) (*SessionKeys, error) {
 	sk := SessionKeys{}
 	var err error
-	sk.MainSymmetricKey, err = randomBytesForLen(kSharedKeySize)
+	sk.MainSymmetricKey, err = ct.RandomBytesForLen(kSharedKeySize)
 	if err != nil {
 		return nil, err
 	}
-	sk.ServerSymmetricKey, err = randomBytesForLen(kSharedKeySize)
+	sk.ServerSymmetricKey, err = ct.RandomBytesForLen(kSharedKeySize)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +78,7 @@ func NewSessionKeys(creatorId string, preshared []byte, recipients []string) (*S
 	return &sk, nil
 }
 
-// NewSessionFromEncryptedMsg create a new session from an
+// SessionFromEncryptedMsg create a new session from an
 // encrypted message. Pre-shared key have to be inserted manually.
 func SessionFromEncryptedMsg(data []byte, recipientk openpgp.EntityList, preshared []byte) (*SessionKeys, error) {
 	// decrypt message
@@ -147,7 +139,7 @@ func (sk *SessionKeys) EncryptForServerHandshake(recipients openpgp.EntityList, 
 	return encrypted, nil
 }
 
-// Request for an encrypted message using pre-sared keys.
+// Message request for an encrypted message using pre-sared keys.
 type Message struct {
 	SessionId         []byte    `json:"session" xml:"session"`     // the id of the session;
 	SenderId          string    `json:"-" xml:"-"`                 // plain text message sender (in memory);
@@ -158,7 +150,7 @@ type Message struct {
 	Counter           uint64    `json:"counter" xml:"counter"`     // message idx.
 }
 
-// Wrapping message containing message signature.
+// SignedMessage wrapping message containing message signature.
 type SignedMessage struct {
 	Message   Message `json:"message" xml:"message"`     // the message;
 	Signature []byte  `json:"signature" xml:"signature"` // signature on json coded message.
@@ -167,7 +159,7 @@ type SignedMessage struct {
 // xoredKey xor all session keys to obtain the final
 // AES key.
 func (sk *SessionKeys) xoredKey() ([]byte, error) {
-	keys := make([][]byte, 0)
+	var keys [][]byte
 	// main key
 	mainAesKey := deriveAesKey(sk.MainSymmetricKey)
 	keys = append(keys, mainAesKey[:])
@@ -209,7 +201,7 @@ func (sk *SessionKeys) getKeyandAndSalt() ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 	// random salt
-	salt, err := randomBytesForLen(8)
+	salt, err := ct.RandomBytesForLen(8)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -324,7 +316,7 @@ func (sk *SessionKeys) DecryptMessage(chipered []byte, participants openpgp.Enti
 	// copy sender before decrypting
 	// cause padding will change referenced
 	// memory area producing inconsistant signature
-	esenderId := make([]byte, 0)
+	var esenderId []byte
 	esenderId = append(esenderId, wrapper.Message.EncryptedSenderId...)
 	// decript sender
 	senderId, err := crypto3n.AesDecrypt(key, esenderId, crypto3n.CBC)

@@ -3,6 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
+
 package auth
 
 // Golang std libs
@@ -16,7 +17,7 @@ const (
 	kTimeToLive = 15 // minutes to live for a session between accesses.
 )
 
-// Token the RPC required custom type.
+// SessionAuth RPC required custom type (using int arbitrarely).
 type SessionAuth int
 
 // VoidResponseArg empty return value.

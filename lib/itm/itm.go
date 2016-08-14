@@ -3,13 +3,12 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
-// This package is intended to be used only
-// in integration tests. Should never be used
-// in production environments or live processing.
+
+// Package itm (Integration Tests Manager) is intended
+// to be used onlyin integration tests. Should never
+// be usedin production environments or live processing.
 // It should never be included by anything outside
 // the "_test.go" files.
-
-// itm: Integration Tests Manager.
 package itm
 
 // Go default packages
@@ -21,6 +20,8 @@ import (
 
 var ds *IntegrationTestsDataSource // Static variable used to implement singleton pattern.
 
+// IntegrationTestsDataSource in memory structure used to
+// memorise all available testing context vars.
 type IntegrationTestsDataSource struct {
 	dbAddress  string // the db url or ip address;
 	dbPort     int    // the db port;
@@ -57,20 +58,20 @@ const (
 // refer to dedicated db server created on the
 // fly.
 const (
-	ENV_DBADDR     = "ENIGM4_DB_ADDR"
-	ENV_DBPORT     = "ENIGM4_DB_PORT"
-	ENV_DBUSR      = "ENIGM4_DB_USR"
-	ENV_DBPWD      = "ENIGM4_DB_PWD"
-	ENV_DBAUTH     = "ENIGM4_DB_AUTH"
-	ENV_S3ID       = "ENIGM4_S3_ID"
-	ENV_S3SECRET   = "ENIGM4_S3_SECRET"
-	ENV_S3TOKEN    = "ENIGM4_S3_TOKEN"
-	ENV_S3ENDPOINT = "ENIGM4_S3_ENDPOINT"
-	ENV_S3REGION   = "ENIGM4_S3_REGION"
-	ENV_S3BUCKET   = "ENIGM4_S3_BUCKET"
+	kEnvDbAddr     = "ENIGM4_DB_ADDR"
+	kEnvDbPort     = "ENIGM4_DB_PORT"
+	kEnvDbUsr      = "ENIGM4_DB_USR"
+	kEnvDbPwd      = "ENIGM4_DB_PWD"
+	kEnvDbAuth     = "ENIGM4_DB_AUTH"
+	kEnvS3ID       = "ENIGM4_S3_ID"
+	kEnvS3Secret   = "ENIGM4_S3_SECRET"
+	kEnvS3Token    = "ENIGM4_S3_TOKEN"
+	kEnvS3Endpoint = "ENIGM4_S3_ENDPOINT"
+	kEnvS3Region   = "ENIGM4_S3_REGION"
+	kEnvS3Bucket   = "ENIGM4_S3_BUCKET"
 )
 
-// Returns an IntegrationTestsDataSource instance
+// S returns an IntegrationTestsDataSource instance
 // using a singleton pattern. If a shared instance
 // exists returns it otherwise creates a new one,
 // populates it with environment vars or costants and
@@ -79,68 +80,68 @@ func S() *IntegrationTestsDataSource {
 	if ds == nil {
 		itm := IntegrationTestsDataSource{}
 		// setup vars
-		env := os.Getenv(ENV_DBADDR)
+		env := os.Getenv(kEnvDbAddr)
 		if env != "" {
 			itm.dbAddress = env
 		} else {
 			itm.dbAddress = kDbAddress
 		}
-		env = os.Getenv(ENV_DBPORT)
+		env = os.Getenv(kEnvDbPort)
 		if env != "" {
 			itm.dbPort, _ = strconv.Atoi(env)
 		} else {
 			itm.dbPort = kDbPort
 		}
-		env = os.Getenv(ENV_DBUSR)
+		env = os.Getenv(kEnvDbUsr)
 		if env != "" {
 			itm.dbUserName = env
 		} else {
 			itm.dbUserName = kDbUserName
 		}
-		env = os.Getenv(ENV_DBPWD)
+		env = os.Getenv(kEnvDbPwd)
 		if env != "" {
 			itm.dbPassword = env
 		} else {
 			itm.dbPassword = kDbPassword
 		}
-		env = os.Getenv(ENV_DBAUTH)
+		env = os.Getenv(kEnvDbAuth)
 		if env != "" {
 			itm.dbAuth = env
 		} else {
 			itm.dbAuth = kDbAuth
 		}
 		// S3 context
-		env = os.Getenv(ENV_S3ID)
+		env = os.Getenv(kEnvS3ID)
 		if env != "" {
 			itm.s3Id = env
 		} else {
 			itm.s3Id = kS3Id
 		}
-		env = os.Getenv(ENV_S3SECRET)
+		env = os.Getenv(kEnvS3Secret)
 		if env != "" {
 			itm.s3Secret = env
 		} else {
 			itm.s3Secret = kS3Secret
 		}
-		env = os.Getenv(ENV_S3TOKEN)
+		env = os.Getenv(kEnvS3Token)
 		if env != "" {
 			itm.s3Token = env
 		} else {
 			itm.s3Token = kS3Token
 		}
-		env = os.Getenv(ENV_S3ENDPOINT)
+		env = os.Getenv(kEnvS3Endpoint)
 		if env != "" {
 			itm.s3Endpoint = env
 		} else {
 			itm.s3Endpoint = kS3Endpoint
 		}
-		env = os.Getenv(ENV_S3REGION)
+		env = os.Getenv(kEnvS3Region)
 		if env != "" {
 			itm.s3Region = env
 		} else {
 			itm.s3Region = kS3Region
 		}
-		env = os.Getenv(ENV_S3BUCKET)
+		env = os.Getenv(kEnvS3Bucket)
 		if env != "" {
 			itm.s3Bucket = env
 		} else {
@@ -152,74 +153,74 @@ func S() *IntegrationTestsDataSource {
 	return ds
 }
 
-// Return singleton integration tests db address
+// DbAddress return singleton integration tests db address
 // as a string.
 func (i *IntegrationTestsDataSource) DbAddress() string {
 	return i.dbAddress
 }
 
-// Returns singleton integration tests db port
+// DbPort returns singleton integration tests db port
 // as an integer.
 func (i *IntegrationTestsDataSource) DbPort() int {
 	return i.dbPort
 }
 
-// Returns singleton integration tests db port
+// DbPortString returns singleton integration tests db port
 // as a string.
 func (i *IntegrationTestsDataSource) DbPortString() string {
 	return strconv.Itoa(i.dbPort)
 }
 
-// Returns singleton integration tests db username
+// DbUserName returns singleton integration tests db username
 // as a string.
 func (i *IntegrationTestsDataSource) DbUserName() string {
 	return i.dbUserName
 }
 
-// Returns singleton integration tests db password
+// DbPassword returns singleton integration tests db password
 // as a string.
 func (i *IntegrationTestsDataSource) DbPassword() string {
 	return i.dbPassword
 }
 
-// Returns singleton integration tests authorisation
+// DbAuth returns singleton integration tests authorisation
 // db name as a string.
 func (i *IntegrationTestsDataSource) DbAuth() string {
 	return i.dbAuth
 }
 
-// Returns db full address composed with all previously
+// DbFullAddress returns db full address composed with all previously
 // returned elements.
 func (i *IntegrationTestsDataSource) DbFullAddress() string {
 	return fmt.Sprintf(kDbFullAddressFmt, i.dbUserName, i.dbPassword, i.dbAddress, i.dbPort, i.dbAuth)
 }
 
-// Returns s3 id string for credentials.
+// S3Id returns s3 id string for credentials.
 func (i *IntegrationTestsDataSource) S3Id() string {
 	return i.s3Id
 }
 
-// Returns s3 secret string.
+// S3Secret returns s3 secret string.
 func (i *IntegrationTestsDataSource) S3Secret() string {
 	return i.s3Secret
 }
 
-// The s3 token value.
+// S3Token the s3 token value.
 func (i *IntegrationTestsDataSource) S3Token() string {
 	return i.s3Token
 }
 
-// S3 endpoint address.
+// S3Endpoint S3 endpoint address.
 func (i *IntegrationTestsDataSource) S3Endpoint() string {
 	return i.s3Endpoint
 }
 
-// The S3 region address.
+// S3Region the S3 region address.
 func (i *IntegrationTestsDataSource) S3Region() string {
 	return i.s3Region
 }
 
-// The S3 bucket name.
+// S3Bucket the S3 bucket name.
 func (i *IntegrationTestsDataSource) S3Bucket() string {
 	return i.s3Bucket
 }

@@ -8,6 +8,7 @@
 // concurrency safe and do not implement any performance
 // optimisation logic.
 //
+
 package auth
 
 // Golang std libs
@@ -62,6 +63,9 @@ func (d *mockdb) SetUser(user *User) error {
 }
 
 func (d *mockdb) RemoveUser(username string) error {
+	if _, ok := d.userStorage[username]; !ok {
+		return fmt.Errorf("unable to find required %s user", username)
+	}
 	delete(d.userStorage, username)
 	return nil
 }

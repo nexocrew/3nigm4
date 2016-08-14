@@ -7,6 +7,7 @@ _A command line chat based on keybase._
 
 ## Status
 [![Build Status](https://travis-ci.org/nexocrew/3nigm4.svg?branch=develop)](https://travis-ci.org/nexocrew/3nigm4)
+[![GoDoc](https://godoc.org/github.com/nexocrew/3nigm4?status.svg)](https://godoc.org/github.com/nexocrew/3nigm4)
 
 Table of contents
 ---------------------

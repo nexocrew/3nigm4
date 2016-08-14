@@ -3,6 +3,13 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/03/2016
 //
+
+// Package filemanager manage the split and encryption of a
+// file in chunkes that will be uploadable to a cloud storage.
+// This package is part of the security strategy of 3nigm4: dividing
+// the file in chunks and assigning a unique resource id will
+// produce unrelated anonymous chunks that cannot be related with
+// the original file metadata (lenght, hash and so on...).
 package filemanager
 
 // Standard libs
@@ -95,7 +102,7 @@ func (e *EncryptedChunks) splitDataInChunks(data []byte) error {
 	for idx := uint64(0); idx < totalPartsCount; idx++ {
 		remainingLen := uint64(len(data)) - processedLen
 		partSize := uint64(math.Min(float64(e.chunkSize), float64(remainingLen)))
-		partBuffer := make([]byte, 0)
+		var partBuffer []byte
 		// copy data blob
 		partBuffer = append(partBuffer, data[processedLen:processedLen+partSize]...)
 		processedLen += partSize
@@ -120,7 +127,7 @@ func (e *EncryptedChunks) composeOriginalData() ([]byte, error) {
 		return nil, fmt.Errorf("unexpected key number having %d requiring %d", len(e.chunksKeys), len(e.chunks))
 	}
 	// decrypt original data
-	outData := make([]byte, 0)
+	var outData []byte
 	for idx, edata := range e.chunks {
 		var key []byte
 		var err error
@@ -361,7 +368,7 @@ func (e *EncryptedChunks) GetFile(filepath string) error {
 // form metadata).
 func ChunkFileId(filename string, chunkNumber int, checksum []byte) (string, error) {
 	completeFileName := fmt.Sprintf("%s-chunk%d", filename, chunkNumber)
-	id := make([]byte, 0)
+	var id []byte
 	id = append(id, []byte(completeFileName)...)
 	id = append(id, checksum...)
 	hashedId := sha1.Sum(id)

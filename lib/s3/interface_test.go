@@ -16,14 +16,14 @@ import (
 )
 
 const (
-	kFileContent = `Test this content for file usage,
+	fileContent = `Test this content for file usage,
 		should be used to test upload functions to the
 		S3 instance.`
-	kFileId = "testfile"
+	fileID = "testfile"
 )
 
 func TestS3UploadInterface(t *testing.T) {
-	s3, err := NewS3BackendSession(itm.S().S3Endpoint(),
+	s3, err := NewSession(itm.S().S3Endpoint(),
 		itm.S().S3Region(),
 		itm.S().S3Id(),
 		itm.S().S3Secret(),
@@ -35,7 +35,7 @@ func TestS3UploadInterface(t *testing.T) {
 
 	// create resonse listening routine
 	errorCounter := wq.AtomicCounter{}
-	uploaded := make([]string, 0)
+	var uploaded []OpResult
 	var lastError error
 	go func() {
 		for {
@@ -44,8 +44,8 @@ func TestS3UploadInterface(t *testing.T) {
 				errorCounter.Add(1)
 				lastError = err
 				t.Logf("%v", err)
-			case idUploaded := <-s3.UploadedChan:
-				uploaded = append(uploaded, idUploaded)
+			case rUploaded := <-s3.UploadedChan:
+				uploaded = append(uploaded, rUploaded)
 			case dataDownloaded := <-s3.DownloadedChan:
 				t.Logf("%v", dataDownloaded)
 			}
@@ -53,7 +53,7 @@ func TestS3UploadInterface(t *testing.T) {
 	}()
 
 	// upload data
-	s3.Upload(itm.S().S3Bucket(), kFileId, []byte(kFileContent), nil)
+	s3.Upload(itm.S().S3Bucket(), fileID, fileID, []byte(fileContent), nil)
 
 	// the following timeout time is used to ensure
 	// that all goroutines have compleated their
@@ -71,8 +71,11 @@ func TestS3UploadInterface(t *testing.T) {
 	}()
 	for {
 		if len(uploaded) == 1 {
-			if uploaded[0] != kFileId {
-				t.Fatalf("Unexpected file id having %s expecting %s.\n", uploaded[0], kFileId)
+			if uploaded[0].ID != fileID {
+				t.Fatalf("Unexpected file id having %s expecting %s.\n", uploaded[0].ID, fileID)
+			}
+			if uploaded[0].Error != nil {
+				t.Fatalf("Error must be nil but found a valid error.\n")
 			}
 			break
 		}
@@ -88,7 +91,7 @@ func TestS3UploadInterface(t *testing.T) {
 }
 
 func TestS3DownloadInterface(t *testing.T) {
-	s3, err := NewS3BackendSession(itm.S().S3Endpoint(),
+	s3, err := NewSession(itm.S().S3Endpoint(),
 		itm.S().S3Region(),
 		itm.S().S3Id(),
 		itm.S().S3Secret(),
@@ -101,7 +104,7 @@ func TestS3DownloadInterface(t *testing.T) {
 	// create resonse listening routine
 	errorCounter := wq.AtomicCounter{}
 	processedCounter := wq.AtomicCounter{}
-	downloaded := make([]DownloadRequest, 0)
+	var downloaded []OpResult
 	var lastError error
 	go func() {
 		for {
@@ -110,9 +113,9 @@ func TestS3DownloadInterface(t *testing.T) {
 				errorCounter.Add(1)
 				lastError = err
 				t.Logf("%v", err)
-			case idUploaded := <-s3.UploadedChan:
+			case rUploaded := <-s3.UploadedChan:
 				processedCounter.Add(1)
-				t.Logf("%v", idUploaded)
+				t.Logf("%v", rUploaded)
 			case dataDownloaded := <-s3.DownloadedChan:
 				downloaded = append(downloaded, dataDownloaded)
 			}
@@ -120,7 +123,7 @@ func TestS3DownloadInterface(t *testing.T) {
 	}()
 
 	// download data
-	s3.Download(itm.S().S3Bucket(), kFileId)
+	s3.Download(itm.S().S3Bucket(), fileID, fileID)
 
 	// the following timeout time is used to ensure
 	// that all goroutines have compleated their
@@ -138,11 +141,11 @@ func TestS3DownloadInterface(t *testing.T) {
 	}()
 	for {
 		if len(downloaded) == 1 {
-			if downloaded[0].RequestId != kFileId {
-				t.Fatalf("Unexpected file id having %s expecting %s.\n", downloaded[0].RequestId, kFileId)
+			if downloaded[0].RequestID != fileID {
+				t.Fatalf("Unexpected file id having %s expecting %s.\n", downloaded[0].RequestID, fileID)
 			}
-			if len(downloaded[0].Data) != len([]byte(kFileContent)) {
-				t.Fatalf("Unexpected file size, having %d expecting %d.\n", len(downloaded[0].Data), len([]byte(kFileContent)))
+			if len(downloaded[0].Data) != len([]byte(fileContent)) {
+				t.Fatalf("Unexpected file size, having %d expecting %d.\n", len(downloaded[0].Data), len([]byte(fileContent)))
 			}
 			break
 		}

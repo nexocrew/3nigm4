@@ -3,9 +3,16 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/03/2016
 //
+
+// Package crypto implements all cryptographic functions
+// used by the 3nigm4 suite: i mainly wrap Golang std lib
+// function and implement specific pre-processing and
+// post-processing logics. This is a security related element
+// and should be modified with care: any change to this package
+// can potentially modify the security of the whole system.
 package crypto
 
-// golang standard functions
+// Golang standard functions
 import (
 	"bytes"
 	"crypto"
@@ -21,7 +28,7 @@ import (
 	"time"
 )
 
-// extended crypto lib
+// Extended crypto lib
 import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
@@ -33,6 +40,7 @@ import (
 // aes encryption modes
 type AesMode int8
 
+// Available AES modes:
 const (
 	CBC AesMode = 0 + iota // AES CBC mode
 )
@@ -82,7 +90,7 @@ func CheckHMAC(message []byte, messageMAC []byte, key []byte) bool {
 	return hmac.Equal(messageMAC, expectedMAC)
 }
 
-// This function derive a key from a password using
+// DeriveKeyWithPbkdf2 derive a key from a password using
 // Pbkdf2 algorithm. A good number of iterations is
 // ~ 10000 cycles. The derivated key has the right
 // lenght for being used in AES256.
@@ -90,7 +98,7 @@ func DeriveKeyWithPbkdf2(password []byte, salt []byte, iter int) []byte {
 	return pbkdf2.Key(password, salt, iter, kRequiredMaxKeySize, sha1.New)
 }
 
-// XOR given keys (passed in a slice)
+// XorKeys xor given keys (passed in a slice)
 // returning an unique key.
 func XorKeys(keys [][]byte, maxlen int) ([]byte, error) {
 	// xor passcodesb
@@ -165,6 +173,8 @@ func AesEncrypt(key []byte, salt []byte, plaintext []byte, mode AesMode) ([]byte
 	return ciphertext, nil
 }
 
+// GetSaltFromCipherText extract the salt component from an
+// encrypted data blob.
 func GetSaltFromCipherText(ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < aes.BlockSize+kSaltSize {
 		return nil, fmt.Errorf("ciphertext is too short: having %d expecting > than %d", len(ciphertext), aes.BlockSize+kSaltSize)
@@ -221,7 +231,8 @@ func AesDecrypt(key []byte, ciphertext []byte, mode AesMode) ([]byte, error) {
 	return unpadded, nil
 }
 
-// Get a specific key from an email address
+// GetKeyByEmail returns a specific key from an email
+// address.
 func GetKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 	for _, entity := range keyring {
 		for _, ident := range entity.Identities {
@@ -233,8 +244,8 @@ func GetKeyByEmail(keyring openpgp.EntityList, email string) *openpgp.Entity {
 	return nil
 }
 
-// Encrypt using pgp and the passed recipients list
-// and signer entity.
+// OpenPgpEncrypt encrypt using pgp and the passed recipients
+// list and signer entity.
 func OpenPgpEncrypt(data []byte, recipients openpgp.EntityList, signer *openpgp.Entity) ([]byte, error) {
 	// encrypt message
 	buf := new(bytes.Buffer)
@@ -295,6 +306,9 @@ func OpenPgpSignMessage(msg []byte, signer *openpgp.Entity) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// OpenPgpVerifySignature verify a signature using a public
+// PGP key, an error is returned if the signature is not
+// verified otherwise returning nil.
 func OpenPgpVerifySignature(signature []byte, message []byte, publicKey *openpgp.Entity) error {
 	// load signature
 	pack, err := packet.Read(bytes.NewBuffer(signature))
