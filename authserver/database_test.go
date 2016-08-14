@@ -1,5 +1,5 @@
 //
-// 3nigm4 crypto package
+// 3nigm4 authserver package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
@@ -8,6 +8,7 @@
 // concurrency safe and do not implement any performance
 // optimisation logic.
 //
+
 package main
 
 // Golang std libs
