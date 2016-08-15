@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+// Internal libs
+import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
+)
+
 // Metadata metadata related to the original file,
 // will be managed locally with encryption keys.
 type Metadata struct {
@@ -60,11 +65,16 @@ type ReferenceFile struct {
 	ChunkSize   uint64   `json:"chunksize" xml:"chunksize"`
 }
 
+type Permission struct {
+	Permission   ct.Permission
+	SharingUsers []string
+}
+
 // DataSaver interface of the actual saver for
 // encrypted data: this can be a local file system,
 // a remote fs or APIs or any other system capable
 // of storing data chunks.
 type DataSaver interface {
-	SaveChunks(string, string, [][]byte, []byte, *time.Time) ([]string, error) // Saves data using a file name, bucketm actual data, a checksum reference and an expire date;
-	RetrieveChunks([]string) ([][]byte, error)                                 // loads from a defined path.
+	SaveChunks(string, [][]byte, []byte, *time.Time, *Permission) ([]string, error) // Saves data using a file name, bucket, actual data, a checksum reference and an expire date;
+	RetrieveChunks([]string) ([][]byte, error)                                      // loads from a defined path.
 }

@@ -304,6 +304,8 @@ func verifyJobCompletion(t *testing.T, jobID, token string, timeout time.Duratio
 			if err != nil {
 				errorChan <- err
 			}
+			defer resp.Body.Close()
+
 			switch resp.StatusCode {
 			case http.StatusAccepted:
 				continue
@@ -312,10 +314,9 @@ func verifyJobCompletion(t *testing.T, jobID, token string, timeout time.Duratio
 				getBody, _ = ioutil.ReadAll(resp.Body)
 				return
 			default:
-				errorChan <- fmt.Errorf("unexpected status having %d.\n", resp.StatusCode)
+				errorChan <- mt.Errorf("unexpected status having %d expecting %d or %d", resp.StatusCode, http.StatusAccepted, http.StatusOK)
 				return
 			}
-			resp.Body.Close()
 			time.Sleep(500 * time.Millisecond)
 		}
 	}()
