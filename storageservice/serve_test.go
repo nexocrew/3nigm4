@@ -314,7 +314,7 @@ func verifyJobCompletion(t *testing.T, jobID, token string, timeout time.Duratio
 				getBody, _ = ioutil.ReadAll(resp.Body)
 				return
 			default:
-				errorChan <- mt.Errorf("unexpected status having %d expecting %d or %d", resp.StatusCode, http.StatusAccepted, http.StatusOK)
+				errorChan <- fmt.Errorf("unexpected status having %d expecting %d or %d", resp.StatusCode, http.StatusAccepted, http.StatusOK)
 				return
 			}
 			time.Sleep(500 * time.Millisecond)
