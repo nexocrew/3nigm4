@@ -99,3 +99,19 @@ type JobGetRequest struct {
 	Data     []byte   `json:"data,omitempty"`     // returned requested bytes;
 	CheckSum CheckSum `json:"checksum,omitempty"` // data related checksum if any.
 }
+
+// OpResult this struct represent the status of an async
+// operation, of any type (upload, download, delete, ...).
+// Not all field will be present: Error and Data properties
+// will be only present if an error occurred or a download
+// transaction has been required. Notice that two id are
+// managed: a file id (used to identify the target file on S3)
+// and RequestID used to associate a request with the async
+// result produced. This structure is intended for internal use
+// and not to be exposed via APIs.
+type OpResult struct {
+	ID        string // file id string;
+	RequestID string // request (tx) id string (not file id);
+	Data      []byte // downloaded data, if any;
+	Error     error  // setted if an error was produced fro the upload instruction.
+}

@@ -9,10 +9,12 @@ package storageclient
 
 // Std golang dependencies.
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"time"
 )
 
@@ -28,17 +30,6 @@ const (
 	verifySleep = 500 * time.Millisecond
 )
 
-// Progress is used to maintain the status of various files
-// update, it report the initial number of files and as soon
-// as upload successfully terminates, the number of uploaded
-// parts.
-type Progress struct {
-	Filename      string
-	HashedValue   []byte
-	NumberOfFiles int
-	Progress      wg.AtomicCounter
-}
-
 // StorageClient is the base structure used to implement the
 // interface methods.
 type StorageClient struct {
@@ -46,117 +37,67 @@ type StorageClient struct {
 	address string
 	port    int
 	token   string
-	// progress montoring logic
-	progresses map[string]Progress
+	// working queue
+	workingQueue *wq.WorkingQueue
+	ErrorChan    chan error
+	downloadChan chan ct.OpResult
+	uplaodChan   chan ct.OpResult
+	deletedChan  chan ct.OpResult
+	// requests status
+	requests map[string]*RequestStatus
 }
 
 // NewStorageClient creates a new StorageClient structure and
-// setup all required properties.
-func NewStorageClient(address string, port int, token string) *StorageClient {
-	return &StorageClient{
-		address: address,
-		port:    port,
-		token:   token,
+// setup all required properties. It'll start the working queue
+// that'll be used to enqueue http API facing jobs.
+func NewStorageClient(
+	address string,
+	port int,
+	token string,
+	workersize, queuesize int) (*StorageClient, error) {
+	// creates base object
+	sc := &StorageClient{
+		address:      address,
+		port:         port,
+		token:        token,
+		ErrorChan:    make(chan error, workersize),
+		downloadChan: make(chan ct.OpResult, workersize),
+		uplaodChan:   make(chan ct.OpResult, workersize),
+		deletedChan:  make(chan ct.OpResult, workersize),
 	}
+	// create working queue
+	sc.workingQueue = wq.NewWorkingQueue(workersize, queuesize, sc.ErrorChan)
+	// startup chan management routine
+	go sc.manageChans()
+	// start working queue
+	if err := sc.workingQueue.Run(); err != nil {
+		return nil, err
+	}
+	return sc, nil
 }
 
-// Upload send a file to the API frontend to upload it to the S3
-// storage. This function should be used in a background routine to
-// avoid blocking the main thread.
-func (s *StorageClient) Upload(args *ct.CommandArguments) (string, error) {
-	// define request body
-	job := ct.JobPostRequest{
-		Command:   "UPLOAD",
-		Arguments: args,
-	}
-	body, err := json.Marshal(&jobUpload)
-	if err != nil {
-		return "", err
-	}
-
-	// create http request
-	client := &http.Client{}
-	req, err := http.NewRequest(
-		"POST",
-		fmt.Sprintf("%s:%d%s", s.address, s.port, jobPath),
-		bytes.NewBuffer(body))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set(ct.SecurityTokenKey, s.token)
-	// execute request
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusAccepted {
-		return "", fmt.Errorf("service returned wrong status code: having %d expecting %d, unable to proceed", resp.StatusCode, http.StatusAccepted)
-	}
-	// get job ID
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	resp.Body.Close()
-
-	var jobResponse ct.JobPostResponse
-	err = json.Unmarshal(respBody, &jobResponse)
-	if err != nil {
-		return "", err
-	}
-
-	// loop to verify succesfull request
-	for {
-		req, err := http.NewRequest(
-			"GET",
-			fmt.Sprintf("%s:%d%s/%s",
-				s.address,
-				s.port,
-				jobPath,
-				jobResponse.JobID),
-			nil)
-		if err != nil {
-			return "", err
-		}
-		req.Header.Set(ct.SecurityTokenKey, s.token)
-		resp, err := client.Do(req)
-		if err != nil {
-			return "", err
-		}
-		defer resp.Body.Close()
-
-		switch resp.StatusCode {
-		case http.StatusAccepted:
-			continue
-		case http.StatusOK:
-			getBody, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return "", err
-			}
-			var download ct.JobGetRequest
-			err = json.Unmarshal(getBody, &download)
-			if download.Error != "" {
-				return "", fmt.Errorf("%s", download.Error)
-			}
-			return args.ResourceID, nil
-		default:
-			return "", fmt.Errorf("unexpected status having %d expecting %d or %d", resp.StatusCode, http.StatusAccepted, http.StatusOK)
-		}
-		// sleep to avoid spinning on the CPU
-		time.Sleep(verifySleep)
-	}
+// Close close the active working queue.
+func (s *StorageClient) Close() {
+	s.workingQueue.Close()
 }
 
-// Download download a file from the API frontend.
-// This function should be used in a background routine to
-// avoid blocking the main thread.
-func (s *StorageClient) Download(args *ct.CommandArguments) ([]byte, error) {
+// jobArgs standard job arguments passed to concurrent jobs while
+// adding them to the working queue instance.
+type jobArgs struct {
+	client    *StorageClient
+	args      *ct.CommandArguments
+	requestID string
+}
+
+// postGenericJob implement a generic POST job operation, can be used for
+// any available command.
+func postGenericJob(arguments *jobArgs, command string) (*ct.JobPostResponse, error) {
 	// define request body
 	job := ct.JobPostRequest{
-		Command:   "DOWNLOAD",
-		Arguments: args,
+		Command:   command,
+		Arguments: arguments.args,
 	}
-	body, err := json.Marshal(&jobUpload)
+	body, err := json.Marshal(&job)
 	if err != nil {
 		return nil, err
 	}
@@ -165,19 +106,22 @@ func (s *StorageClient) Download(args *ct.CommandArguments) ([]byte, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(
 		"POST",
-		fmt.Sprintf("%s:%d%s", s.address, s.port, jobPath),
+		fmt.Sprintf("%s:%d%s", arguments.client.address, arguments.client.port, jobPath),
 		bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set(ct.SecurityTokenKey, s.token)
+	req.Header.Set(ct.SecurityTokenKey, arguments.client.token)
 	// execute request
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusAccepted {
-		return nil, fmt.Errorf("service returned wrong status code: having %d expecting %d, unable to proceed", resp.StatusCode, http.StatusAccepted)
+		return nil, fmt.Errorf(
+			"service returned wrong status code: having %d expecting %d, unable to proceed",
+			resp.StatusCode,
+			http.StatusAccepted)
 	}
 	// get job ID
 	respBody, err := ioutil.ReadAll(resp.Body)
@@ -192,20 +136,26 @@ func (s *StorageClient) Download(args *ct.CommandArguments) ([]byte, error) {
 		return nil, err
 	}
 
-	// loop to verify succesfull request
+	return &jobResponse, nil
+}
+
+// getGenericJob can be used to verify any API job created with the POST
+// request.
+func getGenericJob(arguments *jobArgs, jobID string) (*ct.JobGetRequest, error) {
 	for {
+		client := &http.Client{}
 		req, err := http.NewRequest(
 			"GET",
 			fmt.Sprintf("%s:%d%s/%s",
-				s.address,
-				s.port,
+				arguments.client.address,
+				arguments.client.port,
 				jobPath,
-				jobResponse.JobID),
+				jobID),
 			nil)
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set(ct.SecurityTokenKey, s.token)
+		req.Header.Set(ct.SecurityTokenKey, arguments.client.token)
 		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
@@ -222,52 +172,291 @@ func (s *StorageClient) Download(args *ct.CommandArguments) ([]byte, error) {
 			}
 			var download ct.JobGetRequest
 			err = json.Unmarshal(getBody, &download)
-			if download.Error != "" {
-				return nil, fmt.Errorf("%s", download.Error)
+			if err != nil {
+				return nil, err
 			}
-			return download.Data, nil
+			return &download, nil
 		default:
-			return nil, fmt.Errorf("unexpected status having %d expecting %d or %d", resp.StatusCode, http.StatusAccepted, http.StatusOK)
+			return nil, fmt.Errorf(
+				"unexpected status having %d expecting %d or %d",
+				resp.StatusCode,
+				http.StatusAccepted,
+				http.StatusOK)
 		}
 		// sleep to avoid spinning on the CPU
 		time.Sleep(verifySleep)
 	}
 }
 
+// upload the job that'll be enqueued in the working queue to perform
+// an upload.
+func upload(a interface{}) error {
+	var arguments *jobArgs
+	var ok bool
+	if arguments, ok = a.(*jobArgs); !ok {
+		// in this case no id can be retrieved, that's
+		// why no upload response is retuned.
+		return fmt.Errorf("unexpected argument type, having %s expecting *jobArgs", reflect.TypeOf(a))
+	}
+
+	// perform generic post
+	postResponse, err := postGenericJob(arguments, "UPLOAD")
+	if err != nil {
+		arguments.client.uplaodChan <- ct.OpResult{
+			RequestID: arguments.requestID,
+			ID:        arguments.args.ResourceID,
+			Error:     err,
+		}
+		return err
+	}
+
+	// loop to verify succesfull request
+	getResponse, err := getGenericJob(arguments, postResponse.JobID)
+	if err != nil {
+		arguments.client.uplaodChan <- ct.OpResult{
+			RequestID: arguments.requestID,
+			ID:        arguments.args.ResourceID,
+			Error:     err,
+		}
+		return err
+	}
+	if getResponse.Error != "" {
+		arguments.client.uplaodChan <- ct.OpResult{
+			RequestID: arguments.requestID,
+			ID:        arguments.args.ResourceID,
+			Error:     fmt.Errorf("%s", getResponse.Error),
+		}
+		return err
+	}
+
+	arguments.client.uplaodChan <- ct.OpResult{
+		RequestID: arguments.requestID,
+		ID:        arguments.args.ResourceID,
+	}
+	return nil
+}
+
+// download a file from the API frontend that'll be enqueued in the
+// working queue to perform a download.
+func download(a interface{}) error {
+	var arguments *jobArgs
+	var ok bool
+	if arguments, ok = a.(*jobArgs); !ok {
+		// in this case no id can be retrieved, that's
+		// why no upload response is retuned.
+		return fmt.Errorf("unexpected argument type, having %s expecting *jobArgs", reflect.TypeOf(a))
+	}
+
+	// perform generic post
+	postResponse, err := postGenericJob(arguments, "DOWNLOAD")
+	if err != nil {
+		arguments.client.downloadChan <- ct.OpResult{
+			RequestID: arguments.requestID,
+			ID:        arguments.args.ResourceID,
+			Error:     err,
+		}
+		return err
+	}
+
+	// loop to verify succesfull request
+	getResponse, err := getGenericJob(arguments, postResponse.JobID)
+	if err != nil {
+		arguments.client.downloadChan <- ct.OpResult{
+			RequestID: arguments.requestID,
+			ID:        arguments.args.ResourceID,
+			Error:     err,
+		}
+		return err
+	}
+	if getResponse.Error != "" {
+		arguments.client.downloadChan <- ct.OpResult{
+			RequestID: arguments.requestID,
+			ID:        arguments.args.ResourceID,
+			Error:     fmt.Errorf("%s", getResponse.Error),
+		}
+		return err
+	}
+
+	arguments.client.downloadChan <- ct.OpResult{
+		RequestID: arguments.requestID,
+		ID:        arguments.args.ResourceID,
+		Data:      getResponse.Data,
+	}
+	return nil
+}
+
+// delete the job that'll be enqueued in the working queue to perform
+// a file deletion.
+func delete(a interface{}) error {
+	var arguments *jobArgs
+	var ok bool
+	if arguments, ok = a.(*jobArgs); !ok {
+		// in this case no id can be retrieved, that's
+		// why no upload response is retuned.
+		return fmt.Errorf("unexpected argument type, having %s expecting *jobArgs", reflect.TypeOf(a))
+	}
+
+	// perform generic post
+	postResponse, err := postGenericJob(arguments, "DELETE")
+	if err != nil {
+		arguments.client.deletedChan <- ct.OpResult{
+			RequestID: arguments.requestID,
+			ID:        arguments.args.ResourceID,
+			Error:     err,
+		}
+		return err
+	}
+
+	// loop to verify succesfull request
+	getResponse, err := getGenericJob(arguments, postResponse.JobID)
+	if err != nil {
+		arguments.client.deletedChan <- ct.OpResult{
+			RequestID: arguments.requestID,
+			ID:        arguments.args.ResourceID,
+			Error:     err,
+		}
+		return err
+	}
+	if getResponse.Error != "" {
+		arguments.client.deletedChan <- ct.OpResult{
+			RequestID: arguments.requestID,
+			ID:        arguments.args.ResourceID,
+			Error:     fmt.Errorf("%s", getResponse.Error),
+		}
+		return err
+	}
+
+	arguments.client.deletedChan <- ct.OpResult{
+		RequestID: arguments.requestID,
+		ID:        arguments.args.ResourceID,
+	}
+	return nil
+}
+
+func (s *StorageClient) updateUploadRequestStatus(uploaded ct.OpResult) {
+	// upload request
+	value, ok := s.requests[uploaded.RequestID]
+	if !ok {
+		s.ErrorChan <- fmt.Errorf("unable to find request status manager for %s", uploaded.RequestID)
+		return
+	}
+	err := value.SetStatus(uploaded.ID, true, &uploaded)
+	if err != nil {
+		s.ErrorChan <- err
+		return
+	}
+}
+
+// manageChans manages chan messages from working queue all recived
+// messages must be remapped on uplaod requests.
+func (s *StorageClient) manageChans() {
+	var uploadedcClosed, downloadedcClosed, deletedcClosed bool
+	for {
+		if uploadedcClosed == true {
+			return
+		}
+		if downloadedcClosed == true {
+			return
+		}
+		if deletedcClosed == true {
+			return
+		}
+		// select on channels
+		select {
+		case uploaded, uploadedcOk := <-s.uplaodChan:
+			if !uploadedcOk {
+				uploadedcClosed = true
+			} else {
+				go s.updateUploadRequestStatus(uploaded)
+			}
+		case downloaded, downloadedcOk := <-s.downloadChan:
+			if !downloadedcOk {
+				downloadedcClosed = true
+			} else {
+				// TODO: implement it
+				// go updateDownloadRequestStatus(downloaded)
+			}
+		case deleted, deletedcOk := <-s.deletedChan:
+			if !deletedcOk {
+				deletedcClosed = true
+			} else {
+				// TODO: implement it
+				// go updateDeleteRequestStatus(deleted)
+			}
+		}
+	}
+}
+
 // SaveChunks start the async upload of all argument passed chunks
 // generating a single name for each one.
 func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expirets *time.Time, permission *fm.Permission) ([]string, error) {
+	now := time.Now()
+	requestID := generateTranscationId(filename, &now)
+	// check for pending uploads
+	_, ok := s.requests[requestID]
+	if ok {
+		return nil, fmt.Errorf("unable to proceed another job is uploading %s file", requestID)
+	}
+	s.requests[requestID] = NewRequestStatus(requestID, len(chunks))
+
 	paths := make([]string, len(chunks))
 	for idx, chunk := range chunks {
 		id, err := fm.ChunkFileId(filename, idx, hashedValue)
 		if err != nil {
 			return nil, err
 		}
-		args := &ct.CommandArguments{
+
+		// create args struct
+		commandArgs := &ct.CommandArguments{
 			ResourceID: id,
 			Data:       chunk,
 		}
 		if expirets != nil {
-			args.TimeToLive = expirets.Sub(time.Now())
+			commandArgs.TimeToLive = expirets.Sub(time.Now())
 		}
 		if permission != nil {
-			args.Permission = permission.Permission
-			args.SharingUsers = permission.SharedUsers
+			commandArgs.Permission = permission.Permission
+			commandArgs.SharingUsers = permission.SharingUsers
 		}
-		resourceID, error := s.Upload(args)
-		if err != nil {
-			return nil, err
+		ja := &jobArgs{
+			client:    s,
+			args:      commandArgs,
+			requestID: requestID,
 		}
+		// add nil record to request status
+		s.requests[requestID].SetStatus(id, false, nil)
+
+		// enqueue on working queue
+		s.workingQueue.SendJob(upload, ja)
 		paths[idx] = id
 	}
+
+	// wait for upload to complete
+	for {
+		if s.requests[requestID].Completed() {
+			break
+		}
+		time.Sleep(verifySleep)
+	}
+
 	return paths, nil
 }
 
 // RetrieveChunks starts the async retrieve of previously uploaded
 // chunks starting from the returned files names.
 func (s *StorageClient) RetrieveChunks(files []string) ([][]byte, error) {
-	for _, fname := range files {
-		s.Download(&ct.CommandArguments{})
+	chunks := make([][]byte, len(files))
+	for idx, id := range files {
+		/*
+			// TODO: implement it with wq
+			data, err := s.Download(&ct.CommandArguments{
+				ResourceID: id,
+			})
+			if err != nil {
+				return nil, err
+			}
+			chunks[idx] = data
+		*/
 	}
-	return files
+	return chunks, nil
 }
