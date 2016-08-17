@@ -294,7 +294,7 @@ func (e *EncryptedChunks) SaveChunks(ds DataSaver, expires *time.Time, permissio
 // input. It returns a complete encrypted chunks structure
 // from which decrypt the original file.
 func LoadChunks(ds DataSaver, reference *ReferenceFile, rawKey []byte) (*EncryptedChunks, error) {
-	chunks, err := ds.RetrieveChunks(reference.ChunksPaths)
+	chunks, err := ds.RetrieveChunks(reference.FileName, reference.ChunksPaths)
 	if err != nil {
 		return nil, err
 	}

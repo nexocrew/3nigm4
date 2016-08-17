@@ -31,7 +31,8 @@ TEST_BENCHMARK ?= no
 TOPLEVEL_PKG := github.com/nexocrew/3nigm4
 IMPL_LIST := authserver storageservice	#<-- Implementation directories
 COMMON_LIST := lib/version lib/logo lib/itm lib/logger lib/crypto \
-	lib/messages lib/client lib/filemanager lib/s3 lib/auth
+	lib/messages lib/client lib/filemanager lib/s3 lib/auth \
+	lib/storageclient
 
 # List building
 ALL_LIST = $(IMPL_LIST) $(COMMON_LIST)

@@ -44,7 +44,7 @@ func (l *localDataSaver) SaveChunks(filename string, chunks [][]byte, hashedValu
 	return paths, nil
 }
 
-func (l *localDataSaver) RetrieveChunks(files []string) ([][]byte, error) {
+func (l *localDataSaver) RetrieveChunks(filename string, files []string) ([][]byte, error) {
 	chunks := make([][]byte, len(files))
 	for idx, file := range files {
 		data, err := ioutil.ReadFile(filepath.Join(l.rootPath, file))

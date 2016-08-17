@@ -64,6 +64,7 @@ func NewStorageClient(
 		downloadChan: make(chan ct.OpResult, workersize),
 		uplaodChan:   make(chan ct.OpResult, workersize),
 		deletedChan:  make(chan ct.OpResult, workersize),
+		requests:     make(map[string]*RequestStatus),
 	}
 	// create working queue
 	sc.workingQueue = wq.NewWorkingQueue(workersize, queuesize, sc.ErrorChan)
@@ -333,60 +334,6 @@ func delete(a interface{}) error {
 	return nil
 }
 
-func (s *StorageClient) updateUploadRequestStatus(uploaded ct.OpResult) {
-	// upload request
-	value, ok := s.requests[uploaded.RequestID]
-	if !ok {
-		s.ErrorChan <- fmt.Errorf("unable to find request status manager for %s", uploaded.RequestID)
-		return
-	}
-	err := value.SetStatus(uploaded.ID, true, &uploaded)
-	if err != nil {
-		s.ErrorChan <- err
-		return
-	}
-}
-
-// manageChans manages chan messages from working queue all recived
-// messages must be remapped on uplaod requests.
-func (s *StorageClient) manageChans() {
-	var uploadedcClosed, downloadedcClosed, deletedcClosed bool
-	for {
-		if uploadedcClosed == true {
-			return
-		}
-		if downloadedcClosed == true {
-			return
-		}
-		if deletedcClosed == true {
-			return
-		}
-		// select on channels
-		select {
-		case uploaded, uploadedcOk := <-s.uplaodChan:
-			if !uploadedcOk {
-				uploadedcClosed = true
-			} else {
-				go s.updateUploadRequestStatus(uploaded)
-			}
-		case downloaded, downloadedcOk := <-s.downloadChan:
-			if !downloadedcOk {
-				downloadedcClosed = true
-			} else {
-				// TODO: implement it
-				// go updateDownloadRequestStatus(downloaded)
-			}
-		case deleted, deletedcOk := <-s.deletedChan:
-			if !deletedcOk {
-				deletedcClosed = true
-			} else {
-				// TODO: implement it
-				// go updateDeleteRequestStatus(deleted)
-			}
-		}
-	}
-}
-
 // SaveChunks start the async upload of all argument passed chunks
 // generating a single name for each one.
 func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expirets *time.Time, permission *fm.Permission) ([]string, error) {
@@ -395,7 +342,7 @@ func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue
 	// check for pending uploads
 	_, ok := s.requests[requestID]
 	if ok {
-		return nil, fmt.Errorf("unable to proceed another job is uploading %s file", requestID)
+		return nil, fmt.Errorf("unable to proceed another job is going on with request ID %s", requestID)
 	}
 	s.requests[requestID] = NewRequestStatus(requestID, len(chunks))
 
@@ -424,7 +371,10 @@ func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue
 			requestID: requestID,
 		}
 		// add nil record to request status
-		s.requests[requestID].SetStatus(id, false, nil)
+		err = s.requests[requestID].SetStatus(id, false, nil)
+		if err != nil {
+			return nil, err
+		}
 
 		// enqueue on working queue
 		s.workingQueue.SendJob(upload, ja)
@@ -444,19 +394,56 @@ func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue
 
 // RetrieveChunks starts the async retrieve of previously uploaded
 // chunks starting from the returned files names.
-func (s *StorageClient) RetrieveChunks(files []string) ([][]byte, error) {
+func (s *StorageClient) RetrieveChunks(filename string, files []string) ([][]byte, error) {
+	now := time.Now()
+	requestID := generateTranscationId(filename, &now)
+	// check for pending uploads
+	_, ok := s.requests[requestID]
+	if ok {
+		return nil, fmt.Errorf("unable to proceed another job is going on with request ID %s", requestID)
+	}
+	s.requests[requestID] = NewRequestStatus(requestID, len(files))
+
+	for _, id := range files {
+		ja := &jobArgs{
+			client: s,
+			args: &ct.CommandArguments{
+				ResourceID: id,
+			},
+			requestID: requestID,
+		}
+		// add nil record to request status
+		err := s.requests[requestID].SetStatus(id, false, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		// enqueue on working queue
+		s.workingQueue.SendJob(download, ja)
+	}
+
+	// wait for download to complete
+	for {
+		if s.requests[requestID].Completed() {
+			break
+		}
+		time.Sleep(verifySleep)
+	}
+
+	// geta downloaded chunks
 	chunks := make([][]byte, len(files))
 	for idx, id := range files {
-		/*
-			// TODO: implement it with wq
-			data, err := s.Download(&ct.CommandArguments{
-				ResourceID: id,
-			})
-			if err != nil {
-				return nil, err
-			}
-			chunks[idx] = data
-		*/
+		status, ok := s.requests[requestID].GetStatus(id)
+		if !ok {
+			return nil, fmt.Errorf("unable to access downloaded data chunks for resource %s", id)
+		}
+		if status == nil {
+			return nil, fmt.Errorf("required download status info are not avalable for resource %s", id)
+		}
+		if status.Data == nil {
+			return nil, fmt.Errorf("unable to access downloaded intenal struct for resource %s", id)
+		}
+		chunks[idx] = status.Data
 	}
 	return chunks, nil
 }

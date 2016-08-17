@@ -40,7 +40,7 @@ func generateTranscationId(id, user string, t *time.Time) string {
 // updateUploadRequestStatus update the tx status when a
 // status update is returned from the working queue to the
 // UploadedChan chan (s3 client).
-func updateUploadRequestStatus(ur s3c.OpResult) {
+func updateUploadRequestStatus(ur ct.OpResult) {
 	session := db.Copy()
 	defer session.Close()
 
@@ -75,7 +75,7 @@ func updateUploadRequestStatus(ur s3c.OpResult) {
 
 // updateDownloadRequestStatus manage workingqueue messages from
 // completed S3 download operations.
-func updateDownloadRequestStatus(dr s3c.OpResult) {
+func updateDownloadRequestStatus(dr ct.OpResult) {
 	session := db.Copy()
 	defer session.Close()
 
@@ -105,7 +105,7 @@ func updateDownloadRequestStatus(dr s3c.OpResult) {
 
 // updateDeleteRequestStatus update status related to an async
 // delete operation.
-func updateDeleteRequestStatus(dr s3c.OpResult) {
+func updateDeleteRequestStatus(dr ct.OpResult) {
 	session := db.Copy()
 	defer session.Close()
 

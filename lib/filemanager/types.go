@@ -76,5 +76,5 @@ type Permission struct {
 // of storing data chunks.
 type DataSaver interface {
 	SaveChunks(string, [][]byte, []byte, *time.Time, *Permission) ([]string, error) // Saves data using a file name, bucket, actual data, a checksum reference and an expire date;
-	RetrieveChunks([]string) ([][]byte, error)                                      // loads from a defined path.
+	RetrieveChunks(string, []string) ([][]byte, error)                              // loads from a defined path.
 }
