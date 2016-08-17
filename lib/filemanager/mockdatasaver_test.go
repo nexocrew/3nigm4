@@ -28,7 +28,7 @@ func NewLocalDataSaver(root string) (*localDataSaver, error) {
 	}, nil
 }
 
-func (l *localDataSaver) SaveChunks(filename, bucket string, chunks [][]byte, hashedValue []byte, expire *time.Time) ([]string, error) {
+func (l *localDataSaver) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expire *time.Time, permission *Permission) ([]string, error) {
 	paths := make([]string, len(chunks))
 	for idx, chunk := range chunks {
 		id, err := ChunkFileId(filename, idx, hashedValue)
@@ -44,7 +44,7 @@ func (l *localDataSaver) SaveChunks(filename, bucket string, chunks [][]byte, ha
 	return paths, nil
 }
 
-func (l *localDataSaver) RetrieveChunks(files []string) ([][]byte, error) {
+func (l *localDataSaver) RetrieveChunks(filename string, files []string) ([][]byte, error) {
 	chunks := make([][]byte, len(files))
 	for idx, file := range files {
 		data, err := ioutil.ReadFile(filepath.Join(l.rootPath, file))
@@ -56,6 +56,6 @@ func (l *localDataSaver) RetrieveChunks(files []string) ([][]byte, error) {
 	return chunks, nil
 }
 
-func (l *localDataSaver) Cleanup(files []string) error {
+func (l *localDataSaver) DeleteChunks(filename string, files []string) error {
 	return os.RemoveAll(l.rootPath)
 }

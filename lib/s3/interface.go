@@ -28,7 +28,7 @@ import (
 
 // Internal dependencies
 import (
-	fm "github.com/nexocrew/3nigm4/lib/filemanager"
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
@@ -39,26 +39,11 @@ type Session struct {
 	workingQueue *wq.WorkingQueue
 	s3           *s3.S3
 	// exposed vars
-	ErrorChan      chan error    // returned errors;
-	UploadedChan   chan OpResult // status of uploads;
-	DownloadedChan chan OpResult // return chan for async downloaded chunks;
-	DeletedChan    chan OpResult // manage deletion results from wq.
+	ErrorChan      chan error       // returned errors;
+	UploadedChan   chan ct.OpResult // status of uploads;
+	DownloadedChan chan ct.OpResult // return chan for async downloaded chunks;
+	DeletedChan    chan ct.OpResult // manage deletion results from wq.
 
-}
-
-// OpResult this struct represent the status of an async
-// operation, of any type (upload, download, delete, ...).
-// Not all field will be present: Error and Data properties
-// will be only present if an error occurred or a download
-// transaction has been required. Notice that two id are
-// managed: a file id (used to identify the target file on S3)
-// and RequestID used to associate a request with the async
-// result produced.
-type OpResult struct {
-	ID        string // file id string;
-	RequestID string // request (tx) id string (not file id);
-	Data      []byte // downloaded data, if any;
-	Error     error  // setted if an error was produced fro the upload instruction.
 }
 
 // NewSession initialise a new S3 session for the file
@@ -81,9 +66,9 @@ func NewSession(endpoint, region, id, secret, token string, workersize, queuesiz
 			LogLevel:    &logLevel,
 		}),
 		ErrorChan:      make(chan error, workersize),
-		UploadedChan:   make(chan OpResult, workersize),
-		DownloadedChan: make(chan OpResult, workersize),
-		DeletedChan:    make(chan OpResult, workersize),
+		UploadedChan:   make(chan ct.OpResult, workersize),
+		DownloadedChan: make(chan ct.OpResult, workersize),
+		DeletedChan:    make(chan ct.OpResult, workersize),
 	}
 
 	// create working queue
@@ -139,7 +124,7 @@ func upload(a interface{}) error {
 	}
 	_, err := arguments.backendSession.s3.PutObject(params)
 	if err != nil {
-		arguments.backendSession.UploadedChan <- OpResult{
+		arguments.backendSession.UploadedChan <- ct.OpResult{
 			ID:        arguments.id,
 			Error:     err,
 			RequestID: arguments.requestID,
@@ -148,7 +133,7 @@ func upload(a interface{}) error {
 	}
 
 	// send result back in chan
-	arguments.backendSession.UploadedChan <- OpResult{
+	arguments.backendSession.UploadedChan <- ct.OpResult{
 		ID:        arguments.id,
 		Error:     nil,
 		RequestID: arguments.requestID,
@@ -173,7 +158,7 @@ func delete(a interface{}) error {
 
 	_, err := arguments.backendSession.s3.DeleteObject(params)
 	if err != nil {
-		arguments.backendSession.DeletedChan <- OpResult{
+		arguments.backendSession.DeletedChan <- ct.OpResult{
 			ID:        arguments.id,
 			Error:     err,
 			RequestID: arguments.requestID,
@@ -182,7 +167,7 @@ func delete(a interface{}) error {
 	}
 
 	// send deletion result back to chan
-	arguments.backendSession.DeletedChan <- OpResult{
+	arguments.backendSession.DeletedChan <- ct.OpResult{
 		ID:        arguments.id,
 		Error:     nil,
 		RequestID: arguments.requestID,
@@ -207,7 +192,7 @@ func download(a interface{}) error {
 
 	response, err := arguments.backendSession.s3.GetObject(params)
 	if err != nil {
-		arguments.backendSession.DownloadedChan <- OpResult{
+		arguments.backendSession.DownloadedChan <- ct.OpResult{
 			ID:        arguments.id,
 			Error:     err,
 			RequestID: arguments.requestID,
@@ -219,7 +204,7 @@ func download(a interface{}) error {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(response.Body)
 	// send download result back to chan
-	arguments.backendSession.DownloadedChan <- OpResult{
+	arguments.backendSession.DownloadedChan <- ct.OpResult{
 		ID:        arguments.id,
 		Error:     nil,
 		RequestID: arguments.requestID,
@@ -264,30 +249,4 @@ func (bs *Session) Download(bucketName, id, requestid string) {
 	}
 
 	bs.workingQueue.SendJob(download, a)
-}
-
-// SaveChunks start the async upload of all argument passed chunks
-// generating a single name for each one (that must be keeped in
-// order to get back the file later on).
-func (bs *Session) SaveChunks(filename, bucket string, chunks [][]byte, hashedValue []byte, expirets *time.Time) ([]string, error) {
-	paths := make([]string, len(chunks))
-	for idx, chunk := range chunks {
-		id, err := fm.ChunkFileId(filename, idx, hashedValue)
-		if err != nil {
-			return nil, err
-		}
-		bs.Upload(bucket, id, id, chunk, expirets)
-		paths[idx] = id
-	}
-	return paths, nil
-}
-
-// RetrieveChunks starts the async retrieve of previously uploaded
-// chunks starting from the returned files names. The actual downloaded
-// data is then returned on the DownloadedChan.
-func (bs *Session) RetrieveChunks(bucket string, files []string) []string {
-	for _, fname := range files {
-		bs.Download(bucket, fname, fname)
-	}
-	return files
 }

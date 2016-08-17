@@ -11,6 +11,7 @@ import (
 )
 
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	"github.com/nexocrew/3nigm4/lib/itm"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
@@ -35,7 +36,7 @@ func TestS3UploadInterface(t *testing.T) {
 
 	// create resonse listening routine
 	errorCounter := wq.AtomicCounter{}
-	var uploaded []OpResult
+	var uploaded []ct.OpResult
 	var lastError error
 	go func() {
 		for {
@@ -104,7 +105,7 @@ func TestS3DownloadInterface(t *testing.T) {
 	// create resonse listening routine
 	errorCounter := wq.AtomicCounter{}
 	processedCounter := wq.AtomicCounter{}
-	var downloaded []OpResult
+	var downloaded []ct.OpResult
 	var lastError error
 	go func() {
 		for {

@@ -16,7 +16,6 @@ package filemanager
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/sha1"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
@@ -28,6 +27,7 @@ import (
 )
 
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	crypto3n "github.com/nexocrew/3nigm4/lib/crypto"
 )
 
@@ -264,8 +264,8 @@ func NewEncryptedChunks(rawKey []byte, filepath string, chunkSize uint64, compre
 
 // SaveChunks saves encrypted data chunks to
 // a structure implementing the DataSaver interface.
-func (e *EncryptedChunks) SaveChunks(ds DataSaver, bucket string, expires *time.Time) (*ReferenceFile, error) {
-	filesPaths, err := ds.SaveChunks(e.metadata.FileName, bucket, e.chunks, e.metadata.CheckSum[:], expires)
+func (e *EncryptedChunks) SaveChunks(ds DataSaver, expires *time.Time, permission *Permission) (*ReferenceFile, error) {
+	filesPaths, err := ds.SaveChunks(e.metadata.FileName, e.chunks, e.metadata.CheckSum[:], expires, permission)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (e *EncryptedChunks) SaveChunks(ds DataSaver, bucket string, expires *time.
 // input. It returns a complete encrypted chunks structure
 // from which decrypt the original file.
 func LoadChunks(ds DataSaver, reference *ReferenceFile, rawKey []byte) (*EncryptedChunks, error) {
-	chunks, err := ds.RetrieveChunks(reference.ChunksPaths)
+	chunks, err := ds.RetrieveChunks(reference.FileName, reference.ChunksPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -326,6 +326,14 @@ func LoadChunks(ds DataSaver, reference *ReferenceFile, rawKey []byte) (*Encrypt
 	}
 
 	return ec, nil
+}
+
+// DeleteChunks remove all encrypted resources composing a file, this
+// is not exposed as a struct function to avoid requiring having loaded
+// them before deleting (all authentication and authorisation logics will
+// be implemnted server side).
+func DeleteChunks(ds DataSaver, reference *ReferenceFile) error {
+	return ds.DeleteChunks(reference.FileName, reference.ChunksPaths)
 }
 
 // GetFile returns the recomposed file merging all
@@ -365,12 +373,21 @@ func (e *EncryptedChunks) GetFile(filepath string) error {
 // returns an hexed string that should be used to store it in a
 // data saver implementation. Checksum data can be any hased data
 // usable to differentiate commonly named files (being derivable
-// form metadata).
+// form metadata). An entropy component and a time stamp epoch
+// is used to create a totally uique file ID.
 func ChunkFileId(filename string, chunkNumber int, checksum []byte) (string, error) {
-	completeFileName := fmt.Sprintf("%s-chunk%d", filename, chunkNumber)
+	// get 32 random bytes
+	entropy, err := ct.RandomBytesForLen(32)
+	if err != nil {
+		return "", err
+	}
+	// get time stamp
+	now := time.Now()
+	completeFileName := fmt.Sprintf("%s-chunk%d-%d.%d", filename, chunkNumber, now.Unix(), now.UnixNano())
 	var id []byte
 	id = append(id, []byte(completeFileName)...)
 	id = append(id, checksum...)
-	hashedId := sha1.Sum(id)
+	id = append(id, entropy...)
+	hashedId := sha512.Sum384(id)
 	return hex.EncodeToString(hashedId[:]), nil
 }
