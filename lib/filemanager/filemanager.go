@@ -328,6 +328,14 @@ func LoadChunks(ds DataSaver, reference *ReferenceFile, rawKey []byte) (*Encrypt
 	return ec, nil
 }
 
+// DeleteChunks remove all encrypted resources composing a file, this
+// is not exposed as a struct function to avoid requiring having loaded
+// them before deleting (all authentication and authorisation logics will
+// be implemnted server side).
+func DeleteChunks(ds DataSaver, reference *ReferenceFile) error {
+	return ds.DeleteChunks(reference.FileName, reference.ChunksPaths)
+}
+
 // GetFile returns the recomposed file merging all
 // data chunks and verifying consistency. It saves
 // the final result to the path specified as argument

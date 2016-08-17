@@ -2,7 +2,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 15/08/2016
 
-// Package storageapiclient expose client side API usage
+// Package storageclient expose client side API usage
 // for the secure storage service (S3 frontend) this package
 // implements the filemanager DataSaver interface.
 package storageclient
@@ -286,9 +286,9 @@ func download(a interface{}) error {
 	return nil
 }
 
-// delete the job that'll be enqueued in the working queue to perform
+// remove the job that'll be enqueued in the working queue to perform
 // a file deletion.
-func delete(a interface{}) error {
+func remove(a interface{}) error {
 	var arguments *jobArgs
 	var ok bool
 	if arguments, ok = a.(*jobArgs); !ok {
@@ -338,7 +338,7 @@ func delete(a interface{}) error {
 // generating a single name for each one.
 func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expirets *time.Time, permission *fm.Permission) ([]string, error) {
 	now := time.Now()
-	requestID := generateTranscationId(filename, &now)
+	requestID := generateTranscationID(filename, &now)
 	// check for pending uploads
 	_, ok := s.requests[requestID]
 	if ok {
@@ -396,7 +396,7 @@ func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue
 // chunks starting from the returned files names.
 func (s *StorageClient) RetrieveChunks(filename string, files []string) ([][]byte, error) {
 	now := time.Now()
-	requestID := generateTranscationId(filename, &now)
+	requestID := generateTranscationID(filename, &now)
 	// check for pending uploads
 	_, ok := s.requests[requestID]
 	if ok {
@@ -446,4 +446,73 @@ func (s *StorageClient) RetrieveChunks(filename string, files []string) ([][]byt
 		chunks[idx] = status.Data
 	}
 	return chunks, nil
+}
+
+// composedError compose an error from a slice of related errors.
+func composedError(errors map[string]error) error {
+	var errDescription string
+	for key, value := range errors {
+		errDescription += fmt.Sprintf("resource: %s error: %s\n", key, value)
+	}
+	return fmt.Errorf("founded following errors: %s", errDescription)
+}
+
+// DeleteChunks delete, requiring the API frontend, all resources
+// composing a file (several resources compose a single file).
+func (s *StorageClient) DeleteChunks(filename string, files []string) error {
+	now := time.Now()
+	requestID := generateTranscationID(filename, &now)
+	// check for pending uploads
+	_, ok := s.requests[requestID]
+	if ok {
+		return fmt.Errorf("unable to proceed another job is going on with request ID %s", requestID)
+	}
+	s.requests[requestID] = NewRequestStatus(requestID, len(files))
+
+	for _, id := range files {
+		ja := &jobArgs{
+			client: s,
+			args: &ct.CommandArguments{
+				ResourceID: id,
+			},
+			requestID: requestID,
+		}
+		// add nil record to request status
+		err := s.requests[requestID].SetStatus(id, false, nil)
+		if err != nil {
+			return err
+		}
+
+		// enqueue on working queue
+		s.workingQueue.SendJob(remove, ja)
+	}
+
+	// wait for download to complete
+	for {
+		if s.requests[requestID].Completed() {
+			break
+		}
+		time.Sleep(verifySleep)
+	}
+
+	// check for errors
+	errors := make(map[string]error)
+	for _, id := range files {
+		status, ok := s.requests[requestID].GetStatus(id)
+		if !ok {
+			return fmt.Errorf("unable to access delete operation for resource %s", id)
+		}
+		if status == nil {
+			return fmt.Errorf("required delete status info are not avalable for resource %s", id)
+		}
+		if status.Err != nil {
+			errors[id] = status.Err
+		}
+	}
+	// if any error found return a composed error
+	if len(errors) != 0 {
+		return composedError(errors)
+	}
+
+	return nil
 }

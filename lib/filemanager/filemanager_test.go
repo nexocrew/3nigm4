@@ -329,13 +329,14 @@ func TestDataSaverLogics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create a new data saver: %s.\n", err.Error())
 	}
-	defer ds.Cleanup(nil)
 
 	// do it!
 	reference, err := chunks.SaveChunks(ds, nil, nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
+	defer DeleteChunks(ds, reference)
+
 	// check files existance
 	for _, file := range reference.ChunksPaths {
 		path := fmt.Sprintf("%s/%s", tmpdir, file)
@@ -398,13 +399,14 @@ func TestDataSaverLogicsWithPassword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create a new data saver: %s.\n", err.Error())
 	}
-	defer ds.Cleanup(nil)
 
 	// do it!
 	reference, err := chunks.SaveChunks(ds, nil, nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
+	defer DeleteChunks(ds, reference)
+
 	// check files existance
 	for _, file := range reference.ChunksPaths {
 		path := fmt.Sprintf("%s/%s", tmpdir, file)
@@ -467,13 +469,14 @@ func TestDataSaverLogicsWithWrongPassword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create a new data saver: %s.\n", err.Error())
 	}
-	defer ds.Cleanup(nil)
 
 	// do it!
 	reference, err := chunks.SaveChunks(ds, nil, nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
+	defer DeleteChunks(ds, reference)
+
 	// check files existance
 	for _, file := range reference.ChunksPaths {
 		path := fmt.Sprintf("%s/%s", tmpdir, file)

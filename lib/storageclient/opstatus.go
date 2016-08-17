@@ -28,12 +28,19 @@ type Progress struct {
 	Errors   int
 }
 
+// Status the status of the required resource operation is
+// used to asyncronously return the data passed back by the
+// job GET method from APIs.
 type Status struct {
 	Done bool
 	Err  error
 	Data []byte
 }
 
+// RequestStatus gloabally request related status infos is
+// used to maintain, protected in a concurrent environment,
+// all resources status and a global progress data (that can
+// be used to report the progress status to the UI).
 type RequestStatus struct {
 	mtx sync.Mutex
 	ID  string
@@ -41,10 +48,10 @@ type RequestStatus struct {
 	Progress
 }
 
-// generateTranscationId generate a randomised tx id to
+// generateTranscationID generate a randomised tx id to
 // avoid conflicts caused, for example, by multiple accesses
 // to the same file in a short time range.
-func generateTranscationId(id string, t *time.Time) string {
+func generateTranscationID(id string, t *time.Time) string {
 	var raw []byte
 	randoms, _ := ct.RandomBytesForLen(16)
 	raw = append(raw, randoms...)
@@ -70,6 +77,8 @@ func NewRequestStatus(reqID string, count int) *RequestStatus {
 	}
 }
 
+// SetStatus set the status for a specified resource id. It sets
+// done flag, and a result cd.OpResult structure.
 func (rs *RequestStatus) SetStatus(id string, done bool, result *ct.OpResult) error {
 	rs.mtx.Lock()
 	status := Status{
@@ -90,6 +99,9 @@ func (rs *RequestStatus) SetStatus(id string, done bool, result *ct.OpResult) er
 	return nil
 }
 
+// GetStatus retrieve the status of a specified resource id,
+// return the status struct and a bool reporting the presence
+// of the resource or not (it works as the std golang map primitive).
 func (rs *RequestStatus) GetStatus(id string) (*Status, bool) {
 	rs.mtx.Lock()
 	status, ok := rs.res[id]
@@ -100,6 +112,9 @@ func (rs *RequestStatus) GetStatus(id string) (*Status, bool) {
 	return &status, true
 }
 
+// Completed returns true if all resources composing a request
+// have been processed or not, this do not means that no error
+// occurred but only that API games are over.
 func (rs *RequestStatus) Completed() bool {
 	var incomplete int
 	rs.mtx.Lock()

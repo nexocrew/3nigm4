@@ -33,6 +33,15 @@ var (
 		[]byte("This is a test content used to verify"),
 		[]byte("the integrity of chunks in client side"),
 		[]byte("upload and download operations."),
+		[]byte("This is a test content used to verify"),
+		[]byte("the integrity of chunks in client side"),
+		[]byte("upload and download operations."),
+		[]byte("This is a test content used to verify"),
+		[]byte("the integrity of chunks in client side"),
+		[]byte("upload and download operations."),
+		[]byte("This is a test content used to verify"),
+		[]byte("the integrity of chunks in client side"),
+		[]byte("upload and download operations."),
 	}
 	testToken = "a49ef848ab30a7830e09ff923ae93e9f"
 )
@@ -41,11 +50,30 @@ var (
 var (
 	mockUploadServer   *httptest.Server
 	mockDownloadServer *httptest.Server
+	mockDeleteServer   *httptest.Server
 	delayCounters      *safeDelayCounters
 	mockServiceStorage *serviceStorage
 )
 
+func checkTokenPresence(r *http.Request) error {
+	token := r.Header.Get(ct.SecurityTokenKey)
+	if token == "" {
+		return fmt.Errorf("token is not available")
+	}
+	return nil
+}
+
 func mockUploadHandler(w http.ResponseWriter, r *http.Request) {
+	err := checkTokenPresence(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(
+			ct.StandardResponse{
+				ct.NakResponse,
+				err.Error(),
+			})
+		return
+	}
 	switch {
 	case r.Method == "GET":
 		delayCounters.initCounter(r.URL.Path)
@@ -80,7 +108,7 @@ func mockUploadHandler(w http.ResponseWriter, r *http.Request) {
 		mockServiceStorage.storage[createResource.Arguments.ResourceID] = createResource.Arguments.Data
 		mockServiceStorage.mtx.Unlock()
 
-		jobId, err := randomID()
+		jobID, err := randomID()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(
@@ -93,7 +121,7 @@ func mockUploadHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 		json.NewEncoder(w).Encode(
 			&ct.JobPostResponse{
-				JobID: jobId,
+				JobID: jobID,
 			})
 	default:
 		w.WriteHeader(http.StatusNotFound)
@@ -101,6 +129,16 @@ func mockUploadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func mockDownladHandler(w http.ResponseWriter, r *http.Request) {
+	err := checkTokenPresence(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(
+			ct.StandardResponse{
+				ct.NakResponse,
+				err.Error(),
+			})
+		return
+	}
 	switch {
 	case r.Method == "GET":
 		delayCounters.initCounter(r.URL.Path)
@@ -175,7 +213,7 @@ func mockDownladHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobId, err := randomID()
+		jobID, err := randomID()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(
@@ -187,13 +225,79 @@ func mockDownladHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		mockServiceStorage.mtx.Lock()
-		mockServiceStorage.jobs[jobId] = retrieveResource.Arguments.ResourceID
+		mockServiceStorage.jobs[jobID] = retrieveResource.Arguments.ResourceID
 		mockServiceStorage.mtx.Unlock()
 
 		w.WriteHeader(http.StatusAccepted)
 		json.NewEncoder(w).Encode(
 			&ct.JobPostResponse{
-				JobID: jobId,
+				JobID: jobID,
+			})
+	default:
+		w.WriteHeader(http.StatusNotFound)
+	}
+}
+
+func mockDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	err := checkTokenPresence(r)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(
+			ct.StandardResponse{
+				ct.NakResponse,
+				err.Error(),
+			})
+		return
+	}
+	switch {
+	case r.Method == "GET":
+		delayCounters.initCounter(r.URL.Path)
+		// verify value
+		if delayCounters.value(r.URL.Path) == counterLimit {
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(
+				&ct.JobGetRequest{
+					Complete: true,
+				})
+		} else {
+			w.WriteHeader(http.StatusAccepted)
+			delayCounters.add(r.URL.Path, 1)
+		}
+	case r.Method == "POST":
+		// get message BODY
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		body := buf.Bytes()
+		var deleteResource ct.JobPostRequest
+		err := json.Unmarshal(body, &deleteResource)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(
+				ct.StandardResponse{
+					ct.NakResponse,
+					"error unmarshaling json",
+				})
+			return
+		}
+		mockServiceStorage.mtx.Lock()
+		delete(mockServiceStorage.storage, deleteResource.Arguments.ResourceID)
+
+		mockServiceStorage.mtx.Unlock()
+
+		jobID, err := randomID()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(
+				ct.StandardResponse{
+					ct.NakResponse,
+					"error managing request",
+				})
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(
+			&ct.JobPostResponse{
+				JobID: jobID,
 			})
 	default:
 		w.WriteHeader(http.StatusNotFound)
@@ -211,6 +315,8 @@ func TestMain(m *testing.M) {
 	defer mockUploadServer.Close()
 	mockDownloadServer = httptest.NewServer(http.HandlerFunc(mockDownladHandler))
 	defer mockDownloadServer.Close()
+	mockDeleteServer = httptest.NewServer(http.HandlerFunc(mockDeleteHandler))
+	defer mockDeleteServer.Close()
 
 	os.Exit(m.Run())
 }
@@ -308,5 +414,39 @@ func TestDownloadResources(t *testing.T) {
 		if bytes.Compare(chunk, testFileChunks[idx]) != 0 {
 			t.Fatalf("Downloaded resources at index %d are not equal as expected %s != %s.\n", idx, string(chunk), string(testFileChunks[idx]))
 		}
+	}
+}
+
+func TestDeleteResources(t *testing.T) {
+	if uploadGeneratedFileNames == nil {
+		t.Fatalf("Tests must be executed in order: previous TestUploadResources should prepare  \"uploadGeneratedFileNames\" var for this test.\n")
+	}
+
+	addr, port := extractAddressAndPort(mockDeleteServer.URL, t)
+	sc, err := NewStorageClient(addr, port, testToken, 12, 50)
+	if err != nil {
+		t.Fatalf("Unable to create a new StorageClient instance: %s.\n", err.Error())
+	}
+	defer sc.Close()
+
+	// manage errrors
+	errorCounter := wq.AtomicCounter{}
+	var lastError error
+	go func() {
+		for {
+			select {
+			case err, _ := <-sc.ErrorChan:
+				errorCounter.Add(1)
+				lastError = err
+			}
+		}
+	}()
+
+	err = sc.DeleteChunks(testFileName, uploadGeneratedFileNames)
+	if err != nil {
+		t.Fatalf("Unable to delete files: %s.\n", err.Error())
+	}
+	if errorCounter.Value() != 0 {
+		t.Fatalf("Error counter is not nil, last error: %s.\n", lastError.Error())
 	}
 }

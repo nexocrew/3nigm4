@@ -29,7 +29,6 @@ import (
 // Internal dependencies
 import (
 	ct "github.com/nexocrew/3nigm4/lib/commons"
-	fm "github.com/nexocrew/3nigm4/lib/filemanager"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
@@ -250,30 +249,4 @@ func (bs *Session) Download(bucketName, id, requestid string) {
 	}
 
 	bs.workingQueue.SendJob(download, a)
-}
-
-// SaveChunks start the async upload of all argument passed chunks
-// generating a single name for each one (that must be keeped in
-// order to get back the file later on).
-func (bs *Session) SaveChunks(filename, bucket string, chunks [][]byte, hashedValue []byte, expirets *time.Time) ([]string, error) {
-	paths := make([]string, len(chunks))
-	for idx, chunk := range chunks {
-		id, err := fm.ChunkFileId(filename, idx, hashedValue)
-		if err != nil {
-			return nil, err
-		}
-		bs.Upload(bucket, id, id, chunk, expirets)
-		paths[idx] = id
-	}
-	return paths, nil
-}
-
-// RetrieveChunks starts the async retrieve of previously uploaded
-// chunks starting from the returned files names. The actual downloaded
-// data is then returned on the DownloadedChan.
-func (bs *Session) RetrieveChunks(bucket string, files []string) []string {
-	for _, fname := range files {
-		bs.Download(bucket, fname, fname)
-	}
-	return files
 }
