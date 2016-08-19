@@ -9,6 +9,8 @@ package main
 // Golang std libs
 import (
 	_ "fmt"
+	"os/user"
+	"path"
 )
 
 // Internal dependencies
@@ -17,11 +19,12 @@ import ()
 // Third party libs
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // StoreCmd clinet service that connect to the service API
-// to upload or manage sensible data, operations typically
-// exposed are upload, download and delete.
+// to manage sensible data, typically exposed operations
+// are upload, download and delete.
 var StoreCmd = &cobra.Command{
 	Use:     "store",
 	Short:   "Store securely data to the cloud",
@@ -30,9 +33,21 @@ var StoreCmd = &cobra.Command{
 }
 
 func init() {
-	// database references
-	//StoreCmd.PersistentFlags().StringVarP(&arguments.dbAddresses, "dbaddrs", "d", "127.0.0.1:27017", "the database cluster addresses")
-	//StoreCmd.PersistentFlags().IntVarP(&arguments.port, "port", "p", 7443, "the http/https listening port")
+	// API references
+	StoreCmd.PersistentFlags().StringVarP(&arguments.storageService.Address, "storageaddrs", "", "https://www.nexo.cloud", "the storage service address")
+	StoreCmd.PersistentFlags().IntVarP(&arguments.storageService.Port, "storageport", "", 443, "the storage service port")
+	// encryption
+	StoreCmd.PersistentFlags().StringVarP(&arguments.privateKeyPath, "privkey", "K", "$HOME/.3nigm4/pgp/pvkey.asc", "path for the PGP private key used to decode reference files")
+
+	viper.BindPFlag("StorageServiceAddress", StoreCmd.PersistentFlags().Lookup("storageaddrs"))
+	viper.BindPFlag("StorageServicePort", StoreCmd.PersistentFlags().Lookup("storageport"))
+	viper.BindPFlag("PgpPrivateKeyPath", StoreCmd.PersistentFlags().Lookup("privkey"))
+
+	viper.SetDefault("StorageServiceAddress", "https://www.nexo.cloud")
+	viper.SetDefault("StorageServicePort", 443)
+	usr, _ := user.Current()
+	viper.SetDefault("PgpPrivateKeyPath", path.Join(usr.HomeDir, ".3nigm4", "pgp", "pvkey.asc"))
+
 	// files parameters
 	StoreCmd.RunE = store
 }
@@ -40,5 +55,11 @@ func init() {
 // serve command expose a RPC service that exposes all authentication
 // related function to the outside.
 func store(cmd *cobra.Command, args []string) error {
+	// load config file
+	err := manageConfigFile()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

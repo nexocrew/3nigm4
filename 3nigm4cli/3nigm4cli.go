@@ -10,6 +10,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/user"
+	"path"
 )
 
 // Internal dependencies
@@ -22,6 +24,7 @@ import (
 // Third party libs
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // Logger global instance
@@ -46,13 +49,36 @@ var RootCmd = &cobra.Command{
 func init() {
 	// global flags
 	RootCmd.PersistentFlags().BoolVarP(&arguments.verbose, "verbose", "v", false, "activate logging verbosity")
-	RootCmd.PersistentFlags().BoolVarP(&arguments.colored, "colored", "C", true, "activate colored logs")
+	RootCmd.PersistentFlags().BoolVarP(&arguments.colored, "colored", "", true, "activate colored logs")
+	RootCmd.PersistentFlags().StringVarP(&arguments.configDir, "config", "", "$HOME/.3nigm4/", "override default config file directory")
+}
+
+// manageConfigFile startup Viper
+// configuration loading.
+func manageConfigFile() error {
+	usr, err := user.Current()
+	if err != nil {
+		return err
+	}
+	// set config file references
+	viper.SetConfigName("config")
+	if arguments.configDir != "" {
+		viper.AddConfigPath(arguments.configDir)
+	}
+	viper.AddConfigPath(path.Join(usr.HomeDir, ".3nigm4"))
+	err = viper.ReadInConfig()
+	if err != nil {
+		return fmt.Errorf("unable to read config file: %s", err.Error())
+	}
+	return nil
 }
 
 // AddCommands adds available commands
 // to the root command
 func AddCommands() {
 	RootCmd.AddCommand(StoreCmd)
+	RootCmd.AddCommand(LoginCmd)
+	StoreCmd.AddCommand(UploadCmd)
 }
 
 // Execute parsing and execute selected
