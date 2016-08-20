@@ -7,11 +7,7 @@
 package main
 
 // Golang std libs
-import (
-	_ "fmt"
-	"os/user"
-	"path"
-)
+import ()
 
 // Internal dependencies
 import ()
@@ -19,7 +15,6 @@ import ()
 // Third party libs
 import (
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // StoreCmd clinet service that connect to the service API
@@ -34,19 +29,11 @@ var StoreCmd = &cobra.Command{
 
 func init() {
 	// API references
-	StoreCmd.PersistentFlags().StringVarP(&arguments.storageService.Address, "storageaddrs", "", "https://www.nexo.cloud", "the storage service address")
-	StoreCmd.PersistentFlags().IntVarP(&arguments.storageService.Port, "storageport", "", 443, "the storage service port")
+	setArgument(StoreCmd, "storageaddress", &arguments.storageService.Address)
+	setArgument(StoreCmd, "storageport", &arguments.storageService.Port)
 	// encryption
-	StoreCmd.PersistentFlags().StringVarP(&arguments.privateKeyPath, "privkey", "K", "$HOME/.3nigm4/pgp/pvkey.asc", "path for the PGP private key used to decode reference files")
-
-	viper.BindPFlag("StorageServiceAddress", StoreCmd.PersistentFlags().Lookup("storageaddrs"))
-	viper.BindPFlag("StorageServicePort", StoreCmd.PersistentFlags().Lookup("storageport"))
-	viper.BindPFlag("PgpPrivateKeyPath", StoreCmd.PersistentFlags().Lookup("privkey"))
-
-	viper.SetDefault("StorageServiceAddress", "https://www.nexo.cloud")
-	viper.SetDefault("StorageServicePort", 443)
-	usr, _ := user.Current()
-	viper.SetDefault("PgpPrivateKeyPath", path.Join(usr.HomeDir, ".3nigm4", "pgp", "pvkey.asc"))
+	setArgument(StoreCmd, "privatekey", &arguments.userPrivateKeyPath)
+	setArgument(StoreCmd, "publickey", &arguments.userPublicKeyPath)
 
 	// files parameters
 	StoreCmd.RunE = store
@@ -55,11 +42,6 @@ func init() {
 // serve command expose a RPC service that exposes all authentication
 // related function to the outside.
 func store(cmd *cobra.Command, args []string) error {
-	// load config file
-	err := manageConfigFile()
-	if err != nil {
-		return err
-	}
 
 	return nil
 }

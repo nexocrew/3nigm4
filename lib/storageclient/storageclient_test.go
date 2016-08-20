@@ -348,7 +348,7 @@ func TestUploadResources(t *testing.T) {
 		testFileName,
 		testFileChunks,
 		nil,
-		nil,
+		0,
 		&fm.Permission{
 			Permission: 2,
 		})

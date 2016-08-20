@@ -336,7 +336,7 @@ func remove(a interface{}) error {
 
 // SaveChunks start the async upload of all argument passed chunks
 // generating a single name for each one.
-func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expirets *time.Time, permission *fm.Permission) ([]string, error) {
+func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expire time.Duration, permission *fm.Permission) ([]string, error) {
 	now := time.Now()
 	requestID := generateTranscationID(filename, &now)
 	// check for pending uploads
@@ -357,9 +357,7 @@ func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue
 		commandArgs := &ct.CommandArguments{
 			ResourceID: id,
 			Data:       chunk,
-		}
-		if expirets != nil {
-			commandArgs.TimeToLive = expirets.Sub(time.Now())
+			TimeToLive: expire,
 		}
 		if permission != nil {
 			commandArgs.Permission = permission.Permission

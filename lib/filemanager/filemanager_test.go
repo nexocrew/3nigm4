@@ -331,7 +331,7 @@ func TestDataSaverLogics(t *testing.T) {
 	}
 
 	// do it!
-	reference, err := chunks.SaveChunks(ds, nil, nil)
+	reference, err := chunks.SaveChunks(ds, 0, nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
@@ -401,7 +401,7 @@ func TestDataSaverLogicsWithPassword(t *testing.T) {
 	}
 
 	// do it!
-	reference, err := chunks.SaveChunks(ds, nil, nil)
+	reference, err := chunks.SaveChunks(ds, 0, nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
@@ -471,7 +471,7 @@ func TestDataSaverLogicsWithWrongPassword(t *testing.T) {
 	}
 
 	// do it!
-	reference, err := chunks.SaveChunks(ds, nil, nil)
+	reference, err := chunks.SaveChunks(ds, 0, nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}

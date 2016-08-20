@@ -264,7 +264,7 @@ func NewEncryptedChunks(rawKey []byte, filepath string, chunkSize uint64, compre
 
 // SaveChunks saves encrypted data chunks to
 // a structure implementing the DataSaver interface.
-func (e *EncryptedChunks) SaveChunks(ds DataSaver, expires *time.Time, permission *Permission) (*ReferenceFile, error) {
+func (e *EncryptedChunks) SaveChunks(ds DataSaver, expires time.Duration, permission *Permission) (*ReferenceFile, error) {
 	filesPaths, err := ds.SaveChunks(e.metadata.FileName, e.chunks, e.metadata.CheckSum[:], expires, permission)
 	if err != nil {
 		return nil, err

@@ -6,7 +6,12 @@
 
 package main
 
-// Std golib dependencies
+// Golang packages
+import (
+	"time"
+)
+
+// Third party packages
 import (
 	"golang.org/x/crypto/openpgp"
 )
@@ -25,22 +30,28 @@ type apiService struct {
 type args struct {
 	// server basic args
 	verbose   bool
-	colored   bool
 	configDir string
 	// login service
 	authService apiService
 	username    string
-	token       string
 	// storage parameters
 	storageService apiService
-	// data in
-	inPath string
+	// data in/out
+	inPath  string
+	outPath string
 	// reference file
-	outPath        string
-	privateKeyPath string
-	publicKeyPaths []string
+	userPrivateKeyPath string
+	userPublicKeyPath  string
+	publicKeyPaths     []string
 	// chunk related
 	masterkeyFlag bool
 	chunkSize     uint
 	compressed    bool
+	// workers and queues
+	workers int
+	queue   int
+	// resource properties
+	timeToLive   time.Duration
+	permission   int
+	sharingUsers []string
 }

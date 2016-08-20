@@ -25,6 +25,7 @@ import (
 import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/openpgp"
 )
 
 // Logger global instance
@@ -32,6 +33,16 @@ var log *logger.LogFacility
 
 // Cobra parsed arguments
 var arguments args
+
+// Global PGP private key: it's loaded the first time a command, that
+// uses it, is invoked. After that remains in memory until the program
+// is close.
+var pgpPrivateKey openpgp.EntityList
+
+// Global PGP public key: it's loaded the first time a command, that
+// uses it, is invoked. After that remains in memory until the program
+// is close.
+var pgpPublicKey openpgp.EntityList
 
 // RootCmd is the base command used by cobra in the storageservice
 // exec.
@@ -48,9 +59,8 @@ var RootCmd = &cobra.Command{
 
 func init() {
 	// global flags
-	RootCmd.PersistentFlags().BoolVarP(&arguments.verbose, "verbose", "v", false, "activate logging verbosity")
-	RootCmd.PersistentFlags().BoolVarP(&arguments.colored, "colored", "", true, "activate colored logs")
-	RootCmd.PersistentFlags().StringVarP(&arguments.configDir, "config", "", "$HOME/.3nigm4/", "override default config file directory")
+	setArgumentPFlags(RootCmd, "verbose", &arguments.verbose)
+	setArgumentPFlags(RootCmd, "config", &arguments.configDir)
 }
 
 // manageConfigFile startup Viper
@@ -64,8 +74,9 @@ func manageConfigFile() error {
 	viper.SetConfigName("config")
 	if arguments.configDir != "" {
 		viper.AddConfigPath(arguments.configDir)
+	} else {
+		viper.AddConfigPath(path.Join(usr.HomeDir, ".3nigm4"))
 	}
-	viper.AddConfigPath(path.Join(usr.HomeDir, ".3nigm4"))
 	err = viper.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("unable to read config file: %s", err.Error())

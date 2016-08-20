@@ -8,17 +8,25 @@ package main
 
 // Golang std libs
 import (
-	"os/user"
-	"path"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 )
 
 // Internal dependencies
-import ()
+import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
+	crypto3n "github.com/nexocrew/3nigm4/lib/crypto"
+	fm "github.com/nexocrew/3nigm4/lib/filemanager"
+	sc "github.com/nexocrew/3nigm4/lib/storageclient"
+)
 
 // Third party libs
 import (
+	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/openpgp"
 )
 
 // UploadCmd can be used to upload a local file to the
@@ -33,26 +41,122 @@ var UploadCmd = &cobra.Command{
 
 func init() {
 	// encryption
-	UploadCmd.PersistentFlags().StringSliceVarP(&arguments.publicKeyPaths, "pubkeys", "k", []string{"$HOME/.3nigm4/pgp/pbkey.asc"}, "list of paths of PGP public keys to encode reference files")
-	UploadCmd.PersistentFlags().BoolVarP(&arguments.masterkeyFlag, "masterkey", "M", false, "activate the master key insertion")
+	setArgument(UploadCmd, "destkeys", &arguments.publicKeyPaths)
+	setArgument(UploadCmd, "masterkey", &arguments.masterkeyFlag)
 	// i/o paths
-	UploadCmd.PersistentFlags().StringVarP(&arguments.outPath, "output", "o", "$HOME/.3nigm4/references", "directory where output reference files are stored")
-	UploadCmd.PersistentFlags().UintVarP(&arguments.chunkSize, "chunksize", "", 1000, "size of encrypted chunks sended to the API frontend")
-	UploadCmd.PersistentFlags().BoolVarP(&arguments.compressed, "compressed", "", true, "enable compression of sended data")
-
-	viper.BindPFlag("OutputPath", UploadCmd.PersistentFlags().Lookup("output"))
-	viper.BindPFlag("ChunkSize", UploadCmd.PersistentFlags().Lookup("chunksize"))
-	viper.BindPFlag("Compressed", UploadCmd.PersistentFlags().Lookup("compressed"))
-
-	usr, _ := user.Current()
-	viper.SetDefault("OutputDir", path.Join(usr.HomeDir, ".3nigm4", "references"))
-	viper.SetDefault("ChunkSize", 1000)
-	viper.SetDefault("Compressed", true)
+	setArgument(UploadCmd, "input", &arguments.inPath)
+	setArgument(UploadCmd, "output", &arguments.outPath)
+	setArgument(UploadCmd, "chunksize", &arguments.chunkSize)
+	setArgument(UploadCmd, "compressed", &arguments.compressed)
+	// working queue setup
+	setArgument(UploadCmd, "workerscount", &arguments.workers)
+	setArgument(UploadCmd, "queuesize", &arguments.queue)
+	// resource properties
+	setArgument(UploadCmd, "timetolive", &arguments.timeToLive)
+	setArgument(UploadCmd, "permission", &arguments.permission)
+	setArgument(UploadCmd, "sharingusers", &arguments.sharingUsers)
 
 	// files parameters
 	UploadCmd.RunE = upload
 }
 
 func upload(cmd *cobra.Command, args []string) error {
+	// load config file
+	err := manageConfigFile()
+	if err != nil {
+		return err
+	}
+
+	// check for token presence
+	if token == "" {
+		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
+	}
+
+	// prepare PGP keys
+	var entityList openpgp.EntityList
+	usersPublicKeys, err := checkAndLoadPgpPublicKey(viper.GetString(am["publickey"].name))
+	if err != nil {
+		return err
+	}
+	entityList = append(entityList, usersPublicKeys...)
+	recipientsKeys, err := loadRecipientsPublicKeys(viper.GetStringSlice(am["destkeys"].name))
+	if err != nil {
+		return err
+	}
+	entityList = append(entityList, recipientsKeys...)
+	// get private key
+	signerEntityList, err := checkAndLoadPgpPrivateKey(viper.GetString(am["privatekey"].name))
+	if err != nil {
+		return err
+	}
+	if len(signerEntityList) == 0 {
+		return fmt.Errorf("unexpected private key ring size: the ring is empty")
+	}
+	// force to select the first private key (if more than one are available)
+	signer := signerEntityList[0]
+
+	// set master key if any passed
+	var masterkey []byte
+	if viper.GetBool(am["masterkey"].name) {
+		masterkey, err = gopass.GetPasswd()
+		if err != nil {
+			return err
+		}
+	}
+
+	// create new store manager
+	ds, err := sc.NewStorageClient(
+		viper.GetString(am["storageaddress"].name),
+		viper.GetInt(am["storageport"].name),
+		token,
+		viper.GetInt(am["workerscount"].name),
+		viper.GetInt(am["queuesize"].name))
+	if err != nil {
+		return err
+	}
+	defer ds.Close()
+
+	// create new encryption chunks
+	ec, err := fm.NewEncryptedChunks(
+		masterkey,
+		viper.GetString(am["input"].name),
+		uint64(viper.GetInt(am["chunksize"].name)),
+		viper.GetBool(am["compressed"].name))
+	if err != nil {
+		return err
+	}
+
+	// upload resources and get reference file
+	rf, err := ec.SaveChunks(
+		ds,
+		viper.GetDuration(am["timetolive"].name),
+		&fm.Permission{
+			Permission:   ct.Permission(viper.GetInt(am["permission"].name)),
+			SharingUsers: viper.GetStringSlice(am["sharingusers"].name),
+		})
+	if err != nil {
+		return err
+	}
+
+	// encode reference file
+	refData, err := json.Marshal(rf)
+	if err != nil {
+		return fmt.Errorf("unable to encode in json format reference file: %s", err.Error())
+	}
+	// encrypt reference file
+	encryptedData, err := crypto3n.OpenPgpEncrypt(refData, entityList, signer)
+	if err != nil {
+		return fmt.Errorf("unable to encrypt reference file: %s", err.Error())
+	}
+
+	// save tp output file
+	destinationPath := viper.GetString(am["output"].name)
+	err = ioutil.WriteFile(
+		destinationPath,
+		encryptedData,
+		0644)
+	if err != nil {
+		return fmt.Errorf("unable to save reference file to output path %s: %s", destinationPath, err.Error())
+	}
 	return nil
 }
