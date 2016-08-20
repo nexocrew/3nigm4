@@ -11,7 +11,10 @@ _A command line chat based on keybase._
 
 ## Test coverage
 [![Lib crypto coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/crypto?0 "lib crypto coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/crypto) /
-[![Lib filemanager coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/filemanager?0 "lib filemanager coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/filemanager)
+[![Lib filemanager coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/filemanager?0 "lib filemanager coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/filemanager) /
+[![Lib workingqueue coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/workingqueue?0 "lib workingqueue coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/workingqueue) /
+[![Lib storageclient coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/storageclient?0 "lib storageclient coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/storageclient) /
+[![Lib s3 coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/s3?0 "lib storageclient coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/s3)
 
 Table of contents
 ---------------------
