@@ -90,6 +90,25 @@ type jobArgs struct {
 	requestID string
 }
 
+// checkRequestStatus check request status and if an anomalous
+// response status code is present check for the StandardResponse
+// error property.
+func checkRequestStatus(status, expected int, body []byte) error {
+	if status != expected {
+		var status ct.StandardResponse
+		err := json.Unmarshal(body, &status)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf(
+			"service returned wrong status code: having %d expecting %d, cause %s",
+			status,
+			expected,
+			status.Error)
+	}
+	return nil
+}
+
 // postGenericJob implement a generic POST job operation, can be used for
 // any available command.
 func postGenericJob(arguments *jobArgs, command string) (*ct.JobPostResponse, error) {
@@ -118,18 +137,19 @@ func postGenericJob(arguments *jobArgs, command string) (*ct.JobPostResponse, er
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusAccepted {
-		return nil, fmt.Errorf(
-			"service returned wrong status code: having %d expecting %d, unable to proceed",
-			resp.StatusCode,
-			http.StatusAccepted)
-	}
-	// get job ID
+
+	// get body
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	resp.Body.Close()
+
+	// check for errors
+	err = checkRequestStatus(resp.StatusCode, http.StatusAccepted, respBody)
+	if err != nil {
+		return nil, err
+	}
 
 	var jobResponse ct.JobPostResponse
 	err = json.Unmarshal(respBody, &jobResponse)
@@ -161,16 +181,16 @@ func getGenericJob(arguments *jobArgs, jobID string) (*ct.JobGetRequest, error) 
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		getBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		resp.Body.Close()
 
 		switch resp.StatusCode {
 		case http.StatusAccepted:
 			continue
 		case http.StatusOK:
-			getBody, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return nil, err
-			}
 			var download ct.JobGetRequest
 			err = json.Unmarshal(getBody, &download)
 			if err != nil {
@@ -178,11 +198,17 @@ func getGenericJob(arguments *jobArgs, jobID string) (*ct.JobGetRequest, error) 
 			}
 			return &download, nil
 		default:
+			var status ct.StandardResponse
+			err = json.Unmarshal(getBody, &status)
+			if err != nil {
+				return nil, err
+			}
 			return nil, fmt.Errorf(
-				"unexpected status having %d expecting %d or %d",
+				"service returned wrong status code: having %d expecting %d or %d, error cause %s",
 				resp.StatusCode,
 				http.StatusAccepted,
-				http.StatusOK)
+				http.StatusOK,
+				status.Error)
 		}
 		// sleep to avoid spinning on the CPU
 		time.Sleep(verifySleep)

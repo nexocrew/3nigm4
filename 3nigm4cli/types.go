@@ -37,8 +37,10 @@ type args struct {
 	// storage parameters
 	storageService apiService
 	// data in/out
-	inPath  string
-	outPath string
+	inPath           string
+	outPath          string
+	referenceInPath  string
+	referenceOutPath string
 	// reference file
 	userPrivateKeyPath string
 	userPublicKeyPath  string

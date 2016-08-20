@@ -8,6 +8,7 @@ package main
 
 // Golang std libs
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/user"
@@ -16,6 +17,7 @@ import (
 
 // Internal dependencies
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	"github.com/nexocrew/3nigm4/lib/logger"
 	"github.com/nexocrew/3nigm4/lib/logo"
 	ver "github.com/nexocrew/3nigm4/lib/version"
@@ -84,12 +86,34 @@ func manageConfigFile() error {
 	return nil
 }
 
+// checkRequestStatus check request status and if an anomalous
+// response status code is present check for the StandardResponse
+// error property.
+func checkRequestStatus(status, expected int, body []byte) error {
+	if status != expected {
+		var status ct.StandardResponse
+		err := json.Unmarshal(body, &status)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf(
+			"service returned wrong status code: having %d expecting %d, cause %s",
+			status,
+			expected,
+			status.Error)
+	}
+	return nil
+}
+
 // AddCommands adds available commands
 // to the root command
 func AddCommands() {
 	RootCmd.AddCommand(StoreCmd)
 	RootCmd.AddCommand(LoginCmd)
+	// store commands
 	StoreCmd.AddCommand(UploadCmd)
+	StoreCmd.AddCommand(DownloadCmd)
+	StoreCmd.AddCommand(DeleteCmd)
 }
 
 // Execute parsing and execute selected
@@ -112,6 +136,8 @@ func printLogo() {
 }
 
 func main() {
+	defer logout()
+
 	// start up logging facility
 	log = logger.NewLogFacility("3nigm4cli", true, true)
 

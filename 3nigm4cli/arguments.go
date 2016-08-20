@@ -146,8 +146,22 @@ var am map[string]cliArguments = map[string]cliArguments{
 	"output": cliArguments{
 		name:      "output",
 		shorthand: "o",
+		value:     "",
+		usage:     "directory where output files will be stored",
+		kind:      String,
+	},
+	"referencein": cliArguments{
+		name:      "referencein",
+		shorthand: "r",
+		value:     "",
+		usage:     "reference file path",
+		kind:      String,
+	},
+	"referenceout": cliArguments{
+		name:      "referenceout",
+		shorthand: "O",
 		value:     "$HOME/.3nigm4/references",
-		usage:     "directory where output reference files are stored",
+		usage:     "reference file output path",
 		kind:      String,
 	},
 	"chunksize": cliArguments{
