@@ -1,6 +1,11 @@
 #!/bin/bash
 
 #
+# Example execution:
+# sh docker_build.sh /home/user/programming/gopath/ github.com/nexocrew/3nigm4/ linux amd64
+#
+
+#
 # Base image name
 #
 GOLANG_IMAGE=nexo/golang:latest
@@ -144,6 +149,19 @@ then
 			echo "Unable to install the app."
 			exit 1
 		fi
+
+		#
+		# Create tar archive
+		#
+		pushd ${GO_PATH}/src/${PROJ_PATH}/build/
+		tar -czvf ${GO_PATH}/src/${PROJ_PATH}/build/3nigm4-${PLATFORM}-${ARCH}.tar ${PLATFORM}-${ARCH}/
+		if [ $? -ne 0 ]
+		then
+			echo "Unable to tar the build dir."
+			exit 1
+		fi
+		popd
+
 
 		exit 0
 
