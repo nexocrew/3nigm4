@@ -8,6 +8,8 @@ _A command line chat based on keybase._
 ## Status
 [![Build Status](https://travis-ci.org/nexocrew/3nigm4.svg?branch=develop)](https://travis-ci.org/nexocrew/3nigm4)
 [![GoDoc](https://godoc.org/github.com/nexocrew/3nigm4?status.svg)](https://godoc.org/github.com/nexocrew/3nigm4)
+[![GitHub issues](https://img.shields.io/github/issues/nexocrew/3nigm4.svg "GitHub issues")](https://github.com/nexocrew/3nigm4)
+[![Dev chat at https://gitter.im/nexocrew/3nigm4-framework](https://img.shields.io/badge/gitter-dev_chat-46bc99.svg)](https://gitter.im/nexocrew/3nigm4-framework?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## Test coverage
 [![Lib crypto coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/crypto?0 "lib crypto coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/crypto) /
