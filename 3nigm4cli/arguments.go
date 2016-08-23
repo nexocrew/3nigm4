@@ -181,7 +181,7 @@ var am map[string]cliArguments = map[string]cliArguments{
 	"storageaddress": cliArguments{
 		name:      "storageaddress",
 		shorthand: "",
-		value:     "https://www.nexo.cloud",
+		value:     "https://store.3n4.io",
 		usage:     "the storage service APIs address",
 		kind:      String,
 	},
@@ -251,7 +251,7 @@ var am map[string]cliArguments = map[string]cliArguments{
 	"authaddress": cliArguments{
 		name:      "authaddress",
 		shorthand: "",
-		value:     "https://www.nexo.cloud",
+		value:     "https://store.3n4.io",
 		usage:     "the authentication service APIs address",
 		kind:      String,
 	},
