@@ -1,10 +1,10 @@
 # Site settings
-title: "Carte Noire"
+title: "3nigm4"
 email: jacob@jacobtomlinson.co.uk
-description: "A dark blog theme for Jekyll."
+description: "A command line chat based on keybase.."
 baseurl: "http://nexocrew.github.io/3nigm4/"
 url: "http://nexocrew.github.io/3nigm4/"
-title_description: "A dark blog theme for Jekyll focusing on a clear reading experience. Large text and a narrow body makes carte noire a gorgeous read. With excellent code snippet support and integrated tools such as AddThis and Disqus giving your Jekyll blog all the functionality your users expect."
+title_description: "3nigm4 is a Go application developed by nexocrew. The purpose of the software is to provide a GPG-based framework, integrated with keybase as a trusted key server, offering secure chat and file sharing capabilities."
 title_image: "http://www.gravatar.com/avatar/00000000000000000000000000000000?s=500&d=mm"
 google_analytics: "UA-20365477-4"
 disqus_account: cartenoire
