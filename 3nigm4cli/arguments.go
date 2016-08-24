@@ -282,6 +282,7 @@ func checkAndLoadPgpPrivateKey(keyfile string) (openpgp.EntityList, error) {
 			return nil, fmt.Errorf("unable to access user's private key file: %s", err.Error())
 		}
 		// get user's password
+		fmt.Printf("Insert pgp key password: ")
 		pwd, err := gopass.GetPasswd()
 		if err != nil {
 			return nil, err

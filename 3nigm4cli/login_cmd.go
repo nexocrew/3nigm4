@@ -81,6 +81,7 @@ func login(cmd *cobra.Command, args []string) error {
 
 	username := viper.GetString(am["username"].name)
 	// get user password
+	fmt.Printf("Insert password: ")
 	pwd, err := gopass.GetPasswd()
 	if err != nil {
 		return err

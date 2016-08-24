@@ -74,6 +74,7 @@ func download(cmd *cobra.Command, args []string) error {
 	// set master key if any passed
 	var masterkey []byte
 	if viper.GetBool(am["masterkey"].name) {
+		fmt.Printf("Insert master key: ")
 		masterkey, err = gopass.GetPasswd()
 		if err != nil {
 			return err

@@ -89,8 +89,8 @@ func manageConfigFile() error {
 // checkRequestStatus check request status and if an anomalous
 // response status code is present check for the StandardResponse
 // error property.
-func checkRequestStatus(status, expected int, body []byte) error {
-	if status != expected {
+func checkRequestStatus(httpstatus, expected int, body []byte) error {
+	if httpstatus != expected {
 		var status ct.StandardResponse
 		err := json.Unmarshal(body, &status)
 		if err != nil {
@@ -98,7 +98,7 @@ func checkRequestStatus(status, expected int, body []byte) error {
 		}
 		return fmt.Errorf(
 			"service returned wrong status code: having %d expecting %d, cause %s",
-			status,
+			httpstatus,
 			expected,
 			status.Error)
 	}
