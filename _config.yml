@@ -1,11 +1,10 @@
 # Site settings
 title: "3nigm4"
 email: jacob@jacobtomlinson.co.uk
-description: "A command line chat based on keybase.."
+description: "A command line chat based on keybase."
 baseurl: "http://nexocrew.github.io/3nigm4/"
 url: "http://nexocrew.github.io/3nigm4/"
 title_description: "3nigm4 is a Go application developed by nexocrew. The purpose of the software is to provide a GPG-based framework, integrated with keybase as a trusted key server, offering secure chat and file sharing capabilities."
-title_image: "http://www.gravatar.com/avatar/00000000000000000000000000000000?s=500&d=mm"
 google_analytics: "UA-20365477-4"
 disqus_account: cartenoire
 github_repository: https://github.com/nexocrew/3nigm4
@@ -13,10 +12,7 @@ addthis_id: ra-513c6fa83da6ec67
 post_limit: 5
 
 # Social usernames/URLs
-twitter_username: _jacobtomlinson
-github_username:  jacobtomlinson
-linkedin_link: http://carte-noire.jacobtomlinson.co.uk/
-google_plus_link: http://carte-noire.jacobtomlinson.co.uk/
+github_username:  nexocrew
 stackoverflow_link: http://carte-noire.jacobtomlinson.co.uk/
 
 # Footer
