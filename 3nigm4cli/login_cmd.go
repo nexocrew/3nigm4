@@ -108,12 +108,13 @@ func login(cmd *cobra.Command, args []string) error {
 		fmt.Sprintf("%s:%d%s", authAddress, authPort, authorisationPath),
 		bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create the request %s", err.Error())
 	}
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	// execute request
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to perform the request cause %s", err.Error())
 	}
 
 	// get token
