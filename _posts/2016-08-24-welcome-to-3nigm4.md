@@ -4,12 +4,14 @@ title:      Welcome to 3nigm4
 date:       2016-08-24 15:31:19
 summary:    3nigm4: a command line chat based on keybase.
 categories: jekyll
-thumbnail:  cogs
+thumbnail: cogs
 tags:
- - 3nigm4
+ - demo
+ - action
  - summary
  - docs
 ---
+
 
 3nigm4: a command line chat based on keybase.
 
