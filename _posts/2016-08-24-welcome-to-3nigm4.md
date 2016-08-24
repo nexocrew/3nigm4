@@ -1,15 +1,13 @@
 ---
 layout:     post
 title:      Welcome to 3nigm4
-date:       2016-08-23 15:31:19
-author:     Danilo Bestbug
+date:       2016-08-24 15:31:19
 summary:    3nigm4: a command line chat based on keybase.
 categories: jekyll
-thumbnail:  heart
+thumbnail:  cogs
 tags:
  - 3nigm4
  - summary
- - first contact
  - docs
 ---
 

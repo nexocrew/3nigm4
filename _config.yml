@@ -13,7 +13,6 @@ post_limit: 5
 
 # Social usernames/URLs
 github_username:  nexocrew
-stackoverflow_link: http://carte-noire.jacobtomlinson.co.uk/
 
 # Footer
 footer_left: "Made with <i class=\"fa fa-heart\"></i> by <a href=\"https://twitter.com/_JacobTomlinson\">Jacob Tomlinson</a>"
