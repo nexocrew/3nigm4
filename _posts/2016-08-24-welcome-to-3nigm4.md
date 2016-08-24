@@ -1,5 +1,10 @@
 ---
 layout: post
+title: Welcome to 3nigm4
+date: 2016-08-24 12:16:19
+summary: 3nigm4 the command line chat based on keybase.
+categories: jekyll
+thumbnail: cogs
 ---
 
 3nigm4: a command line chat based on keybase.
