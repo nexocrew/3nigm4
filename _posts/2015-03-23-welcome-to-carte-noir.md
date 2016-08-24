@@ -1,28 +1,28 @@
 ---
 layout:     post
 title:      Welcome to Carte Noire
-date:       2015-03-23 15:31:19
-author:     Jacob Tomlinson
-summary:    Carte Noire is a dark blog theme for Jekyll focusing on a clear reading experience.
+date:       2016-08-23 15:31:19
+author:     Danilo Bestbug
+summary:    3nigm4: a command line chat based on keybase.
 categories: jekyll
 thumbnail:  heart
 tags:
- - welcome
- - to
- - carte
- - noire
+ - 3nigm4
+ - summary
 ---
 
-Welcome to Carte Noire.
+3nigm4: a command line chat based on keybase.
 
-Carte Noire began as a new theme for [my personal blog][1], but has now taken
-on a life of its own as a free theme for Jekyll.
+3nigm4 is a [Go][1] application developed by nexocrew. The purpose of the software is to provide a GPG-based framework, integrated with [keybase][2] as a trusted key server, offering secure chat and file sharing capabilities.
 
-The theme has been designed with simplicity and readability in mind. It makes
-use of third party services such as Disqus ad AddThis to ensure the blog has
-all the features you would expect from a dynamic application such as Wordpress
-but with the hosting and maintenance simplicity of Jekyll.
+The software is designed to be deployed as a microservices architecture. The components designed for the first alpha are:
 
-Please use/copy/share Carte Noire!
+    *3nigm4-chat-backend: The service exposes REST APIs to exchange chat information. It will store the conversation encrypted and unaccessible to the server itself. (More information in the docs)
+    *3nigm4-storage-backend This service will expose REST APIs to implement a authenticated interface to an S3 backend storage. All passed data will be encrypted client side, separated in chuncks of fixed size and separated from the encryption keys.
+    *3nigm4-auth-server This service will provide authentication capabilities for the previously presented backend services.
+    *3nigm4-cli: The clinet side command line interface.
+    *3nigm4-deamon: A daemon which communicates with the various services and will be controlled by the 3nigm4-cli application. It also processes core, storage and cryptographic operations.
 
-[1]: http://www.jacobtomlinson.co.uk/
+
+[1]: https://golang.org/
+[2]: https://keybase.io/
