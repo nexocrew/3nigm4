@@ -6,7 +6,7 @@ baseurl: "http://nexocrew.github.io/3nigm4/"
 url: "http://nexocrew.github.io/3nigm4/"
 title_description: "3nigm4 is a Go application developed by nexocrew. The purpose of the software is to provide a GPG-based framework, integrated with keybase as a trusted key server, offering secure chat and file sharing capabilities."
 google_analytics: "UA-20365477-4"
-disqus_account: cartenoire
+disqus_account: http-nexocrew-github-io-3nigm4
 github_repository: https://github.com/nexocrew/3nigm4
 addthis_id: ra-513c6fa83da6ec67
 post_limit: 5
