@@ -125,7 +125,7 @@ var am map[string]cliArguments = map[string]cliArguments{
 	"config": cliArguments{
 		name:      "config",
 		shorthand: "c",
-		value:     "$HOME/.3nigm4/",
+		value:     "",
 		usage:     "override default config file directory",
 		kind:      String,
 	},
@@ -160,14 +160,14 @@ var am map[string]cliArguments = map[string]cliArguments{
 	"referenceout": cliArguments{
 		name:      "referenceout",
 		shorthand: "O",
-		value:     "$HOME/.3nigm4/references",
+		value:     "",
 		usage:     "reference file output path",
 		kind:      String,
 	},
 	"chunksize": cliArguments{
 		name:      "chunksize",
 		shorthand: "",
-		value:     1000,
+		value:     100000,
 		usage:     "size of encrypted chunks sended to the API frontend",
 		kind:      Uint,
 	},
@@ -195,14 +195,14 @@ var am map[string]cliArguments = map[string]cliArguments{
 	"privatekey": cliArguments{
 		name:      "privatekey",
 		shorthand: "K",
-		value:     "$HOME/.3nigm4/pgp/pvkey.asc",
+		value:     "",
 		usage:     "path for the user's PGP private key",
 		kind:      String,
 	},
 	"publickey": cliArguments{
 		name:      "publickey",
 		shorthand: "k",
-		value:     "$HOME/.3nigm4/pgp/pbkey.asc",
+		value:     "",
 		usage:     "path for the user's PGP public key",
 		kind:      String,
 	},

@@ -49,12 +49,13 @@ type StorageClient struct {
 
 // NewStorageClient creates a new StorageClient structure and
 // setup all required properties. It'll start the working queue
-// that'll be used to enqueue http API facing jobs.
+// that'll be used to enqueue http API facing jobs. The returned
+// read only chan must be used to check for client errors.
 func NewStorageClient(
 	address string,
 	port int,
 	token string,
-	workersize, queuesize int) (*StorageClient, error) {
+	workersize, queuesize int) (*StorageClient, error, <-chan error) {
 	// creates base object
 	sc := &StorageClient{
 		address:      address,
@@ -72,9 +73,9 @@ func NewStorageClient(
 	go sc.manageChans()
 	// start working queue
 	if err := sc.workingQueue.Run(); err != nil {
-		return nil, err
+		return nil, err, nil
 	}
-	return sc, nil
+	return sc, nil, sc.ErrorChan
 }
 
 // Close close the active working queue.
@@ -93,8 +94,8 @@ type jobArgs struct {
 // checkRequestStatus check request status and if an anomalous
 // response status code is present check for the StandardResponse
 // error property.
-func checkRequestStatus(status, expected int, body []byte) error {
-	if status != expected {
+func checkRequestStatus(statushttp, expected int, body []byte) error {
+	if statushttp != expected {
 		var status ct.StandardResponse
 		err := json.Unmarshal(body, &status)
 		if err != nil {
@@ -102,7 +103,7 @@ func checkRequestStatus(status, expected int, body []byte) error {
 		}
 		return fmt.Errorf(
 			"service returned wrong status code: having %d expecting %d, cause %s",
-			status,
+			statushttp,
 			expected,
 			status.Error)
 	}

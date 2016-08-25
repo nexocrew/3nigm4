@@ -212,6 +212,9 @@ func initEncryptedChunks(rawkey []byte, chunkSize uint64, compressed bool) (*Enc
 // This function returns the initialised struct or an error if
 // sometring went wrong.
 func NewEncryptedChunks(rawKey []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
+	if chunkSize < 500 {
+		return nil, fmt.Errorf("chunk size too small should be >= than 500 bytes")
+	}
 	// get infos from file
 	fileInfo, err := os.Stat(filepath)
 	if err != nil {

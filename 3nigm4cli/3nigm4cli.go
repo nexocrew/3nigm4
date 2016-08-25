@@ -81,9 +81,8 @@ func manageConfigFile() error {
 	viper.SetConfigName("config")
 	if arguments.configDir != "" {
 		viper.AddConfigPath(arguments.configDir)
-	} else {
-		viper.AddConfigPath(path.Join(usr.HomeDir, rootAppFolder))
 	}
+	viper.AddConfigPath(path.Join(usr.HomeDir, rootAppFolder))
 	err = viper.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("unable to read config file: %s", err.Error())

@@ -82,7 +82,7 @@ func download(cmd *cobra.Command, args []string) error {
 	}
 
 	// create new store manager
-	ds, err := sc.NewStorageClient(
+	ds, err, errc := sc.NewStorageClient(
 		viper.GetString(am["storageaddress"].name),
 		viper.GetInt(am["storageport"].name),
 		pss.Token,
@@ -92,6 +92,7 @@ func download(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer ds.Close()
+	go manageAsyncErrors(errc)
 
 	// get reference
 	encBytes, err := ioutil.ReadFile(viper.GetString(am["referencein"].name))
@@ -120,7 +121,10 @@ func download(cmd *cobra.Command, args []string) error {
 	destinationPath := viper.GetString(am["output"].name)
 	err = ec.GetFile(destinationPath)
 	if err != nil {
-		return fmt.Errorf("unable to save reference file to output path %s: %s", destinationPath, err.Error())
+		return fmt.Errorf("unable to save file to output path %s: %s", destinationPath, err.Error())
 	}
+
+	log.MessageLog("Successfully downloaded %s file as %s.\n", reference.FileName, destinationPath)
+
 	return nil
 }

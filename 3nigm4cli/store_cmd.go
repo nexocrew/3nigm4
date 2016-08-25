@@ -7,10 +7,9 @@
 package main
 
 // Golang std libs
-import ()
-
-// Internal dependencies
-import ()
+import (
+	"os"
+)
 
 // Third party libs
 import (
@@ -37,6 +36,19 @@ func init() {
 
 	// files parameters
 	StoreCmd.RunE = store
+}
+
+// manageAsyncErrors is a common function used by the various
+// store child commands to manage async returned errors. If
+// an error is returned exit is invoked.
+func manageAsyncErrors(errc <-chan error) {
+	for {
+		select {
+		case err, _ := <-errc:
+			log.CriticalLog("Error encountered: %s.\n", err.Error())
+			os.Exit(1)
+		}
+	}
 }
 
 // serve command expose a RPC service that exposes all authentication

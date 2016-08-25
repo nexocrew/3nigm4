@@ -67,7 +67,7 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 	}
 
 	// create new store manager
-	ds, err := sc.NewStorageClient(
+	ds, err, errc := sc.NewStorageClient(
 		viper.GetString(am["storageaddress"].name),
 		viper.GetInt(am["storageport"].name),
 		pss.Token,
@@ -77,11 +77,13 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer ds.Close()
+	go manageAsyncErrors(errc)
 
 	// get reference
-	encBytes, err := ioutil.ReadFile(viper.GetString(am["referencein"].name))
+	refin := viper.GetString(am["referencein"].name)
+	encBytes, err := ioutil.ReadFile(refin)
 	if err != nil {
-		return fmt.Errorf("unable to access reference file: %s", err.Error())
+		return fmt.Errorf("unable to access reference file %s cause %s", refin, err.Error())
 	}
 	// decrypt it
 	refenceBytes, err := crypto3n.OpenPgpDecrypt(encBytes, privateEntityList)
@@ -100,6 +102,8 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	log.MessageLog("Successfully deleted file.\n")
 
 	return nil
 }

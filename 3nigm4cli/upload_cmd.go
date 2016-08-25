@@ -111,7 +111,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// create new store manager
-	ds, err := sc.NewStorageClient(
+	ds, err, errc := sc.NewStorageClient(
 		viper.GetString(am["storageaddress"].name),
 		viper.GetInt(am["storageport"].name),
 		pss.Token,
@@ -121,6 +121,7 @@ func upload(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer ds.Close()
+	go manageAsyncErrors(errc)
 
 	// create new encryption chunks
 	ec, err := fm.NewEncryptedChunks(
@@ -164,5 +165,8 @@ func upload(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("unable to save reference file to output path %s: %s", destinationPath, err.Error())
 	}
+
+	log.MessageLog("Successfully uploaded file.\n")
+
 	return nil
 }
