@@ -46,6 +46,11 @@ var pgpPrivateKey openpgp.EntityList
 // is close.
 var pgpPublicKey openpgp.EntityList
 
+// rootAppFolder is the the name of the root folder used by the 3nigm4
+// app to store config files, stored data, etc... This folder will be
+// located under the user $HOME dir.
+var rootAppFolder = ".3nigm4"
+
 // RootCmd is the base command used by cobra in the storageservice
 // exec.
 var RootCmd = &cobra.Command{
@@ -77,7 +82,7 @@ func manageConfigFile() error {
 	if arguments.configDir != "" {
 		viper.AddConfigPath(arguments.configDir)
 	} else {
-		viper.AddConfigPath(path.Join(usr.HomeDir, ".3nigm4"))
+		viper.AddConfigPath(path.Join(usr.HomeDir, rootAppFolder))
 	}
 	err = viper.ReadInConfig()
 	if err != nil {
@@ -110,6 +115,7 @@ func checkRequestStatus(httpstatus, expected int, body []byte) error {
 func AddCommands() {
 	RootCmd.AddCommand(StoreCmd)
 	RootCmd.AddCommand(LoginCmd)
+	RootCmd.AddCommand(LogoutCmd)
 	// store commands
 	StoreCmd.AddCommand(UploadCmd)
 	StoreCmd.AddCommand(DownloadCmd)
@@ -136,16 +142,23 @@ func printLogo() {
 }
 
 func main() {
-	defer logout()
-
 	// start up logging facility
 	log = logger.NewLogFacility("3nigm4cli", true, true)
+
+	// start up storage singleton
+	pss = newPersistentStorage()
+	if pss == nil {
+		log.CriticalLog("Unable to start persistant storage, cannot procede.\n")
+		os.Exit(1)
+	}
 
 	err := Execute()
 	if err != nil {
 		log.CriticalLog("%s.\n", err.Error())
+		pss.save()
 		os.Exit(1)
 	}
 
+	pss.save()
 	os.Exit(0)
 }

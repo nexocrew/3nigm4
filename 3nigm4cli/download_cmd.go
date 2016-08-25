@@ -61,7 +61,7 @@ func download(cmd *cobra.Command, args []string) error {
 	}
 
 	// check for token presence
-	if token == "" {
+	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
 	}
 
@@ -85,7 +85,7 @@ func download(cmd *cobra.Command, args []string) error {
 	ds, err := sc.NewStorageClient(
 		viper.GetString(am["storageaddress"].name),
 		viper.GetInt(am["storageport"].name),
-		token,
+		pss.Token,
 		viper.GetInt(am["workerscount"].name),
 		viper.GetInt(am["queuesize"].name))
 	if err != nil {
