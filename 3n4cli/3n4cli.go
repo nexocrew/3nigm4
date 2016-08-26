@@ -54,7 +54,7 @@ var rootAppFolder = ".3nigm4"
 // RootCmd is the base command used by cobra in the storageservice
 // exec.
 var RootCmd = &cobra.Command{
-	Use:   "3nigm4cli",
+	Use:   "3n4cli",
 	Short: "CLI client for the 3nigm4 services",
 	Long:  "Command line client to access 3nigm4 services, it generally requires a network connection to operate.",
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -115,6 +115,7 @@ func AddCommands() {
 	RootCmd.AddCommand(StoreCmd)
 	RootCmd.AddCommand(LoginCmd)
 	RootCmd.AddCommand(LogoutCmd)
+	RootCmd.AddCommand(PingCmd)
 	// store commands
 	StoreCmd.AddCommand(UploadCmd)
 	StoreCmd.AddCommand(DownloadCmd)
