@@ -143,7 +143,7 @@ func printLogo() {
 
 func main() {
 	// start up logging facility
-	log = logger.NewLogFacility("3nigm4cli", true, true)
+	log = logger.NewLogFacility("3n4cli", true, true)
 
 	// start up storage singleton
 	pss = newPersistentStorage()
