@@ -29,7 +29,7 @@ TEST_BENCHMARK ?= no
 
 # Package lists
 TOPLEVEL_PKG := github.com/nexocrew/3nigm4
-IMPL_LIST := authserver storageservice #<-- Implementation directories
+IMPL_LIST := authserver storageservice 3n4cli #<-- Implementation directories
 COMMON_LIST := lib/version lib/logo lib/itm lib/logger lib/crypto \
 	lib/messages lib/client lib/filemanager lib/s3 lib/auth \
 	lib/storageclient
