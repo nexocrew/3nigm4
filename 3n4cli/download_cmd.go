@@ -38,9 +38,9 @@ var DownloadCmd = &cobra.Command{
 
 func init() {
 	// encryption
-	setArgument(DownloadCmd, "masterkey", &arguments.masterkeyFlag)
+	setArgumentPFlags(DownloadCmd, "masterkey", &arguments.masterkeyFlag)
 	// i/o paths
-	setArgument(DownloadCmd, "referencein", &arguments.referenceInPath)
+	setArgumentPFlags(DownloadCmd, "referencein", &arguments.referenceInPath)
 	setArgument(DownloadCmd, "output", &arguments.outPath)
 	// working queue setup
 	setArgument(DownloadCmd, "workerscount", &arguments.workers)
@@ -73,7 +73,7 @@ func download(cmd *cobra.Command, args []string) error {
 
 	// set master key if any passed
 	var masterkey []byte
-	if viper.GetBool(am["masterkey"].name) {
+	if arguments.masterkeyFlag {
 		fmt.Printf("Insert master key: ")
 		masterkey, err = gopass.GetPasswd()
 		if err != nil {
@@ -95,7 +95,7 @@ func download(cmd *cobra.Command, args []string) error {
 	go manageAsyncErrors(errc)
 
 	// get reference
-	encBytes, err := ioutil.ReadFile(viper.GetString(am["referencein"].name))
+	encBytes, err := ioutil.ReadFile(arguments.referenceInPath)
 	if err != nil {
 		return fmt.Errorf("unable to access reference file: %s", err.Error())
 	}

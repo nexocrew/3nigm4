@@ -40,8 +40,8 @@ var v *VersionManager // Singleton pattern static variable
 // Constant version reference this is
 // subordinated to environment variables.
 const (
-	majorVersion = 1
-	minorVersion = 0
+	majorVersion = 0
+	minorVersion = 1
 	patchVersion = 0
 	releaseType  = "beta"
 )

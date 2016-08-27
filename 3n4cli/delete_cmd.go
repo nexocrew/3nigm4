@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 )
 
 // Internal dependencies
@@ -37,7 +38,7 @@ var DeleteCmd = &cobra.Command{
 
 func init() {
 	// i/o paths
-	setArgument(DeleteCmd, "referencein", &arguments.referenceInPath)
+	setArgumentPFlags(DeleteCmd, "referencein", &arguments.referenceInPath)
 	// working queue setup
 	setArgument(DeleteCmd, "workerscount", &arguments.workers)
 	setArgument(DeleteCmd, "queuesize", &arguments.queue)
@@ -80,7 +81,7 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 	go manageAsyncErrors(errc)
 
 	// get reference
-	refin := viper.GetString(am["referencein"].name)
+	refin := arguments.referenceInPath
 	encBytes, err := ioutil.ReadFile(refin)
 	if err != nil {
 		return fmt.Errorf("unable to access reference file %s cause %s", refin, err.Error())
@@ -102,6 +103,9 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// remove reference file
+	os.Remove(refin)
 
 	log.MessageLog("Successfully deleted file.\n")
 

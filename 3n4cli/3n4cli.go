@@ -19,8 +19,6 @@ import (
 import (
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 	"github.com/nexocrew/3nigm4/lib/logger"
-	"github.com/nexocrew/3nigm4/lib/logo"
-	ver "github.com/nexocrew/3nigm4/lib/version"
 )
 
 // Third party libs
@@ -58,7 +56,6 @@ var RootCmd = &cobra.Command{
 	Short: "CLI client for the 3nigm4 services",
 	Long:  "Command line client to access 3nigm4 services, it generally requires a network connection to operate.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		printLogo()
 		// Execution implementation
 		return fmt.Errorf("undefined command, select a valid one")
 	},
@@ -73,6 +70,10 @@ func init() {
 // manageConfigFile startup Viper
 // configuration loading.
 func manageConfigFile() error {
+	// set environmet reader
+	viper.SetEnvPrefix("3n4")
+	viper.AutomaticEnv()
+
 	usr, err := user.Current()
 	if err != nil {
 		return err
@@ -116,6 +117,7 @@ func AddCommands() {
 	RootCmd.AddCommand(LoginCmd)
 	RootCmd.AddCommand(LogoutCmd)
 	RootCmd.AddCommand(PingCmd)
+	RootCmd.AddCommand(VersionCmd)
 	// store commands
 	StoreCmd.AddCommand(UploadCmd)
 	StoreCmd.AddCommand(DownloadCmd)
@@ -134,11 +136,6 @@ func Execute() error {
 		return err
 	}
 	return nil
-}
-
-func printLogo() {
-	// print logo
-	fmt.Printf("%s", logo.Logo("Command line client app", ver.V().VersionString(), nil))
 }
 
 func main() {

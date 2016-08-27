@@ -60,42 +60,42 @@ func setArgumentPFlags(command *cobra.Command, key string, destination interface
 	}
 	switch arg.kind {
 	case String:
-		command.PersistentFlags().StringVarP(
+		command.Flags().StringVarP(
 			destination.(*string),
 			arg.name,
 			arg.shorthand,
 			arg.value.(string),
 			arg.usage)
 	case Int:
-		command.PersistentFlags().IntVarP(
+		command.Flags().IntVarP(
 			destination.(*int),
 			arg.name,
 			arg.shorthand,
 			arg.value.(int),
 			arg.usage)
 	case Uint:
-		command.PersistentFlags().UintVarP(
+		command.Flags().UintVarP(
 			destination.(*uint),
 			arg.name,
 			arg.shorthand,
 			uint(arg.value.(int)),
 			arg.usage)
 	case StringSlice:
-		command.PersistentFlags().StringSliceVarP(
+		command.Flags().StringSliceVarP(
 			destination.(*[]string),
 			arg.name,
 			arg.shorthand,
 			arg.value.([]string),
 			arg.usage)
 	case Bool:
-		command.PersistentFlags().BoolVarP(
+		command.Flags().BoolVarP(
 			destination.(*bool),
 			arg.name,
 			arg.shorthand,
 			arg.value.(bool),
 			arg.usage)
 	case Duration:
-		command.PersistentFlags().DurationVarP(
+		command.Flags().DurationVarP(
 			destination.(*time.Duration),
 			arg.name,
 			arg.shorthand,
@@ -109,7 +109,7 @@ func setArgumentPFlags(command *cobra.Command, key string, destination interface
 func setArgument(command *cobra.Command, key string, destination interface{}) {
 	setArgumentPFlags(command, key, destination)
 	arg, _ := am[key]
-	viper.BindPFlag(arg.name, command.PersistentFlags().Lookup(arg.name))
+	viper.BindPFlag(arg.name, command.Flags().Lookup(arg.name))
 	viper.SetDefault(arg.name, arg.value)
 }
 

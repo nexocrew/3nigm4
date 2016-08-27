@@ -42,19 +42,19 @@ var UploadCmd = &cobra.Command{
 func init() {
 	// encryption
 	setArgument(UploadCmd, "destkeys", &arguments.publicKeyPaths)
-	setArgument(UploadCmd, "masterkey", &arguments.masterkeyFlag)
+	setArgumentPFlags(UploadCmd, "masterkey", &arguments.masterkeyFlag)
 	// i/o paths
-	setArgument(UploadCmd, "input", &arguments.inPath)
-	setArgument(UploadCmd, "referenceout", &arguments.referenceOutPath)
+	setArgumentPFlags(UploadCmd, "input", &arguments.inPath)
+	setArgumentPFlags(UploadCmd, "referenceout", &arguments.referenceOutPath)
 	setArgument(UploadCmd, "chunksize", &arguments.chunkSize)
 	setArgument(UploadCmd, "compressed", &arguments.compressed)
 	// working queue setup
 	setArgument(UploadCmd, "workerscount", &arguments.workers)
 	setArgument(UploadCmd, "queuesize", &arguments.queue)
 	// resource properties
-	setArgument(UploadCmd, "timetolive", &arguments.timeToLive)
-	setArgument(UploadCmd, "permission", &arguments.permission)
-	setArgument(UploadCmd, "sharingusers", &arguments.sharingUsers)
+	setArgumentPFlags(UploadCmd, "timetolive", &arguments.timeToLive)
+	setArgumentPFlags(UploadCmd, "permission", &arguments.permission)
+	setArgumentPFlags(UploadCmd, "sharingusers", &arguments.sharingUsers)
 
 	// files parameters
 	UploadCmd.RunE = upload
@@ -102,7 +102,7 @@ func upload(cmd *cobra.Command, args []string) error {
 
 	// set master key if any passed
 	var masterkey []byte
-	if viper.GetBool(am["masterkey"].name) {
+	if arguments.masterkeyFlag {
 		fmt.Printf("Insert master key: ")
 		masterkey, err = gopass.GetPasswd()
 		if err != nil {
@@ -126,7 +126,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	// create new encryption chunks
 	ec, err := fm.NewEncryptedChunks(
 		masterkey,
-		viper.GetString(am["input"].name),
+		arguments.inPath,
 		uint64(viper.GetInt(am["chunksize"].name)),
 		viper.GetBool(am["compressed"].name))
 	if err != nil {
@@ -136,10 +136,10 @@ func upload(cmd *cobra.Command, args []string) error {
 	// upload resources and get reference file
 	rf, err := ec.SaveChunks(
 		ds,
-		viper.GetDuration(am["timetolive"].name),
+		arguments.timeToLive,
 		&fm.Permission{
-			Permission:   ct.Permission(viper.GetInt(am["permission"].name)),
-			SharingUsers: viper.GetStringSlice(am["sharingusers"].name),
+			Permission:   ct.Permission(arguments.permission),
+			SharingUsers: arguments.sharingUsers,
 		})
 	if err != nil {
 		return err
@@ -157,7 +157,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// save tp output file
-	destinationPath := viper.GetString(am["referenceout"].name)
+	destinationPath := arguments.referenceOutPath
 	err = ioutil.WriteFile(
 		destinationPath,
 		encryptedData,
