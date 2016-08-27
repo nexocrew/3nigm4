@@ -1,5 +1,5 @@
 //
-// 3nigm4 3nigm4cli package
+// 3nigm4 3n4cli package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
@@ -26,9 +26,10 @@ import (
 
 // VersionCmd shows client version and 3n4 logo.
 var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Show client version",
-	Long:  "Show client version and 3n4 logo.",
+	Use:     "version",
+	Short:   "Show client version",
+	Long:    "Show client version and 3n4 logo.",
+	Example: "3n4cli version",
 }
 
 func init() {

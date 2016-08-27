@@ -1,5 +1,5 @@
 //
-// 3nigm4 3nigm4cli package
+// 3nigm4 3n4cli package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
@@ -27,7 +27,7 @@ var PingCmd = &cobra.Command{
 	Use:     "ping",
 	Short:   "Ping 3n4 services",
 	Long:    "Verify that 3n4 services are up, running and available.",
-	Example: "3nigm4cli ping",
+	Example: "3n4cli ping",
 }
 
 func init() {

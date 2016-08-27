@@ -1,5 +1,5 @@
 //
-// 3nigm4 3nigm4cli package
+// 3nigm4 3n4cli package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
@@ -31,7 +31,7 @@ var LogoutCmd = &cobra.Command{
 	Use:     "logout",
 	Short:   "Logout a previously generated session",
 	Long:    "Interact with authentication server to logout a previously generated session token.",
-	Example: "3nigm4cli logout",
+	Example: "3n4cli logout",
 }
 
 func init() {

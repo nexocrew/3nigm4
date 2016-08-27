@@ -1,5 +1,5 @@
 //
-// 3nigm4 3nigm4cli package
+// 3nigm4 3n4cli package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
@@ -39,7 +39,7 @@ var LoginCmd = &cobra.Command{
 	Use:     "login",
 	Short:   "Login a registered user and manage session",
 	Long:    "Interact with authentication server to login at the application startup.",
-	Example: "3nigm4cli login -u username",
+	Example: "3n4cli login -u username",
 }
 
 func init() {

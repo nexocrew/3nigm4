@@ -1,5 +1,5 @@
 //
-// 3nigm4 3nigm4cli package
+// 3nigm4 3n4cli package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
@@ -23,7 +23,7 @@ var StoreCmd = &cobra.Command{
 	Use:     "store",
 	Short:   "Store securely data to the cloud",
 	Long:    "Store and manage secured data to the colud. All the encryption routines are executed on the client only encrypted chunks are sended to the server.",
-	Example: "3nigm4cli store",
+	Example: "3n4cli store",
 }
 
 func init() {

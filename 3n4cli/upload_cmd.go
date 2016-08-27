@@ -1,5 +1,5 @@
 //
-// 3nigm4 3nigm4cli package
+// 3nigm4 3n4cli package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
@@ -36,7 +36,7 @@ var UploadCmd = &cobra.Command{
 	Use:     "upload",
 	Short:   "Uploads a file to secure storage",
 	Long:    "Uploads a local file to the cloud storage returning a resource file usable to retrieve or share data.",
-	Example: "3nigm4cli store upload -k /tmp/userA.asc,/tmp/userB.asc -M -O /tmp/resources.3rf --chunksize 3000 --compressed -v",
+	Example: "3n4cli store upload -k /tmp/userA.asc,/tmp/userB.asc -M -O /tmp/resources.3rf -i ~/file.ext -p 2 -v",
 }
 
 func init() {

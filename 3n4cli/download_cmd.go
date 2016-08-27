@@ -1,5 +1,5 @@
 //
-// 3nigm4 3nigm4cli package
+// 3nigm4 3n4cli package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
@@ -33,7 +33,7 @@ var DownloadCmd = &cobra.Command{
 	Use:     "download",
 	Short:   "Download a resource",
 	Long:    "Downlaod starting from a local reference file remote resources.",
-	Example: "3nigm4cli store download -M -o /tmp/ -r /tmp/resources.3rf -v",
+	Example: "3n4cli store download -M -o /tmp/file.ext -r /tmp/resources.3rf -v",
 }
 
 func init() {

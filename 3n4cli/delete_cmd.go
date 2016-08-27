@@ -1,5 +1,5 @@
 //
-// 3nigm4 3nigm4cli package
+// 3nigm4 3n4cli package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
@@ -32,8 +32,8 @@ import (
 var DeleteCmd = &cobra.Command{
 	Use:     "delete",
 	Short:   "Removes remote resources",
-	Long:    "Removes remote resources starting from a reference.",
-	Example: "3nigm4cli store delete -r /tmp/resources.3rf -v",
+	Long:    "Removes remote resources starting from a reference, it deletes the reference file itself at the end of the process.",
+	Example: "3n4cli store delete -r /tmp/resources.3rf -v",
 }
 
 func init() {
