@@ -120,6 +120,11 @@ func checkAclPermission(userInfo *auth.UserInfoResponseArg, fileLog *FileLog) bo
 	case Public:
 		return true
 	case Shared:
+		// the owner can always have access to the file even
+		// if it's not on the sharing users list.
+		if fileLog.Ownership.Username == userInfo.Username {
+			return true
+		}
 		for _, permitted := range fileLog.Acl.SharingUsers {
 			if permitted == userInfo.Username {
 				return true

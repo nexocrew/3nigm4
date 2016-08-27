@@ -325,7 +325,7 @@ var uploadGeneratedFileNames []string
 
 func TestUploadResources(t *testing.T) {
 	addr, port := extractAddressAndPort(mockUploadServer.URL, t)
-	sc, err := NewStorageClient(addr, port, testToken, 12, 50)
+	sc, err, _ := NewStorageClient(addr, port, testToken, 12, 50)
 	if err != nil {
 		t.Fatalf("Unable to create a new StorageClient instance: %s.\n", err.Error())
 	}
@@ -348,7 +348,7 @@ func TestUploadResources(t *testing.T) {
 		testFileName,
 		testFileChunks,
 		nil,
-		nil,
+		0,
 		&fm.Permission{
 			Permission: 2,
 		})
@@ -380,7 +380,7 @@ func TestDownloadResources(t *testing.T) {
 	}
 
 	addr, port := extractAddressAndPort(mockDownloadServer.URL, t)
-	sc, err := NewStorageClient(addr, port, testToken, 12, 50)
+	sc, err, _ := NewStorageClient(addr, port, testToken, 12, 50)
 	if err != nil {
 		t.Fatalf("Unable to create a new StorageClient instance: %s.\n", err.Error())
 	}
@@ -423,7 +423,7 @@ func TestDeleteResources(t *testing.T) {
 	}
 
 	addr, port := extractAddressAndPort(mockDeleteServer.URL, t)
-	sc, err := NewStorageClient(addr, port, testToken, 12, 50)
+	sc, err, _ := NewStorageClient(addr, port, testToken, 12, 50)
 	if err != nil {
 		t.Fatalf("Unable to create a new StorageClient instance: %s.\n", err.Error())
 	}

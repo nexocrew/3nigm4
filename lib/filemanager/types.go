@@ -75,7 +75,7 @@ type Permission struct {
 // a remote fs or APIs or any other system capable
 // of storing data chunks.
 type DataSaver interface {
-	SaveChunks(string, [][]byte, []byte, *time.Time, *Permission) ([]string, error) // Saves chunks using a file name, bucket, actual data, a checksum reference and an expire date;
-	RetrieveChunks(string, []string) ([][]byte, error)                              // Retrieve all resources composing a file;
-	DeleteChunks(string, []string) error                                            // removes all resources composing a file.
+	SaveChunks(string, [][]byte, []byte, time.Duration, *Permission) ([]string, error) // Saves chunks using a file name, bucket, actual data, a checksum reference and an expire date;
+	RetrieveChunks(string, []string) ([][]byte, error)                                 // Retrieve all resources composing a file;
+	DeleteChunks(string, []string) error                                               // removes all resources composing a file.
 }

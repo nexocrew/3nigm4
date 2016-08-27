@@ -8,7 +8,15 @@ _A command line chat based on keybase._
 ## Status
 [![Build Status](https://travis-ci.org/nexocrew/3nigm4.svg?branch=develop)](https://travis-ci.org/nexocrew/3nigm4)
 [![GoDoc](https://godoc.org/github.com/nexocrew/3nigm4?status.svg)](https://godoc.org/github.com/nexocrew/3nigm4)
-[![Coverage Status](https://coveralls.io/repos/github/nexocrew/3nigm4/badge.svg)](https://coveralls.io/github/nexocrew/3nigm4)
+[![GitHub issues](https://img.shields.io/github/issues/nexocrew/3nigm4.svg "GitHub issues")](https://github.com/nexocrew/3nigm4)
+[![Dev chat at https://gitter.im/nexocrew/3nigm4-framework](https://img.shields.io/badge/gitter-dev_chat-46bc99.svg)](https://gitter.im/nexocrew/3nigm4-framework?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
+## Test coverage
+[![Lib crypto coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/crypto?0 "lib crypto coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/crypto) /
+[![Lib filemanager coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/filemanager?0 "lib filemanager coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/filemanager) /
+[![Lib workingqueue coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/workingqueue?0 "lib workingqueue coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/workingqueue) /
+[![Lib storageclient coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/storageclient?0 "lib storageclient coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/storageclient) /
+[![Lib s3 coverage](http://gocover.io/_badge/github.com/nexocrew/3nigm4/lib/s3?0 "lib storageclient coverage")](http://gocover.io/github.com/nexocrew/3nigm4/lib/s3)
 
 Table of contents
 ---------------------

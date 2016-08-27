@@ -212,6 +212,9 @@ func initEncryptedChunks(rawkey []byte, chunkSize uint64, compressed bool) (*Enc
 // This function returns the initialised struct or an error if
 // sometring went wrong.
 func NewEncryptedChunks(rawKey []byte, filepath string, chunkSize uint64, compressed bool) (*EncryptedChunks, error) {
+	if chunkSize < 500 {
+		return nil, fmt.Errorf("chunk size too small should be >= than 500 bytes")
+	}
 	// get infos from file
 	fileInfo, err := os.Stat(filepath)
 	if err != nil {
@@ -264,7 +267,7 @@ func NewEncryptedChunks(rawKey []byte, filepath string, chunkSize uint64, compre
 
 // SaveChunks saves encrypted data chunks to
 // a structure implementing the DataSaver interface.
-func (e *EncryptedChunks) SaveChunks(ds DataSaver, expires *time.Time, permission *Permission) (*ReferenceFile, error) {
+func (e *EncryptedChunks) SaveChunks(ds DataSaver, expires time.Duration, permission *Permission) (*ReferenceFile, error) {
 	filesPaths, err := ds.SaveChunks(e.metadata.FileName, e.chunks, e.metadata.CheckSum[:], expires, permission)
 	if err != nil {
 		return nil, err
