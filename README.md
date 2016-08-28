@@ -32,14 +32,19 @@ Table of contents
 ## Components
 The software is designed to be deployed as a microservices architecture. The components designed for the _first alpha_ are: 
 
-- **3nigm4-chat-backend**: The service exposes REST APIs to exchange chat information. It will store the conversation encrypted and unaccessible to the server itself. (More information in the _docs_)
-- **3nigm4-storage-backend** This service will expose REST APIs to implement a authenticated interface to an S3 backend storage. All passed data will be encrypted client side, separated in chuncks of fixed size and separated from the encryption keys.
-- **3nigm4-auth-server** This service will provide authentication capabilities for the previously presented backend services.
-- **3nigm4-cli**: The clinet side command line interface.
-- **3nigm4-deamon**: A daemon which communicates with the various services and will be controlled by the 3nigm4-cli application. It also processes core, storage and cryptographic operations.
+- **3n4chat**: The service exposes REST APIs to exchange chat information. It will store the conversation encrypted and unaccessible to the server itself. (More information in the _docs_)
+- **3n4store** This service will expose REST APIs to implement a authenticated interface to an S3 backend storage. All passed data will be encrypted client side, separated in chuncks of fixed size and separated from the encryption keys.
+- **3n4auth** This service will provide authentication capabilities for the previously presented backend services.
+- **3n4cli**: The clinet side command line interface.
 
 ## Installation
-_Todo_
+All 3nigm4 components are available as docker images (official Docker Hub):
+
+- **3n4auth**: docker pull nexo/3n4auth
+- **3n4store**: docker pull nexo/3n4store
+- **3n4cli**: docker pull nexo/3n4cli
+
+Each image have a specific README file reporting specific deployment instructions and requirements.
 
 ## Testing
 _Todo_
