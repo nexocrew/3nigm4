@@ -60,42 +60,42 @@ func setArgumentPFlags(command *cobra.Command, key string, destination interface
 	}
 	switch arg.kind {
 	case String:
-		command.Flags().StringVarP(
+		command.PersistentFlags().StringVarP(
 			destination.(*string),
 			arg.name,
 			arg.shorthand,
 			arg.value.(string),
 			arg.usage)
 	case Int:
-		command.Flags().IntVarP(
+		command.PersistentFlags().IntVarP(
 			destination.(*int),
 			arg.name,
 			arg.shorthand,
 			arg.value.(int),
 			arg.usage)
 	case Uint:
-		command.Flags().UintVarP(
+		command.PersistentFlags().UintVarP(
 			destination.(*uint),
 			arg.name,
 			arg.shorthand,
 			uint(arg.value.(int)),
 			arg.usage)
 	case StringSlice:
-		command.Flags().StringSliceVarP(
+		command.PersistentFlags().StringSliceVarP(
 			destination.(*[]string),
 			arg.name,
 			arg.shorthand,
 			arg.value.([]string),
 			arg.usage)
 	case Bool:
-		command.Flags().BoolVarP(
+		command.PersistentFlags().BoolVarP(
 			destination.(*bool),
 			arg.name,
 			arg.shorthand,
 			arg.value.(bool),
 			arg.usage)
 	case Duration:
-		command.Flags().DurationVarP(
+		command.PersistentFlags().DurationVarP(
 			destination.(*time.Duration),
 			arg.name,
 			arg.shorthand,

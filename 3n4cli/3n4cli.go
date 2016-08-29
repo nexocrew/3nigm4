@@ -70,10 +70,6 @@ func init() {
 // manageConfigFile startup Viper
 // configuration loading.
 func manageConfigFile() error {
-	// set environmet reader
-	viper.SetEnvPrefix("3n4")
-	viper.AutomaticEnv()
-
 	usr, err := user.Current()
 	if err != nil {
 		return err
