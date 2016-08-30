@@ -49,12 +49,13 @@ type StorageClient struct {
 
 // NewStorageClient creates a new StorageClient structure and
 // setup all required properties. It'll start the working queue
-// that'll be used to enqueue http API facing jobs.
+// that'll be used to enqueue http API facing jobs. The returned
+// read only chan must be used to check for client errors.
 func NewStorageClient(
 	address string,
 	port int,
 	token string,
-	workersize, queuesize int) (*StorageClient, error) {
+	workersize, queuesize int) (*StorageClient, error, <-chan error) {
 	// creates base object
 	sc := &StorageClient{
 		address:      address,
@@ -72,9 +73,9 @@ func NewStorageClient(
 	go sc.manageChans()
 	// start working queue
 	if err := sc.workingQueue.Run(); err != nil {
-		return nil, err
+		return nil, err, nil
 	}
-	return sc, nil
+	return sc, nil, sc.ErrorChan
 }
 
 // Close close the active working queue.
@@ -88,6 +89,25 @@ type jobArgs struct {
 	client    *StorageClient
 	args      *ct.CommandArguments
 	requestID string
+}
+
+// checkRequestStatus check request status and if an anomalous
+// response status code is present check for the StandardResponse
+// error property.
+func checkRequestStatus(statushttp, expected int, body []byte) error {
+	if statushttp != expected {
+		var status ct.StandardResponse
+		err := json.Unmarshal(body, &status)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf(
+			"service returned wrong status code: having %d expecting %d, cause %s",
+			statushttp,
+			expected,
+			status.Error)
+	}
+	return nil
 }
 
 // postGenericJob implement a generic POST job operation, can be used for
@@ -118,18 +138,19 @@ func postGenericJob(arguments *jobArgs, command string) (*ct.JobPostResponse, er
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusAccepted {
-		return nil, fmt.Errorf(
-			"service returned wrong status code: having %d expecting %d, unable to proceed",
-			resp.StatusCode,
-			http.StatusAccepted)
-	}
-	// get job ID
+
+	// get body
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	resp.Body.Close()
+
+	// check for errors
+	err = checkRequestStatus(resp.StatusCode, http.StatusAccepted, respBody)
+	if err != nil {
+		return nil, err
+	}
 
 	var jobResponse ct.JobPostResponse
 	err = json.Unmarshal(respBody, &jobResponse)
@@ -161,16 +182,16 @@ func getGenericJob(arguments *jobArgs, jobID string) (*ct.JobGetRequest, error) 
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		getBody, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		resp.Body.Close()
 
 		switch resp.StatusCode {
 		case http.StatusAccepted:
 			continue
 		case http.StatusOK:
-			getBody, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return nil, err
-			}
 			var download ct.JobGetRequest
 			err = json.Unmarshal(getBody, &download)
 			if err != nil {
@@ -178,11 +199,17 @@ func getGenericJob(arguments *jobArgs, jobID string) (*ct.JobGetRequest, error) 
 			}
 			return &download, nil
 		default:
+			var status ct.StandardResponse
+			err = json.Unmarshal(getBody, &status)
+			if err != nil {
+				return nil, err
+			}
 			return nil, fmt.Errorf(
-				"unexpected status having %d expecting %d or %d",
+				"service returned wrong status code: having %d expecting %d or %d, error cause %s",
 				resp.StatusCode,
 				http.StatusAccepted,
-				http.StatusOK)
+				http.StatusOK,
+				status.Error)
 		}
 		// sleep to avoid spinning on the CPU
 		time.Sleep(verifySleep)
@@ -336,7 +363,7 @@ func remove(a interface{}) error {
 
 // SaveChunks start the async upload of all argument passed chunks
 // generating a single name for each one.
-func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expirets *time.Time, permission *fm.Permission) ([]string, error) {
+func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expire time.Duration, permission *fm.Permission) ([]string, error) {
 	now := time.Now()
 	requestID := generateTranscationID(filename, &now)
 	// check for pending uploads
@@ -357,9 +384,7 @@ func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue
 		commandArgs := &ct.CommandArguments{
 			ResourceID: id,
 			Data:       chunk,
-		}
-		if expirets != nil {
-			commandArgs.TimeToLive = expirets.Sub(time.Now())
+			TimeToLive: expire,
 		}
 		if permission != nil {
 			commandArgs.Permission = permission.Permission
