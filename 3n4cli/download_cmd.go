@@ -37,6 +37,8 @@ var DownloadCmd = &cobra.Command{
 }
 
 func init() {
+	StoreCmd.AddCommand(DownloadCmd)
+
 	// encryption
 	setArgumentPFlags(DownloadCmd, "masterkey", &arguments.masterkeyFlag)
 	// i/o paths
@@ -46,6 +48,8 @@ func init() {
 	setArgument(DownloadCmd, "workerscount", &arguments.workers)
 	setArgument(DownloadCmd, "queuesize", &arguments.queue)
 
+	viper.BindPFlags(DownloadCmd.Flags())
+
 	// files parameters
 	DownloadCmd.RunE = download
 }
@@ -54,12 +58,6 @@ func init() {
 // in chunks) from the storage server and recompose it starting
 // from the saved reference file.
 func download(cmd *cobra.Command, args []string) error {
-	// load config file
-	err := manageConfigFile()
-	if err != nil {
-		return err
-	}
-
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")

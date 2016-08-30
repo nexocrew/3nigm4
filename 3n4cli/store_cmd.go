@@ -14,6 +14,7 @@ import (
 // Third party libs
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // StoreCmd clinet service that connect to the service API
@@ -27,12 +28,16 @@ var StoreCmd = &cobra.Command{
 }
 
 func init() {
+	RootCmd.AddCommand(StoreCmd)
+
 	// API references
 	setArgument(StoreCmd, "storageaddress", &arguments.storageService.Address)
 	setArgument(StoreCmd, "storageport", &arguments.storageService.Port)
 	// encryption
 	setArgument(StoreCmd, "privatekey", &arguments.userPrivateKeyPath)
 	setArgument(StoreCmd, "publickey", &arguments.userPublicKeyPath)
+
+	viper.BindPFlags(StoreCmd.Flags())
 
 	// files parameters
 	StoreCmd.RunE = store

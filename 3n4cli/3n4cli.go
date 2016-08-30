@@ -62,29 +62,11 @@ var RootCmd = &cobra.Command{
 }
 
 func init() {
+	cobra.OnInitialize(initConfig)
+
 	// global flags
 	setArgumentPFlags(RootCmd, "verbose", &arguments.verbose)
 	setArgumentPFlags(RootCmd, "config", &arguments.configDir)
-}
-
-// manageConfigFile startup Viper
-// configuration loading.
-func manageConfigFile() error {
-	usr, err := user.Current()
-	if err != nil {
-		return err
-	}
-	// set config file references
-	viper.SetConfigName("config")
-	if arguments.configDir != "" {
-		viper.AddConfigPath(arguments.configDir)
-	}
-	viper.AddConfigPath(path.Join(usr.HomeDir, rootAppFolder))
-	err = viper.ReadInConfig()
-	if err != nil {
-		return fmt.Errorf("unable to read config file: %s", err.Error())
-	}
-	return nil
 }
 
 // checkRequestStatus check request status and if an anomalous
@@ -106,26 +88,34 @@ func checkRequestStatus(httpstatus, expected int, body []byte) error {
 	return nil
 }
 
-// AddCommands adds available commands
-// to the root command
-func AddCommands() {
-	RootCmd.AddCommand(StoreCmd)
-	RootCmd.AddCommand(LoginCmd)
-	RootCmd.AddCommand(LogoutCmd)
-	RootCmd.AddCommand(PingCmd)
-	RootCmd.AddCommand(VersionCmd)
-	// store commands
-	StoreCmd.AddCommand(UploadCmd)
-	StoreCmd.AddCommand(DownloadCmd)
-	StoreCmd.AddCommand(DeleteCmd)
+func initConfig() {
+	usr, err := user.Current()
+	if err != nil {
+		log.CriticalLog("Unable to access user home dir cause %s.\n", err.Error())
+		os.Exit(1)
+	}
+	// set config file references
+	viper.SetConfigName("config")
+	viper.AddConfigPath(path.Join(usr.HomeDir, rootAppFolder))
+
+	// set env reader
+	viper.SetEnvPrefix("3n4env")
+	viper.AutomaticEnv()
+
+	viper.WatchConfig()
+
+	err = viper.ReadInConfig()
+	if err != nil {
+		log.CriticalLog("Unable to read config file: %s.\n", err.Error())
+		os.Exit(1)
+	}
+
+	log.VerboseLog("Using config file: %s.\n", viper.ConfigFileUsed())
 }
 
 // Execute parsing and execute selected
 // command.
 func Execute() error {
-	// add commands
-	AddCommands()
-
 	// execute actual command
 	_, err := RootCmd.ExecuteC()
 	if err != nil {

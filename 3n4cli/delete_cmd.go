@@ -37,11 +37,15 @@ var DeleteCmd = &cobra.Command{
 }
 
 func init() {
+	StoreCmd.AddCommand(DeleteCmd)
+
 	// i/o paths
 	setArgumentPFlags(DeleteCmd, "referencein", &arguments.referenceInPath)
 	// working queue setup
 	setArgument(DeleteCmd, "workerscount", &arguments.workers)
 	setArgument(DeleteCmd, "queuesize", &arguments.queue)
+
+	viper.BindPFlags(DeleteCmd.Flags())
 
 	// files parameters
 	DeleteCmd.RunE = deleteReference
@@ -50,12 +54,6 @@ func init() {
 // deleteReference uses datastorage struct to remotely delete all chunks
 // pointed by a reference file.
 func deleteReference(cmd *cobra.Command, args []string) error {
-	// load config file
-	err := manageConfigFile()
-	if err != nil {
-		return err
-	}
-
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")

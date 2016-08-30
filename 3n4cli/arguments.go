@@ -104,12 +104,58 @@ func setArgumentPFlags(command *cobra.Command, key string, destination interface
 	}
 }
 
+// setArgumentPFlags set pflag flags with value contained in the am
+// variable map.
+func setArgumentFlags(command *cobra.Command, arg cliArguments) {
+	switch arg.kind {
+	case String:
+		command.PersistentFlags().StringP(
+			arg.name,
+			arg.shorthand,
+			arg.value.(string),
+			arg.usage)
+	case Int:
+		command.PersistentFlags().IntP(
+			arg.name,
+			arg.shorthand,
+			arg.value.(int),
+			arg.usage)
+	case Uint:
+		command.PersistentFlags().UintP(
+			arg.name,
+			arg.shorthand,
+			uint(arg.value.(int)),
+			arg.usage)
+	case StringSlice:
+		command.PersistentFlags().StringSliceP(
+			arg.name,
+			arg.shorthand,
+			arg.value.([]string),
+			arg.usage)
+	case Bool:
+		command.PersistentFlags().BoolP(
+			arg.name,
+			arg.shorthand,
+			arg.value.(bool),
+			arg.usage)
+	case Duration:
+		command.PersistentFlags().DurationP(
+			arg.name,
+			arg.shorthand,
+			time.Duration(arg.value.(int)),
+			arg.usage)
+	}
+}
+
 // setArgument invokes setArgumentPFlags before calling Viper config
 // manager to integrate values.
 func setArgument(command *cobra.Command, key string, destination interface{}) {
-	setArgumentPFlags(command, key, destination)
-	arg, _ := am[key]
-	viper.BindPFlag(arg.name, command.Flags().Lookup(arg.name))
+	arg, ok := am[key]
+	if !ok ||
+		command == nil {
+		panic("invalid argument required")
+	}
+	setArgumentFlags(command, arg)
 	viper.SetDefault(arg.name, arg.value)
 }
 

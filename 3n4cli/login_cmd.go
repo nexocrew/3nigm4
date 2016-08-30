@@ -43,9 +43,13 @@ var LoginCmd = &cobra.Command{
 }
 
 func init() {
+	RootCmd.AddCommand(LoginCmd)
+
 	setArgument(LoginCmd, "authaddress", &arguments.authService.Address)
 	setArgument(LoginCmd, "authport", &arguments.authService.Port)
 	setArgument(LoginCmd, "username", &arguments.username)
+
+	viper.BindPFlags(LoginCmd.Flags())
 
 	// files parameters
 	LoginCmd.RunE = login
@@ -68,13 +72,7 @@ func hexComposedPassword(username string, pwd []byte) string {
 // 3nigm4 services, this function will be called before any
 // other to be able to proceed with a valid auth token.
 func login(cmd *cobra.Command, args []string) error {
-	// load config file
-	err := manageConfigFile()
-	if err != nil {
-		return err
-	}
-
-	username := viper.GetString(am["username"].name)
+	username := viper.GetString("username")
 	// get user password
 	fmt.Printf("Insert password: ")
 	pwd, err := gopass.GetPasswd()

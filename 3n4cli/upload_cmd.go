@@ -40,6 +40,8 @@ var UploadCmd = &cobra.Command{
 }
 
 func init() {
+	StoreCmd.AddCommand(UploadCmd)
+
 	// encryption
 	setArgument(UploadCmd, "destkeys", &arguments.publicKeyPaths)
 	setArgumentPFlags(UploadCmd, "masterkey", &arguments.masterkeyFlag)
@@ -56,6 +58,8 @@ func init() {
 	setArgumentPFlags(UploadCmd, "permission", &arguments.permission)
 	setArgumentPFlags(UploadCmd, "sharingusers", &arguments.sharingUsers)
 
+	viper.BindPFlags(UploadCmd.Flags())
+
 	// files parameters
 	UploadCmd.RunE = upload
 }
@@ -66,12 +70,6 @@ func init() {
 // are sent to the server. PGP is used to secure generated reference
 // file.
 func upload(cmd *cobra.Command, args []string) error {
-	// load config file
-	err := manageConfigFile()
-	if err != nil {
-		return err
-	}
-
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
