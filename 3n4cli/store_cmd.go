@@ -31,11 +31,11 @@ func init() {
 	RootCmd.AddCommand(StoreCmd)
 
 	// API references
-	setArgument(StoreCmd, "storageaddress", &arguments.storageService.Address)
-	setArgument(StoreCmd, "storageport", &arguments.storageService.Port)
+	setArgument(StoreCmd, "storageaddress")
+	setArgument(StoreCmd, "storageport")
 	// encryption
-	setArgument(StoreCmd, "privatekey", &arguments.userPrivateKeyPath)
-	setArgument(StoreCmd, "publickey", &arguments.userPublicKeyPath)
+	setArgument(StoreCmd, "privatekey")
+	setArgument(StoreCmd, "publickey")
 
 	viper.BindPFlags(StoreCmd.Flags())
 

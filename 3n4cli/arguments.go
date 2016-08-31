@@ -49,62 +49,7 @@ type cliArguments struct {
 	kind      argType
 }
 
-// setArgumentPFlags set pflag flags with value contained in the am
-// variable map.
-func setArgumentPFlags(command *cobra.Command, key string, destination interface{}) {
-	arg, ok := am[key]
-	if !ok ||
-		command == nil ||
-		destination == nil {
-		panic("invalid argument required")
-	}
-	switch arg.kind {
-	case String:
-		command.PersistentFlags().StringVarP(
-			destination.(*string),
-			arg.name,
-			arg.shorthand,
-			arg.value.(string),
-			arg.usage)
-	case Int:
-		command.PersistentFlags().IntVarP(
-			destination.(*int),
-			arg.name,
-			arg.shorthand,
-			arg.value.(int),
-			arg.usage)
-	case Uint:
-		command.PersistentFlags().UintVarP(
-			destination.(*uint),
-			arg.name,
-			arg.shorthand,
-			uint(arg.value.(int)),
-			arg.usage)
-	case StringSlice:
-		command.PersistentFlags().StringSliceVarP(
-			destination.(*[]string),
-			arg.name,
-			arg.shorthand,
-			arg.value.([]string),
-			arg.usage)
-	case Bool:
-		command.PersistentFlags().BoolVarP(
-			destination.(*bool),
-			arg.name,
-			arg.shorthand,
-			arg.value.(bool),
-			arg.usage)
-	case Duration:
-		command.PersistentFlags().DurationVarP(
-			destination.(*time.Duration),
-			arg.name,
-			arg.shorthand,
-			time.Duration(arg.value.(int)),
-			arg.usage)
-	}
-}
-
-// setArgumentPFlags set pflag flags with value contained in the am
+// setArgumentFlags set pflag flags with value contained in the am
 // variable map.
 func setArgumentFlags(command *cobra.Command, arg cliArguments) {
 	switch arg.kind {
@@ -149,7 +94,7 @@ func setArgumentFlags(command *cobra.Command, arg cliArguments) {
 
 // setArgument invokes setArgumentPFlags before calling Viper config
 // manager to integrate values.
-func setArgument(command *cobra.Command, key string, destination interface{}) {
+func setArgument(command *cobra.Command, key string) {
 	arg, ok := am[key]
 	if !ok ||
 		command == nil {
@@ -167,13 +112,6 @@ var am map[string]cliArguments = map[string]cliArguments{
 		value:     false,
 		usage:     "activate logging verbosity",
 		kind:      Bool,
-	},
-	"config": cliArguments{
-		name:      "config",
-		shorthand: "c",
-		value:     "",
-		usage:     "override default config file directory",
-		kind:      String,
 	},
 	"masterkey": cliArguments{
 		name:      "masterkey",

@@ -33,10 +33,10 @@ var PingCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(PingCmd)
 
-	setArgument(PingCmd, "authaddress", &arguments.authService.Address)
-	setArgument(PingCmd, "authport", &arguments.authService.Port)
-	setArgument(PingCmd, "storageaddress", &arguments.storageService.Address)
-	setArgument(PingCmd, "storageport", &arguments.storageService.Port)
+	setArgument(PingCmd, "authaddress")
+	setArgument(PingCmd, "authport")
+	setArgument(PingCmd, "storageaddress")
+	setArgument(PingCmd, "storageport")
 
 	viper.BindPFlags(PingCmd.Flags())
 

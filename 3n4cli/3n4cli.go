@@ -31,9 +31,6 @@ import (
 // Logger global instance
 var log *logger.LogFacility
 
-// Cobra parsed arguments
-var arguments args
-
 // Global PGP private key: it's loaded the first time a command, that
 // uses it, is invoked. After that remains in memory until the program
 // is close.
@@ -65,8 +62,8 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// global flags
-	setArgumentPFlags(RootCmd, "verbose", &arguments.verbose)
-	setArgumentPFlags(RootCmd, "config", &arguments.configDir)
+	setArgument(RootCmd, "verbose")
+	viper.BindPFlags(RootCmd.Flags())
 }
 
 // checkRequestStatus check request status and if an anomalous
@@ -102,20 +99,21 @@ func initConfig() {
 	viper.SetEnvPrefix("3n4env")
 	viper.AutomaticEnv()
 
-	viper.WatchConfig()
-
 	err = viper.ReadInConfig()
 	if err != nil {
 		log.CriticalLog("Unable to read config file: %s.\n", err.Error())
 		os.Exit(1)
 	}
-
-	log.VerboseLog("Using config file: %s.\n", viper.ConfigFileUsed())
 }
 
 // Execute parsing and execute selected
 // command.
 func Execute() error {
+	viper.Debug()
+	if viper.GetBool(am["verbose"].name) {
+		log.VerboseLog("Using config file: %s.\n", viper.ConfigFileUsed())
+	}
+
 	// execute actual command
 	_, err := RootCmd.ExecuteC()
 	if err != nil {

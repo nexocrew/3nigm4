@@ -40,10 +40,10 @@ func init() {
 	StoreCmd.AddCommand(DeleteCmd)
 
 	// i/o paths
-	setArgumentPFlags(DeleteCmd, "referencein", &arguments.referenceInPath)
+	setArgument(DeleteCmd, "referencein")
 	// working queue setup
-	setArgument(DeleteCmd, "workerscount", &arguments.workers)
-	setArgument(DeleteCmd, "queuesize", &arguments.queue)
+	setArgument(DeleteCmd, "workerscount")
+	setArgument(DeleteCmd, "queuesize")
 
 	viper.BindPFlags(DeleteCmd.Flags())
 
@@ -79,7 +79,7 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 	go manageAsyncErrors(errc)
 
 	// get reference
-	refin := arguments.referenceInPath
+	refin := viper.GetString(am["referencein"].name)
 	encBytes, err := ioutil.ReadFile(refin)
 	if err != nil {
 		return fmt.Errorf("unable to access reference file %s cause %s", refin, err.Error())

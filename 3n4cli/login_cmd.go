@@ -45,11 +45,11 @@ var LoginCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(LoginCmd)
 
-	setArgument(LoginCmd, "authaddress", &arguments.authService.Address)
-	setArgument(LoginCmd, "authport", &arguments.authService.Port)
-	setArgument(LoginCmd, "username", &arguments.username)
+	setArgument(LoginCmd, "authaddress")
+	setArgument(LoginCmd, "authport")
+	setArgument(LoginCmd, "username")
 
-	viper.BindPFlags(LoginCmd.Flags())
+	viper.BindPFlag("username", LoginCmd.Flags().Lookup("username"))
 
 	// files parameters
 	LoginCmd.RunE = login
@@ -72,6 +72,8 @@ func hexComposedPassword(username string, pwd []byte) string {
 // 3nigm4 services, this function will be called before any
 // other to be able to proceed with a valid auth token.
 func login(cmd *cobra.Command, args []string) error {
+
+	LoginCmd.DebugFlags()
 	username := viper.GetString("username")
 	// get user password
 	fmt.Printf("Insert password: ")

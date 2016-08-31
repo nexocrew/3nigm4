@@ -40,13 +40,13 @@ func init() {
 	StoreCmd.AddCommand(DownloadCmd)
 
 	// encryption
-	setArgumentPFlags(DownloadCmd, "masterkey", &arguments.masterkeyFlag)
+	setArgument(DownloadCmd, "masterkey")
 	// i/o paths
-	setArgumentPFlags(DownloadCmd, "referencein", &arguments.referenceInPath)
-	setArgument(DownloadCmd, "output", &arguments.outPath)
+	setArgument(DownloadCmd, "referencein")
+	setArgument(DownloadCmd, "output")
 	// working queue setup
-	setArgument(DownloadCmd, "workerscount", &arguments.workers)
-	setArgument(DownloadCmd, "queuesize", &arguments.queue)
+	setArgument(DownloadCmd, "workerscount")
+	setArgument(DownloadCmd, "queuesize")
 
 	viper.BindPFlags(DownloadCmd.Flags())
 
@@ -71,7 +71,7 @@ func download(cmd *cobra.Command, args []string) error {
 
 	// set master key if any passed
 	var masterkey []byte
-	if arguments.masterkeyFlag {
+	if viper.GetBool(am["masterkey"].name) {
 		fmt.Printf("Insert master key: ")
 		masterkey, err = gopass.GetPasswd()
 		if err != nil {
@@ -93,7 +93,7 @@ func download(cmd *cobra.Command, args []string) error {
 	go manageAsyncErrors(errc)
 
 	// get reference
-	encBytes, err := ioutil.ReadFile(arguments.referenceInPath)
+	encBytes, err := ioutil.ReadFile(viper.GetString(am["referencein"].name))
 	if err != nil {
 		return fmt.Errorf("unable to access reference file: %s", err.Error())
 	}

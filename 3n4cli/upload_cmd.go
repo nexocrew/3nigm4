@@ -43,20 +43,20 @@ func init() {
 	StoreCmd.AddCommand(UploadCmd)
 
 	// encryption
-	setArgument(UploadCmd, "destkeys", &arguments.publicKeyPaths)
-	setArgumentPFlags(UploadCmd, "masterkey", &arguments.masterkeyFlag)
+	setArgument(UploadCmd, "destkeys")
+	setArgument(UploadCmd, "masterkey")
 	// i/o paths
-	setArgumentPFlags(UploadCmd, "input", &arguments.inPath)
-	setArgumentPFlags(UploadCmd, "referenceout", &arguments.referenceOutPath)
-	setArgument(UploadCmd, "chunksize", &arguments.chunkSize)
-	setArgument(UploadCmd, "compressed", &arguments.compressed)
+	setArgument(UploadCmd, "input")
+	setArgument(UploadCmd, "referenceout")
+	setArgument(UploadCmd, "chunksize")
+	setArgument(UploadCmd, "compressed")
 	// working queue setup
-	setArgument(UploadCmd, "workerscount", &arguments.workers)
-	setArgument(UploadCmd, "queuesize", &arguments.queue)
+	setArgument(UploadCmd, "workerscount")
+	setArgument(UploadCmd, "queuesize")
 	// resource properties
-	setArgumentPFlags(UploadCmd, "timetolive", &arguments.timeToLive)
-	setArgumentPFlags(UploadCmd, "permission", &arguments.permission)
-	setArgumentPFlags(UploadCmd, "sharingusers", &arguments.sharingUsers)
+	setArgument(UploadCmd, "timetolive")
+	setArgument(UploadCmd, "permission")
+	setArgument(UploadCmd, "sharingusers")
 
 	viper.BindPFlags(UploadCmd.Flags())
 
@@ -100,7 +100,7 @@ func upload(cmd *cobra.Command, args []string) error {
 
 	// set master key if any passed
 	var masterkey []byte
-	if arguments.masterkeyFlag {
+	if viper.GetBool(am["masterkey"].name) {
 		fmt.Printf("Insert master key: ")
 		masterkey, err = gopass.GetPasswd()
 		if err != nil {
@@ -124,7 +124,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	// create new encryption chunks
 	ec, err := fm.NewEncryptedChunks(
 		masterkey,
-		arguments.inPath,
+		viper.GetString(am["input"].name),
 		uint64(viper.GetInt(am["chunksize"].name)),
 		viper.GetBool(am["compressed"].name))
 	if err != nil {
@@ -134,10 +134,10 @@ func upload(cmd *cobra.Command, args []string) error {
 	// upload resources and get reference file
 	rf, err := ec.SaveChunks(
 		ds,
-		arguments.timeToLive,
+		viper.GetDuration(am["timetolive"].name),
 		&fm.Permission{
-			Permission:   ct.Permission(arguments.permission),
-			SharingUsers: arguments.sharingUsers,
+			Permission:   ct.Permission(viper.GetInt(am["permission"].name)),
+			SharingUsers: viper.GetStringSlice(am["sharingusers"].name),
 		})
 	if err != nil {
 		return err
@@ -155,7 +155,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// save tp output file
-	destinationPath := arguments.referenceOutPath
+	destinationPath := viper.GetString(am["referenceout"].name)
 	err = ioutil.WriteFile(
 		destinationPath,
 		encryptedData,

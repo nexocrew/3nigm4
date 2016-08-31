@@ -37,8 +37,8 @@ var LogoutCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(LogoutCmd)
 
-	setArgument(LogoutCmd, "authaddress", &arguments.authService.Address)
-	setArgument(LogoutCmd, "authport", &arguments.authService.Port)
+	setArgument(LogoutCmd, "authaddress")
+	setArgument(LogoutCmd, "authport")
 
 	viper.BindPFlags(LogoutCmd.Flags())
 
