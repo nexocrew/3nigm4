@@ -3,16 +3,15 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
-
 package main
 
-// Std golang packages
+// Go standard libraries
 import (
 	"fmt"
 	"net/rpc"
 )
 
-// Internal libs
+// 3n4 libraries
 import (
 	"github.com/nexocrew/3nigm4/lib/auth"
 )
@@ -26,15 +25,15 @@ type AuthClient interface {
 	Close() error                                                  // closes eventual connections.
 }
 
-// AuthRpc implements the RPC default client for
+// AuthRPC implements the RPC default client for
 // the 3nigm4 auth service.
-type AuthRpc struct {
+type AuthRPC struct {
 	client *rpc.Client
 }
 
-// NewAuthRpc creates a new instance of the RPC
+// NewAuthRPC creates a new instance of the RPC
 // client used to interact with the auth service.
-func NewAuthRpc(addr string, port int) (*AuthRpc, error) {
+func NewAuthRPC(addr string, port int) (*AuthRpc, error) {
 	address := fmt.Sprintf("%s:%d", addr, port)
 	rawClient, err := rpc.DialHTTP("tcp", address)
 	if err != nil {

@@ -4,70 +4,61 @@
 // v1.0 23/08/2016
 //
 
-package main
+package httphandler
 
-// Golang std libs
+// Go standard libraries
 import (
 	"encoding/json"
 	"net/http"
 )
 
-// 3n4 libraries
-import (
-	res "github.com/nexocrew/3nigm4/3n4chatserver/resource"
-)
-
 // REST methods allowed.
 const (
-	GET    = "GET"
-	POST   = "POST"
-	PUT    = "PUT"
-	DELETE = "DELETE"
-	HEAD   = "HEAD"
-	PATCH  = "PATCH"
+	mGET    = "GET"
+	mPOST   = "POST"
+	mPUT    = "PUT"
+	mDELETE = "DELETE"
+	mHEAD   = "HEAD"
+	mPATCH  = "PATCH"
 )
 
-func login(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func logout(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func newHandler(resource res.Resource) http.HandlerFunc {
+// Handler returns an http HandleFunc that verifies
+// the called HTTP method and wether the Resource supports it.
+// If the support is provided than the proper method is called,
+// otherwise a proper error code is sent to the client
+func Handler(resource Resource) http.HandlerFunc {
 	return func(rw http.ResponseWriter, request *http.Request) {
 		if request.ParseForm() != nil {
 			rw.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		var handler func(*http.Request) (int, res.Resource)
+		var handler func(*http.Request) (int, Resource)
 
 		// verify if method is supported
 		switch request.Method {
-		case GET:
-			if resource, ok := resource.(res.GetSupported); ok {
+		case mGET:
+			if resource, ok := resource.(GetSupported); ok {
 				handler = resource.Get
 			}
-		case POST:
-			if resource, ok := resource.(res.PostSupported); ok {
+		case mPOST:
+			if resource, ok := resource.(PostSupported); ok {
 				handler = resource.Post
 			}
-		case PUT:
-			if resource, ok := resource.(res.PutSupported); ok {
+		case mPUT:
+			if resource, ok := resource.(PutSupported); ok {
 				handler = resource.Put
 			}
-		case DELETE:
-			if resource, ok := resource.(res.DeleteSupported); ok {
+		case mDELETE:
+			if resource, ok := resource.(DeleteSupported); ok {
 				handler = resource.Delete
 			}
-		case HEAD:
-			if resource, ok := resource.(res.HeadSupported); ok {
+		case mHEAD:
+			if resource, ok := resource.(HeadSupported); ok {
 				handler = resource.Head
 			}
-		case PATCH:
-			if resource, ok := resource.(res.PatchSupported); ok {
+		case mPATCH:
+			if resource, ok := resource.(PatchSupported); ok {
 				handler = resource.Patch
 			}
 		}

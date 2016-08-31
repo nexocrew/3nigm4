@@ -8,17 +8,16 @@
 // concurrency safe and do not implement any performance
 // optimisation logic.
 //
-
 package main
 
-// Std golang libs
+// Go standard libraries
 import (
 	"encoding/hex"
 	"fmt"
 	"time"
 )
 
-// Internal libs
+// 3n4 libraries
 import (
 	"github.com/nexocrew/3nigm4/lib/auth"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
