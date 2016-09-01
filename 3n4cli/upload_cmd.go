@@ -37,24 +37,32 @@ var UploadCmd = &cobra.Command{
 	Short:   "Uploads a file to secure storage",
 	Long:    "Uploads a local file to the cloud storage returning a resource file usable to retrieve or share data.",
 	Example: "3n4cli store upload -k /tmp/userA.asc,/tmp/userB.asc -M -O /tmp/resources.3rf -i ~/file.ext -p 2 -v",
+	PreRun:  verbosePreRunInfos,
 }
 
 func init() {
 	// encryption
-	setArgument(UploadCmd, "destkeys", &arguments.publicKeyPaths)
-	setArgumentPFlags(UploadCmd, "masterkey", &arguments.masterkeyFlag)
+	setArgument(UploadCmd, "destkeys")
 	// i/o paths
-	setArgumentPFlags(UploadCmd, "input", &arguments.inPath)
-	setArgumentPFlags(UploadCmd, "referenceout", &arguments.referenceOutPath)
-	setArgument(UploadCmd, "chunksize", &arguments.chunkSize)
-	setArgument(UploadCmd, "compressed", &arguments.compressed)
-	// working queue setup
-	setArgument(UploadCmd, "workerscount", &arguments.workers)
-	setArgument(UploadCmd, "queuesize", &arguments.queue)
+	setArgument(UploadCmd, "input")
+	setArgument(UploadCmd, "referenceout")
+	setArgument(UploadCmd, "chunksize")
+	setArgument(UploadCmd, "compressed")
 	// resource properties
-	setArgumentPFlags(UploadCmd, "timetolive", &arguments.timeToLive)
-	setArgumentPFlags(UploadCmd, "permission", &arguments.permission)
-	setArgumentPFlags(UploadCmd, "sharingusers", &arguments.sharingUsers)
+	setArgument(UploadCmd, "timetolive")
+	setArgument(UploadCmd, "permission")
+	setArgument(UploadCmd, "sharingusers")
+
+	viper.BindPFlag(am["destkeys"].name, UploadCmd.PersistentFlags().Lookup(am["destkeys"].name))
+	viper.BindPFlag(am["input"].name, UploadCmd.PersistentFlags().Lookup(am["input"].name))
+	viper.BindPFlag(am["referenceout"].name, UploadCmd.PersistentFlags().Lookup(am["referenceout"].name))
+	viper.BindPFlag(am["chunksize"].name, UploadCmd.PersistentFlags().Lookup(am["chunksize"].name))
+	viper.BindPFlag(am["compressed"].name, UploadCmd.PersistentFlags().Lookup(am["compressed"].name))
+	viper.BindPFlag(am["timetolive"].name, UploadCmd.PersistentFlags().Lookup(am["timetolive"].name))
+	viper.BindPFlag(am["permission"].name, UploadCmd.PersistentFlags().Lookup(am["permission"].name))
+	viper.BindPFlag(am["sharingusers"].name, UploadCmd.PersistentFlags().Lookup(am["sharingusers"].name))
+
+	StoreCmd.AddCommand(UploadCmd)
 
 	// files parameters
 	UploadCmd.RunE = upload
@@ -66,12 +74,6 @@ func init() {
 // are sent to the server. PGP is used to secure generated reference
 // file.
 func upload(cmd *cobra.Command, args []string) error {
-	// load config file
-	err := manageConfigFile()
-	if err != nil {
-		return err
-	}
-
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
@@ -102,9 +104,9 @@ func upload(cmd *cobra.Command, args []string) error {
 
 	// set master key if any passed
 	var masterkey []byte
-	if arguments.masterkeyFlag {
+	if viper.GetBool(am["masterkey"].name) {
 		fmt.Printf("Insert master key: ")
-		masterkey, err = gopass.GetPasswd()
+		masterkey, err = gopass.GetPasswdMasked()
 		if err != nil {
 			return err
 		}
@@ -126,7 +128,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	// create new encryption chunks
 	ec, err := fm.NewEncryptedChunks(
 		masterkey,
-		arguments.inPath,
+		viper.GetString(am["input"].name),
 		uint64(viper.GetInt(am["chunksize"].name)),
 		viper.GetBool(am["compressed"].name))
 	if err != nil {
@@ -136,10 +138,10 @@ func upload(cmd *cobra.Command, args []string) error {
 	// upload resources and get reference file
 	rf, err := ec.SaveChunks(
 		ds,
-		arguments.timeToLive,
+		viper.GetDuration(am["timetolive"].name),
 		&fm.Permission{
-			Permission:   ct.Permission(arguments.permission),
-			SharingUsers: arguments.sharingUsers,
+			Permission:   ct.Permission(viper.GetInt(am["permission"].name)),
+			SharingUsers: viper.GetStringSlice(am["sharingusers"].name),
 		})
 	if err != nil {
 		return err
@@ -157,7 +159,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// save tp output file
-	destinationPath := arguments.referenceOutPath
+	destinationPath := viper.GetString(am["referenceout"].name)
 	err = ioutil.WriteFile(
 		destinationPath,
 		encryptedData,

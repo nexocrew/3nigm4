@@ -34,17 +34,14 @@ var DownloadCmd = &cobra.Command{
 	Short:   "Download a resource",
 	Long:    "Downlaod starting from a local reference file remote resources.",
 	Example: "3n4cli store download -M -o /tmp/file.ext -r /tmp/resources.3rf -v",
+	PreRun:  verbosePreRunInfos,
 }
 
 func init() {
-	// encryption
-	setArgumentPFlags(DownloadCmd, "masterkey", &arguments.masterkeyFlag)
 	// i/o paths
-	setArgumentPFlags(DownloadCmd, "referencein", &arguments.referenceInPath)
-	setArgument(DownloadCmd, "output", &arguments.outPath)
-	// working queue setup
-	setArgument(DownloadCmd, "workerscount", &arguments.workers)
-	setArgument(DownloadCmd, "queuesize", &arguments.queue)
+	setArgument(DownloadCmd, "output")
+	viper.BindPFlag(am["output"].name, DownloadCmd.PersistentFlags().Lookup(am["output"].name))
+	StoreCmd.AddCommand(DownloadCmd)
 
 	// files parameters
 	DownloadCmd.RunE = download
@@ -54,12 +51,6 @@ func init() {
 // in chunks) from the storage server and recompose it starting
 // from the saved reference file.
 func download(cmd *cobra.Command, args []string) error {
-	// load config file
-	err := manageConfigFile()
-	if err != nil {
-		return err
-	}
-
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
@@ -73,9 +64,9 @@ func download(cmd *cobra.Command, args []string) error {
 
 	// set master key if any passed
 	var masterkey []byte
-	if arguments.masterkeyFlag {
+	if viper.GetBool(am["masterkey"].name) {
 		fmt.Printf("Insert master key: ")
-		masterkey, err = gopass.GetPasswd()
+		masterkey, err = gopass.GetPasswdMasked()
 		if err != nil {
 			return err
 		}
@@ -95,7 +86,7 @@ func download(cmd *cobra.Command, args []string) error {
 	go manageAsyncErrors(errc)
 
 	// get reference
-	encBytes, err := ioutil.ReadFile(arguments.referenceInPath)
+	encBytes, err := ioutil.ReadFile(viper.GetString(am["referencein"].name))
 	if err != nil {
 		return fmt.Errorf("unable to access reference file: %s", err.Error())
 	}

@@ -31,10 +31,18 @@ var PingCmd = &cobra.Command{
 }
 
 func init() {
-	setArgument(PingCmd, "authaddress", &arguments.authService.Address)
-	setArgument(PingCmd, "authport", &arguments.authService.Port)
-	setArgument(PingCmd, "storageaddress", &arguments.storageService.Address)
-	setArgument(PingCmd, "storageport", &arguments.storageService.Port)
+	RootCmd.AddCommand(PingCmd)
+
+	setArgument(PingCmd, "authaddress")
+	setArgument(PingCmd, "authport")
+	setArgument(PingCmd, "storageaddress")
+	setArgument(PingCmd, "storageport")
+
+	viper.BindPFlag(am["authaddress"].name, PingCmd.PersistentFlags().Lookup(am["authaddress"].name))
+	viper.BindPFlag(am["authport"].name, PingCmd.PersistentFlags().Lookup(am["authport"].name))
+	viper.BindPFlag(am["storageaddress"].name, PingCmd.PersistentFlags().Lookup(am["storageaddress"].name))
+	viper.BindPFlag(am["storageport"].name, PingCmd.PersistentFlags().Lookup(am["storageport"].name))
+
 	// files parameters
 	PingCmd.RunE = ping
 }

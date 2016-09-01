@@ -14,25 +14,44 @@ import (
 // Third party libs
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // StoreCmd clinet service that connect to the service API
 // to manage sensible data, typically exposed operations
 // are upload, download and delete.
 var StoreCmd = &cobra.Command{
-	Use:     "store",
-	Short:   "Store securely data to the cloud",
-	Long:    "Store and manage secured data to the colud. All the encryption routines are executed on the client only encrypted chunks are sended to the server.",
-	Example: "3n4cli store",
+	Use:       "store",
+	Short:     "Store securely data to the cloud",
+	Long:      "Store and manage secured data to the colud. All the encryption routines are executed on the client only encrypted chunks are sended to the server.",
+	Example:   "3n4cli store",
+	ValidArgs: []string{"upload", "download", "delete"},
 }
 
 func init() {
 	// API references
-	setArgument(StoreCmd, "storageaddress", &arguments.storageService.Address)
-	setArgument(StoreCmd, "storageport", &arguments.storageService.Port)
+	setArgument(StoreCmd, "storageaddress")
+	setArgument(StoreCmd, "storageport")
 	// encryption
-	setArgument(StoreCmd, "privatekey", &arguments.userPrivateKeyPath)
-	setArgument(StoreCmd, "publickey", &arguments.userPublicKeyPath)
+	setArgument(StoreCmd, "privatekey")
+	setArgument(StoreCmd, "publickey")
+	setArgument(StoreCmd, "masterkey")
+	// working queue setup
+	setArgument(StoreCmd, "workerscount")
+	setArgument(StoreCmd, "queuesize")
+	// i/o paths
+	setArgument(StoreCmd, "referencein")
+
+	viper.BindPFlag(am["storageaddress"].name, StoreCmd.PersistentFlags().Lookup(am["storageaddress"].name))
+	viper.BindPFlag(am["storageport"].name, StoreCmd.PersistentFlags().Lookup(am["storageport"].name))
+	viper.BindPFlag(am["privatekey"].name, StoreCmd.PersistentFlags().Lookup(am["privatekey"].name))
+	viper.BindPFlag(am["publickey"].name, StoreCmd.PersistentFlags().Lookup(am["publickey"].name))
+	viper.BindPFlag(am["masterkey"].name, StoreCmd.PersistentFlags().Lookup(am["masterkey"].name))
+	viper.BindPFlag(am["workerscount"].name, StoreCmd.PersistentFlags().Lookup(am["workerscount"].name))
+	viper.BindPFlag(am["queuesize"].name, StoreCmd.PersistentFlags().Lookup(am["queuesize"].name))
+	viper.BindPFlag(am["referencein"].name, StoreCmd.PersistentFlags().Lookup(am["referencein"].name))
+
+	RootCmd.AddCommand(StoreCmd)
 
 	// files parameters
 	StoreCmd.RunE = store

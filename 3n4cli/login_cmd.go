@@ -40,12 +40,19 @@ var LoginCmd = &cobra.Command{
 	Short:   "Login a registered user and manage session",
 	Long:    "Interact with authentication server to login at the application startup.",
 	Example: "3n4cli login -u username",
+	PreRun:  verbosePreRunInfos,
 }
 
 func init() {
-	setArgument(LoginCmd, "authaddress", &arguments.authService.Address)
-	setArgument(LoginCmd, "authport", &arguments.authService.Port)
-	setArgument(LoginCmd, "username", &arguments.username)
+	setArgument(LoginCmd, "authaddress")
+	setArgument(LoginCmd, "authport")
+	setArgument(LoginCmd, "username")
+
+	viper.BindPFlag(am["username"].name, LoginCmd.PersistentFlags().Lookup(am["username"].name))
+	viper.BindPFlag(am["authaddress"].name, LoginCmd.PersistentFlags().Lookup(am["authaddress"].name))
+	viper.BindPFlag(am["authport"].name, LoginCmd.PersistentFlags().Lookup(am["authport"].name))
+
+	RootCmd.AddCommand(LoginCmd)
 
 	// files parameters
 	LoginCmd.RunE = login
@@ -68,16 +75,10 @@ func hexComposedPassword(username string, pwd []byte) string {
 // 3nigm4 services, this function will be called before any
 // other to be able to proceed with a valid auth token.
 func login(cmd *cobra.Command, args []string) error {
-	// load config file
-	err := manageConfigFile()
-	if err != nil {
-		return err
-	}
-
 	username := viper.GetString(am["username"].name)
 	// get user password
 	fmt.Printf("Insert password: ")
-	pwd, err := gopass.GetPasswd()
+	pwd, err := gopass.GetPasswdMasked()
 	if err != nil {
 		return err
 	}
