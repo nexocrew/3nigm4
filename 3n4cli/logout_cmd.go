@@ -32,15 +32,17 @@ var LogoutCmd = &cobra.Command{
 	Short:   "Logout a previously generated session",
 	Long:    "Interact with authentication server to logout a previously generated session token.",
 	Example: "3n4cli logout",
+	PreRun:  verbosePreRunInfos,
 }
 
 func init() {
-	RootCmd.AddCommand(LogoutCmd)
-
 	setArgument(LogoutCmd, "authaddress")
 	setArgument(LogoutCmd, "authport")
 
-	viper.BindPFlags(LogoutCmd.Flags())
+	viper.BindPFlag(am["authaddress"].name, LogoutCmd.PersistentFlags().Lookup(am["authaddress"].name))
+	viper.BindPFlag(am["authport"].name, LogoutCmd.PersistentFlags().Lookup(am["authport"].name))
+
+	RootCmd.AddCommand(LogoutCmd)
 
 	// files parameters
 	LogoutCmd.RunE = logout
@@ -67,7 +69,8 @@ func logout(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set(ct.SecurityTokenKey, pss.Token)
+	token := pss.Token
+	req.Header.Set(ct.SecurityTokenKey, token)
 	// execute request
 	resp, err := client.Do(req)
 	if err != nil {
@@ -94,6 +97,11 @@ func logout(cmd *cobra.Command, args []string) error {
 	}
 	// set global token to nil
 	pss.invalidateSessionToken()
+
+	// if verbose printf token
+	if viper.GetBool(am["verbose"].name) {
+		log.VerboseLog("Invalidated token: %s.\n", token)
+	}
 
 	return nil
 }

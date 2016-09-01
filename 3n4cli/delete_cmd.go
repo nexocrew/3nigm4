@@ -34,19 +34,11 @@ var DeleteCmd = &cobra.Command{
 	Short:   "Removes remote resources",
 	Long:    "Removes remote resources starting from a reference, it deletes the reference file itself at the end of the process.",
 	Example: "3n4cli store delete -r /tmp/resources.3rf -v",
+	PreRun:  verbosePreRunInfos,
 }
 
 func init() {
 	StoreCmd.AddCommand(DeleteCmd)
-
-	// i/o paths
-	setArgument(DeleteCmd, "referencein")
-	// working queue setup
-	setArgument(DeleteCmd, "workerscount")
-	setArgument(DeleteCmd, "queuesize")
-
-	viper.BindPFlags(DeleteCmd.Flags())
-
 	// files parameters
 	DeleteCmd.RunE = deleteReference
 }

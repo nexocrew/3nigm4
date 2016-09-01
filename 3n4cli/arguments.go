@@ -16,6 +16,7 @@ import (
 // Internal packages
 import (
 	crypto3n "github.com/nexocrew/3nigm4/lib/crypto"
+	ver "github.com/nexocrew/3nigm4/lib/version"
 )
 
 // Third party libs
@@ -43,11 +44,13 @@ const (
 // cliArguments is used to define all available flags with name,
 // shorthand, value, usage and kind.
 type cliArguments struct {
-	name      string
-	shorthand string
-	value     interface{}
-	usage     string
-	kind      argType
+	name        string
+	shorthand   string
+	value       interface{}
+	usage       string
+	kind        argType
+	pathContent bool
+	enigmaExt   bool
 }
 
 func flagChanged(flags *flag.FlagSet, key string) bool {
@@ -69,11 +72,20 @@ func setArgumentFlags(command *cobra.Command, arg cliArguments) {
 			arg.value.(string),
 			arg.usage,
 		)
-		command.PersistentFlags().SetAnnotation(
-			arg.name,
-			cobra.BashCompSubdirsInDir,
-			[]string{},
-		)
+		if arg.pathContent {
+			command.PersistentFlags().SetAnnotation(
+				arg.name,
+				cobra.BashCompSubdirsInDir,
+				[]string{},
+			)
+		}
+		if arg.enigmaExt {
+			command.PersistentFlags().SetAnnotation(
+				arg.name,
+				cobra.BashCompFilenameExt,
+				[]string{"3n4"},
+			)
+		}
 	case Int:
 		command.PersistentFlags().IntP(
 			arg.name,
@@ -141,32 +153,36 @@ var am map[string]cliArguments = map[string]cliArguments{
 		kind:      Bool,
 	},
 	"input": cliArguments{
-		name:      "input",
-		shorthand: "i",
-		value:     "",
-		usage:     "file or directory to be stored on the secure cloud",
-		kind:      String,
+		name:        "input",
+		shorthand:   "i",
+		value:       "",
+		usage:       "file or directory to be stored on the secure cloud",
+		kind:        String,
+		pathContent: true,
 	},
 	"output": cliArguments{
-		name:      "output",
-		shorthand: "o",
-		value:     "",
-		usage:     "directory where output files will be stored",
-		kind:      String,
+		name:        "output",
+		shorthand:   "o",
+		value:       "",
+		usage:       "directory where output files will be stored",
+		kind:        String,
+		pathContent: true,
 	},
 	"referencein": cliArguments{
-		name:      "referencein",
-		shorthand: "r",
-		value:     "",
-		usage:     "reference file path",
-		kind:      String,
+		name:        "referencein",
+		shorthand:   "r",
+		value:       "",
+		usage:       "reference file path",
+		kind:        String,
+		pathContent: true,
 	},
 	"referenceout": cliArguments{
-		name:      "referenceout",
-		shorthand: "O",
-		value:     "",
-		usage:     "reference file output path",
-		kind:      String,
+		name:        "referenceout",
+		shorthand:   "O",
+		value:       "",
+		usage:       "reference file output path",
+		kind:        String,
+		pathContent: true,
 	},
 	"chunksize": cliArguments{
 		name:      "chunksize",
@@ -197,18 +213,20 @@ var am map[string]cliArguments = map[string]cliArguments{
 		kind:      Int,
 	},
 	"privatekey": cliArguments{
-		name:      "privatekey",
-		shorthand: "K",
-		value:     "",
-		usage:     "path for the user's PGP private key",
-		kind:      String,
+		name:        "privatekey",
+		shorthand:   "K",
+		value:       "",
+		usage:       "path for the user's PGP private key",
+		kind:        String,
+		pathContent: true,
 	},
 	"publickey": cliArguments{
-		name:      "publickey",
-		shorthand: "k",
-		value:     "",
-		usage:     "path for the user's PGP public key",
-		kind:      String,
+		name:        "publickey",
+		shorthand:   "k",
+		value:       "",
+		usage:       "path for the user's PGP public key",
+		kind:        String,
+		pathContent: true,
 	},
 	"destkeys": cliArguments{
 		name:      "destkeys",
@@ -287,7 +305,7 @@ func checkAndLoadPgpPrivateKey(keyfile string) (openpgp.EntityList, error) {
 		}
 		// get user's password
 		fmt.Printf("Insert pgp key password: ")
-		pwd, err := gopass.GetPasswd()
+		pwd, err := gopass.GetPasswdMasked()
 		if err != nil {
 			return nil, err
 		}
@@ -339,4 +357,28 @@ func loadRecipientsPublicKeys(keys []string) (openpgp.EntityList, error) {
 		entityList = append(entityList, entity...)
 	}
 	return entityList, nil
+}
+
+// verbosePreRunInfos prints out verbose infos before executing
+// commands.
+func verbosePreRunInfos(cmd *cobra.Command, args []string) {
+	if viper.GetBool(am["verbose"].name) == true {
+		log.VerboseLog("Using config file: %s.\n", viper.ConfigFileUsed())
+		log.VerboseLog(
+			"Context:\n"+
+				"\tVersion: %s\n"+
+				"\tStorage service: %s:%d\n"+
+				"\tAuthentication service: %s:%d\n"+
+				"\tInternal parameters: working queue size %d, queue %d\n"+
+				"\tChunk parameters: size %d compressed %v\n",
+			ver.V().VersionString(),
+			viper.GetString(am["storageaddress"].name),
+			viper.GetInt(am["storageport"].name),
+			viper.GetString(am["authaddress"].name),
+			viper.GetInt(am["authport"].name),
+			viper.GetInt(am["workerscount"].name),
+			viper.GetInt(am["queuesize"].name),
+			viper.GetInt(am["chunksize"].name),
+			viper.GetBool(am["compressed"].name))
+	}
 }

@@ -40,6 +40,7 @@ var LoginCmd = &cobra.Command{
 	Short:   "Login a registered user and manage session",
 	Long:    "Interact with authentication server to login at the application startup.",
 	Example: "3n4cli login -u username",
+	PreRun:  verbosePreRunInfos,
 }
 
 func init() {
@@ -77,7 +78,7 @@ func login(cmd *cobra.Command, args []string) error {
 	username := viper.GetString(am["username"].name)
 	// get user password
 	fmt.Printf("Insert password: ")
-	pwd, err := gopass.GetPasswd()
+	pwd, err := gopass.GetPasswdMasked()
 	if err != nil {
 		return err
 	}

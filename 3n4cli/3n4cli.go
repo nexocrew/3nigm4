@@ -63,7 +63,8 @@ func init() {
 
 	// global flags
 	setArgument(RootCmd, "verbose")
-	viper.BindPFlags(RootCmd.Flags())
+
+	viper.BindPFlag(am["verbose"].name, RootCmd.PersistentFlags().Lookup(am["verbose"].name))
 }
 
 // checkRequestStatus check request status and if an anomalous
@@ -109,10 +110,6 @@ func initConfig() {
 // Execute parsing and execute selected
 // command.
 func Execute() error {
-	if viper.GetBool(am["verbose"].name) {
-		log.VerboseLog("Using config file: %s.\n", viper.ConfigFileUsed())
-	}
-
 	// execute actual command
 	_, err := RootCmd.ExecuteC()
 	if err != nil {
@@ -123,7 +120,7 @@ func Execute() error {
 
 func main() {
 	// start up logging facility
-	log = logger.NewLogFacility("3n4cli", true, true)
+	log = logger.NewLogFacility("3n4cli", false, true)
 
 	// start up storage singleton
 	pss = newPersistentStorage()

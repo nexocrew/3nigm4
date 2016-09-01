@@ -37,28 +37,32 @@ var UploadCmd = &cobra.Command{
 	Short:   "Uploads a file to secure storage",
 	Long:    "Uploads a local file to the cloud storage returning a resource file usable to retrieve or share data.",
 	Example: "3n4cli store upload -k /tmp/userA.asc,/tmp/userB.asc -M -O /tmp/resources.3rf -i ~/file.ext -p 2 -v",
+	PreRun:  verbosePreRunInfos,
 }
 
 func init() {
-	StoreCmd.AddCommand(UploadCmd)
-
 	// encryption
 	setArgument(UploadCmd, "destkeys")
-	setArgument(UploadCmd, "masterkey")
 	// i/o paths
 	setArgument(UploadCmd, "input")
 	setArgument(UploadCmd, "referenceout")
 	setArgument(UploadCmd, "chunksize")
 	setArgument(UploadCmd, "compressed")
-	// working queue setup
-	setArgument(UploadCmd, "workerscount")
-	setArgument(UploadCmd, "queuesize")
 	// resource properties
 	setArgument(UploadCmd, "timetolive")
 	setArgument(UploadCmd, "permission")
 	setArgument(UploadCmd, "sharingusers")
 
-	viper.BindPFlags(UploadCmd.Flags())
+	viper.BindPFlag(am["destkeys"].name, UploadCmd.PersistentFlags().Lookup(am["destkeys"].name))
+	viper.BindPFlag(am["input"].name, UploadCmd.PersistentFlags().Lookup(am["input"].name))
+	viper.BindPFlag(am["referenceout"].name, UploadCmd.PersistentFlags().Lookup(am["referenceout"].name))
+	viper.BindPFlag(am["chunksize"].name, UploadCmd.PersistentFlags().Lookup(am["chunksize"].name))
+	viper.BindPFlag(am["compressed"].name, UploadCmd.PersistentFlags().Lookup(am["compressed"].name))
+	viper.BindPFlag(am["timetolive"].name, UploadCmd.PersistentFlags().Lookup(am["timetolive"].name))
+	viper.BindPFlag(am["permission"].name, UploadCmd.PersistentFlags().Lookup(am["permission"].name))
+	viper.BindPFlag(am["sharingusers"].name, UploadCmd.PersistentFlags().Lookup(am["sharingusers"].name))
+
+	StoreCmd.AddCommand(UploadCmd)
 
 	// files parameters
 	UploadCmd.RunE = upload
@@ -102,7 +106,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	var masterkey []byte
 	if viper.GetBool(am["masterkey"].name) {
 		fmt.Printf("Insert master key: ")
-		masterkey, err = gopass.GetPasswd()
+		masterkey, err = gopass.GetPasswdMasked()
 		if err != nil {
 			return err
 		}

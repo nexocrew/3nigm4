@@ -34,21 +34,14 @@ var DownloadCmd = &cobra.Command{
 	Short:   "Download a resource",
 	Long:    "Downlaod starting from a local reference file remote resources.",
 	Example: "3n4cli store download -M -o /tmp/file.ext -r /tmp/resources.3rf -v",
+	PreRun:  verbosePreRunInfos,
 }
 
 func init() {
-	StoreCmd.AddCommand(DownloadCmd)
-
-	// encryption
-	setArgument(DownloadCmd, "masterkey")
 	// i/o paths
-	setArgument(DownloadCmd, "referencein")
 	setArgument(DownloadCmd, "output")
-	// working queue setup
-	setArgument(DownloadCmd, "workerscount")
-	setArgument(DownloadCmd, "queuesize")
-
-	viper.BindPFlags(DownloadCmd.Flags())
+	viper.BindPFlag(am["output"].name, DownloadCmd.PersistentFlags().Lookup(am["output"].name))
+	StoreCmd.AddCommand(DownloadCmd)
 
 	// files parameters
 	DownloadCmd.RunE = download
@@ -73,7 +66,7 @@ func download(cmd *cobra.Command, args []string) error {
 	var masterkey []byte
 	if viper.GetBool(am["masterkey"].name) {
 		fmt.Printf("Insert master key: ")
-		masterkey, err = gopass.GetPasswd()
+		masterkey, err = gopass.GetPasswdMasked()
 		if err != nil {
 			return err
 		}
