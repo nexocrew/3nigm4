@@ -109,7 +109,6 @@ func initConfig() {
 // Execute parsing and execute selected
 // command.
 func Execute() error {
-	viper.Debug()
 	if viper.GetBool(am["verbose"].name) {
 		log.VerboseLog("Using config file: %s.\n", viper.ConfigFileUsed())
 	}

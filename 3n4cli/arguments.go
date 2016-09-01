@@ -22,6 +22,7 @@ import (
 import (
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/openpgp"
 )
@@ -49,6 +50,14 @@ type cliArguments struct {
 	kind      argType
 }
 
+func flagChanged(flags *flag.FlagSet, key string) bool {
+	flag := flags.Lookup(key)
+	if flag == nil {
+		return false
+	}
+	return flag.Changed
+}
+
 // setArgumentFlags set pflag flags with value contained in the am
 // variable map.
 func setArgumentFlags(command *cobra.Command, arg cliArguments) {
@@ -58,37 +67,48 @@ func setArgumentFlags(command *cobra.Command, arg cliArguments) {
 			arg.name,
 			arg.shorthand,
 			arg.value.(string),
-			arg.usage)
+			arg.usage,
+		)
+		command.PersistentFlags().SetAnnotation(
+			arg.name,
+			cobra.BashCompSubdirsInDir,
+			[]string{},
+		)
 	case Int:
 		command.PersistentFlags().IntP(
 			arg.name,
 			arg.shorthand,
 			arg.value.(int),
-			arg.usage)
+			arg.usage,
+		)
 	case Uint:
 		command.PersistentFlags().UintP(
 			arg.name,
 			arg.shorthand,
 			uint(arg.value.(int)),
-			arg.usage)
+			arg.usage,
+		)
 	case StringSlice:
 		command.PersistentFlags().StringSliceP(
 			arg.name,
 			arg.shorthand,
 			arg.value.([]string),
-			arg.usage)
+			arg.usage,
+		)
 	case Bool:
 		command.PersistentFlags().BoolP(
 			arg.name,
 			arg.shorthand,
 			arg.value.(bool),
-			arg.usage)
+			arg.usage,
+		)
 	case Duration:
 		command.PersistentFlags().DurationP(
 			arg.name,
 			arg.shorthand,
 			time.Duration(arg.value.(int)),
-			arg.usage)
+			arg.usage,
+		)
 	}
 }
 
