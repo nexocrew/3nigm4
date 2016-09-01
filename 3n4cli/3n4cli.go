@@ -92,9 +92,22 @@ func initConfig() {
 		log.CriticalLog("Unable to access user home dir cause %s.\n", err.Error())
 		os.Exit(1)
 	}
+	rootDir := path.Join(usr.HomeDir, rootAppFolder)
+
+	// init fs if first starting
+	_, err = os.Stat(rootDir)
+	if os.IsNotExist(err) {
+		log.MessageLog("Initialising 3n4 filesystem and config...\n")
+		err = initfs(usr.Name, rootDir)
+		if err != nil {
+			log.CriticalLog("Unable to init filesystem: %s.\n", err.Error())
+			os.Exit(1)
+		}
+	}
+
 	// set config file references
 	viper.SetConfigName("config")
-	viper.AddConfigPath(path.Join(usr.HomeDir, rootAppFolder))
+	viper.AddConfigPath(rootDir)
 
 	// set env reader
 	viper.SetEnvPrefix("3n4env")
