@@ -10,7 +10,14 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
+)
+
+// Third party libs
+import (
+	"gopkg.in/yaml.v2"
 )
 
 // configFile is usable to create the default config
@@ -48,6 +55,11 @@ func initfs(user, rootDir string) error {
 	if err != nil {
 		return fmt.Errorf("unable to create %s dir cause %s", rootDir, err.Error())
 	}
+	pgpDir := path.Join(rootDir, "pgp")
+	err = os.Mkdir(pgpDir, 0700)
+	if err != nil {
+		return fmt.Errorf("unable to create %s dir cause %s", pgpDir, err.Error())
+	}
 
 	// create final structure
 	cf := &configFile{}
@@ -64,6 +76,17 @@ func initfs(user, rootDir string) error {
 	}
 
 	// make user choose a pgp key
+
+	// encode the file
+	configBinary, err := yaml.Marshal(cf)
+	if err != nil {
+		return fmt.Errorf("unable to marshal config struct cause %s", err.Error())
+	}
+	// save to disk
+	err = ioutil.WriteFile(path.Join(rootDir, "config.yaml"), configBinary, 0600)
+	if err != nil {
+		return fmt.Errorf("unable to save config file: %s", err.Error())
+	}
 
 	return nil
 }
