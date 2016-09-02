@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 )
 
 // Internal dependencies
@@ -86,7 +87,12 @@ func upload(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	entityList = append(entityList, usersPublicKeys...)
-	recipientsKeys, err := loadRecipientsPublicKeys(viper.GetStringSlice(am["destkeys"].name))
+	// manually splits string using the strings.Split function
+	// as a workaround the bug (issue #112
+	// https://github.com/spf13/viper/issues/112) of the Cobra
+	// project.
+	destinationKeys := strings.Split(viper.GetString(am["destkeys"].name), ",")
+	recipientsKeys, err := loadRecipientsPublicKeys(destinationKeys)
 	if err != nil {
 		return err
 	}
@@ -136,12 +142,17 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// upload resources and get reference file
+	// manually splits string using the strings.Split function
+	// as a workaround the bug (issue #112
+	// https://github.com/spf13/viper/issues/112) of the Cobra
+	// project.
+	sharingUsers := strings.Split(viper.GetString(am["sharingusers"].name), ",")
 	rf, err := ec.SaveChunks(
 		ds,
 		viper.GetDuration(am["timetolive"].name),
 		&fm.Permission{
 			Permission:   ct.Permission(viper.GetInt(am["permission"].name)),
-			SharingUsers: viper.GetStringSlice(am["sharingusers"].name),
+			SharingUsers: sharingUsers,
 		})
 	if err != nil {
 		return err

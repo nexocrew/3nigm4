@@ -231,9 +231,9 @@ var am map[string]cliArguments = map[string]cliArguments{
 	"destkeys": cliArguments{
 		name:      "destkeys",
 		shorthand: "",
-		value:     []string{},
+		value:     "",
 		usage:     "path for the PGP public keys of message or resource recipients",
-		kind:      StringSlice,
+		kind:      String,
 	},
 	"workerscount": cliArguments{
 		name:      "workerscount",
@@ -266,9 +266,9 @@ var am map[string]cliArguments = map[string]cliArguments{
 	"sharingusers": cliArguments{
 		name:      "sharingusers",
 		shorthand: "",
-		value:     []string{},
+		value:     "",
 		usage:     "if permission is setted to shared (1) the user names passed in this list can have access to the uploaded resource",
-		kind:      StringSlice,
+		kind:      String,
 	},
 	"authaddress": cliArguments{
 		name:      "authaddress",
