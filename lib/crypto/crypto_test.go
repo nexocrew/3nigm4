@@ -244,7 +244,7 @@ func TestOpenPgpEncryption(t *testing.T) {
 		t.Fatalf("Unexpected error: %s.\n", err.Error())
 	}
 
-	encoded, _ := EncodePgpArmored(encrypted)
+	encoded, _ := EncodePgpArmored(encrypted, kEn1gm4Type)
 	t.Logf("Encrypted blob: %s.\n", string(encoded))
 
 	plaintdata, err := OpenPgpDecrypt(encrypted, keyr)
@@ -314,4 +314,46 @@ func TestOpenPgpSignature(t *testing.T) {
 	if err == nil {
 		t.Fatalf("This user should not be able to verify the signature.\n")
 	}
+}
+
+func TestKeysCreation(t *testing.T) {
+	pvk, pbk, err := NewPgpKeypair("user", "This is a test key", "user@mail.com")
+	if err != nil {
+		t.Fatalf("Unable to create keys: %s.\n", err.Error())
+	}
+	t.Logf("Keys: %s pub %s.\n", hex.EncodeToString(pvk), hex.EncodeToString(pbk))
+
+	pk, err := openpgp.ReadKeyRing(bytes.NewBuffer(pvk))
+	if err != nil {
+		t.Fatalf("Unable to extract private key: %s.\n", err.Error())
+	}
+	if len(pk) != 1 {
+		t.Fatalf("Unexpected single private key not found.\n")
+	}
+	pb, err := openpgp.ReadKeyRing(bytes.NewBuffer(pbk))
+	if err != nil {
+		t.Fatalf("Unable to extract public key: %d.\n", err.Error())
+	}
+	if len(pb) != 1 {
+		t.Fatalf("Unexpected single private key not found.\n")
+	}
+
+	plainbytes := []byte(plaintex)
+
+	encrypted, err := OpenPgpEncrypt(plainbytes, pb, pk[0])
+	if err != nil {
+		t.Fatalf("Unexpected error: %s.\n", err.Error())
+	}
+
+	encoded, _ := EncodePgpArmored(encrypted, kEn1gm4Type)
+	t.Logf("Encrypted blob: %s.\n", string(encoded))
+
+	plaintdata, err := OpenPgpDecrypt(encrypted, pk)
+	if err != nil {
+		t.Fatalf("Unable to access body: %s.\n", err.Error())
+	}
+	if bytes.Compare(plaintdata, plainbytes) != 0 {
+		t.Fatalf("Unexpected result are different\n")
+	}
+	t.Logf("Plaintext: %s.\n", string(plaintdata))
 }
