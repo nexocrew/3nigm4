@@ -118,6 +118,8 @@ func upload(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	log.MessageLog("Starting data upload...\n")
+
 	// create new store manager
 	ds, err, errc := sc.NewStorageClient(
 		viper.GetString(am["storageaddress"].name),

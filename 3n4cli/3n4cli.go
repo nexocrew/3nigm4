@@ -98,7 +98,7 @@ func initConfig() {
 	_, err = os.Stat(rootDir)
 	if os.IsNotExist(err) {
 		log.MessageLog("Initialising 3n4 filesystem and config...\n")
-		err = initfs(usr.Name, rootDir)
+		err = initfs(usr.Username, rootDir)
 		if err != nil {
 			log.CriticalLog("Unable to init filesystem: %s.\n", err.Error())
 			os.Exit(1)
@@ -115,8 +115,7 @@ func initConfig() {
 
 	err = viper.ReadInConfig()
 	if err != nil {
-		log.CriticalLog("Unable to read config file: %s.\n", err.Error())
-		os.Exit(1)
+		log.WarningLog("Unable to read config file: %s.\n", err.Error())
 	}
 }
 
