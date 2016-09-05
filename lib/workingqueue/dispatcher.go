@@ -72,13 +72,11 @@ func (d *dispatcher) dispatch() {
 				jobcClosed = true
 			} else {
 				// a job request has been received
-				go func() {
-					// try to obtain a worker job channel that is available.
-					// this will block until a worker is idle
-					workerJobQueue := <-d.workerPool
-					// dispatch the job
-					workerJobQueue <- job
-				}()
+				// try to obtain a worker job channel that is available.
+				// this will block until a worker is idle
+				workerJobQueue := <-d.workerPool
+				// dispatch the job
+				workerJobQueue <- job
 			}
 		case <-d.quit:
 			for _, worker := range d.workers {
