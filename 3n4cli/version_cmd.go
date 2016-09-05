@@ -33,6 +33,8 @@ var VersionCmd = &cobra.Command{
 }
 
 func init() {
+	RootCmd.AddCommand(VersionCmd)
+
 	// files parameters
 	VersionCmd.Run = version
 }

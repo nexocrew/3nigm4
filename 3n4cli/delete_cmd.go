@@ -34,15 +34,11 @@ var DeleteCmd = &cobra.Command{
 	Short:   "Removes remote resources",
 	Long:    "Removes remote resources starting from a reference, it deletes the reference file itself at the end of the process.",
 	Example: "3n4cli store delete -r /tmp/resources.3rf -v",
+	PreRun:  verbosePreRunInfos,
 }
 
 func init() {
-	// i/o paths
-	setArgumentPFlags(DeleteCmd, "referencein", &arguments.referenceInPath)
-	// working queue setup
-	setArgument(DeleteCmd, "workerscount", &arguments.workers)
-	setArgument(DeleteCmd, "queuesize", &arguments.queue)
-
+	StoreCmd.AddCommand(DeleteCmd)
 	// files parameters
 	DeleteCmd.RunE = deleteReference
 }
@@ -50,12 +46,6 @@ func init() {
 // deleteReference uses datastorage struct to remotely delete all chunks
 // pointed by a reference file.
 func deleteReference(cmd *cobra.Command, args []string) error {
-	// load config file
-	err := manageConfigFile()
-	if err != nil {
-		return err
-	}
-
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
@@ -81,7 +71,7 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 	go manageAsyncErrors(errc)
 
 	// get reference
-	refin := arguments.referenceInPath
+	refin := viper.GetString(am["referencein"].name)
 	encBytes, err := ioutil.ReadFile(refin)
 	if err != nil {
 		return fmt.Errorf("unable to access reference file %s cause %s", refin, err.Error())

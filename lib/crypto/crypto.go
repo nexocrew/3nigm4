@@ -33,6 +33,7 @@ import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
 	"golang.org/x/crypto/openpgp/packet"
+	"golang.org/x/crypto/openpgp/s2k"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -387,12 +388,12 @@ const (
 
 // EncodePgpArmored encode a pgp message in armored
 // ASCII format.
-func EncodePgpArmored(data []byte) ([]byte, error) {
+func EncodePgpArmored(data []byte, blocktype string) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	header := map[string]string{
 		"Version": kEn1gm4Version,
 	}
-	w, err := armor.Encode(buf, kEn1gm4Type, header)
+	w, err := armor.Encode(buf, blocktype, header)
 	if err != nil {
 		return nil, err
 	}
@@ -418,4 +419,54 @@ func DecodePgpArmored(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return decoded, nil
+}
+
+var (
+	config = packet.Config{
+		RSABits:                4096,
+		DefaultCipher:          packet.CipherAES256,
+		DefaultCompressionAlgo: packet.CompressionZLIB,
+		DefaultHash:            crypto.SHA256,
+	}
+)
+
+func hashToHashId(h crypto.Hash) uint8 {
+	v, ok := s2k.HashToHashId(h)
+	if !ok {
+		panic("tried to convert unknown hash")
+	}
+	return v
+}
+
+// NewPgpKeypair creates a pgp keypair and encodes them as
+// byte slides. No encryption is introduced at that point.
+func NewPgpKeypair(name, comment, email string) ([]byte, []byte, error) {
+	entity, err := openpgp.NewEntity(
+		name,
+		comment,
+		email,
+		&config,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// workaround for issue:
+	// https://github.com/golang/go/issues/12153
+	for _, id := range entity.Identities {
+		id.SelfSignature.PreferredHash = []uint8{hashToHashId(config.DefaultHash)}
+	}
+
+	var priv bytes.Buffer
+	err = entity.SerializePrivate(&priv, &config)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to serialise private key %s", err.Error())
+	}
+	var pub bytes.Buffer
+	err = entity.Serialize(&pub)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to serialise public key %s", err.Error())
+	}
+
+	return priv.Bytes(), pub.Bytes(), nil
 }

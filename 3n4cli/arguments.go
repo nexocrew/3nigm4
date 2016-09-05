@@ -16,12 +16,14 @@ import (
 // Internal packages
 import (
 	crypto3n "github.com/nexocrew/3nigm4/lib/crypto"
+	ver "github.com/nexocrew/3nigm4/lib/version"
 )
 
 // Third party libs
 import (
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/openpgp"
 )
@@ -42,74 +44,95 @@ const (
 // cliArguments is used to define all available flags with name,
 // shorthand, value, usage and kind.
 type cliArguments struct {
-	name      string
-	shorthand string
-	value     interface{}
-	usage     string
-	kind      argType
+	name        string
+	shorthand   string
+	value       interface{}
+	usage       string
+	kind        argType
+	pathContent bool
+	enigmaExt   bool
 }
 
-// setArgumentPFlags set pflag flags with value contained in the am
-// variable map.
-func setArgumentPFlags(command *cobra.Command, key string, destination interface{}) {
-	arg, ok := am[key]
-	if !ok ||
-		command == nil ||
-		destination == nil {
-		panic("invalid argument required")
+func flagChanged(flags *flag.FlagSet, key string) bool {
+	flag := flags.Lookup(key)
+	if flag == nil {
+		return false
 	}
+	return flag.Changed
+}
+
+// setArgumentFlags set pflag flags with value contained in the am
+// variable map.
+func setArgumentFlags(command *cobra.Command, arg cliArguments) {
 	switch arg.kind {
 	case String:
-		command.PersistentFlags().StringVarP(
-			destination.(*string),
+		command.PersistentFlags().StringP(
 			arg.name,
 			arg.shorthand,
 			arg.value.(string),
-			arg.usage)
+			arg.usage,
+		)
+		if arg.pathContent {
+			command.PersistentFlags().SetAnnotation(
+				arg.name,
+				cobra.BashCompSubdirsInDir,
+				[]string{},
+			)
+		}
+		if arg.enigmaExt {
+			command.PersistentFlags().SetAnnotation(
+				arg.name,
+				cobra.BashCompFilenameExt,
+				[]string{"3n4"},
+			)
+		}
 	case Int:
-		command.PersistentFlags().IntVarP(
-			destination.(*int),
+		command.PersistentFlags().IntP(
 			arg.name,
 			arg.shorthand,
 			arg.value.(int),
-			arg.usage)
+			arg.usage,
+		)
 	case Uint:
-		command.PersistentFlags().UintVarP(
-			destination.(*uint),
+		command.PersistentFlags().UintP(
 			arg.name,
 			arg.shorthand,
 			uint(arg.value.(int)),
-			arg.usage)
+			arg.usage,
+		)
 	case StringSlice:
-		command.PersistentFlags().StringSliceVarP(
-			destination.(*[]string),
+		command.PersistentFlags().StringSliceP(
 			arg.name,
 			arg.shorthand,
 			arg.value.([]string),
-			arg.usage)
+			arg.usage,
+		)
 	case Bool:
-		command.PersistentFlags().BoolVarP(
-			destination.(*bool),
+		command.PersistentFlags().BoolP(
 			arg.name,
 			arg.shorthand,
 			arg.value.(bool),
-			arg.usage)
+			arg.usage,
+		)
 	case Duration:
-		command.PersistentFlags().DurationVarP(
-			destination.(*time.Duration),
+		command.PersistentFlags().DurationP(
 			arg.name,
 			arg.shorthand,
 			time.Duration(arg.value.(int)),
-			arg.usage)
+			arg.usage,
+		)
 	}
 }
 
 // setArgument invokes setArgumentPFlags before calling Viper config
 // manager to integrate values.
-func setArgument(command *cobra.Command, key string, destination interface{}) {
-	setArgumentPFlags(command, key, destination)
-	arg, _ := am[key]
-	viper.BindPFlag(arg.name, command.Flags().Lookup(arg.name))
+func setArgument(command *cobra.Command, key string) {
+	arg, ok := am[key]
+	if !ok ||
+		command == nil {
+		panic("invalid argument required")
+	}
+	setArgumentFlags(command, arg)
 	viper.SetDefault(arg.name, arg.value)
 }
 
@@ -122,13 +145,6 @@ var am map[string]cliArguments = map[string]cliArguments{
 		usage:     "activate logging verbosity",
 		kind:      Bool,
 	},
-	"config": cliArguments{
-		name:      "config",
-		shorthand: "c",
-		value:     "",
-		usage:     "override default config file directory",
-		kind:      String,
-	},
 	"masterkey": cliArguments{
 		name:      "masterkey",
 		shorthand: "M",
@@ -137,32 +153,36 @@ var am map[string]cliArguments = map[string]cliArguments{
 		kind:      Bool,
 	},
 	"input": cliArguments{
-		name:      "input",
-		shorthand: "i",
-		value:     "",
-		usage:     "file or directory to be stored on the secure cloud",
-		kind:      String,
+		name:        "input",
+		shorthand:   "i",
+		value:       "",
+		usage:       "file or directory to be stored on the secure cloud",
+		kind:        String,
+		pathContent: true,
 	},
 	"output": cliArguments{
-		name:      "output",
-		shorthand: "o",
-		value:     "",
-		usage:     "directory where output files will be stored",
-		kind:      String,
+		name:        "output",
+		shorthand:   "o",
+		value:       "",
+		usage:       "directory where output files will be stored",
+		kind:        String,
+		pathContent: true,
 	},
 	"referencein": cliArguments{
-		name:      "referencein",
-		shorthand: "r",
-		value:     "",
-		usage:     "reference file path",
-		kind:      String,
+		name:        "referencein",
+		shorthand:   "r",
+		value:       "",
+		usage:       "reference file path",
+		kind:        String,
+		pathContent: true,
 	},
 	"referenceout": cliArguments{
-		name:      "referenceout",
-		shorthand: "O",
-		value:     "",
-		usage:     "reference file output path",
-		kind:      String,
+		name:        "referenceout",
+		shorthand:   "O",
+		value:       "",
+		usage:       "reference file output path",
+		kind:        String,
+		pathContent: true,
 	},
 	"chunksize": cliArguments{
 		name:      "chunksize",
@@ -193,25 +213,27 @@ var am map[string]cliArguments = map[string]cliArguments{
 		kind:      Int,
 	},
 	"privatekey": cliArguments{
-		name:      "privatekey",
-		shorthand: "K",
-		value:     "",
-		usage:     "path for the user's PGP private key",
-		kind:      String,
+		name:        "privatekey",
+		shorthand:   "K",
+		value:       "",
+		usage:       "path for the user's PGP private key",
+		kind:        String,
+		pathContent: true,
 	},
 	"publickey": cliArguments{
-		name:      "publickey",
-		shorthand: "k",
-		value:     "",
-		usage:     "path for the user's PGP public key",
-		kind:      String,
+		name:        "publickey",
+		shorthand:   "k",
+		value:       "",
+		usage:       "path for the user's PGP public key",
+		kind:        String,
+		pathContent: true,
 	},
 	"destkeys": cliArguments{
 		name:      "destkeys",
 		shorthand: "",
-		value:     []string{},
+		value:     "",
 		usage:     "path for the PGP public keys of message or resource recipients",
-		kind:      StringSlice,
+		kind:      String,
 	},
 	"workerscount": cliArguments{
 		name:      "workerscount",
@@ -244,9 +266,9 @@ var am map[string]cliArguments = map[string]cliArguments{
 	"sharingusers": cliArguments{
 		name:      "sharingusers",
 		shorthand: "",
-		value:     []string{},
+		value:     "",
 		usage:     "if permission is setted to shared (1) the user names passed in this list can have access to the uploaded resource",
-		kind:      StringSlice,
+		kind:      String,
 	},
 	"authaddress": cliArguments{
 		name:      "authaddress",
@@ -283,7 +305,7 @@ func checkAndLoadPgpPrivateKey(keyfile string) (openpgp.EntityList, error) {
 		}
 		// get user's password
 		fmt.Printf("Insert pgp key password: ")
-		pwd, err := gopass.GetPasswd()
+		pwd, err := gopass.GetPasswdMasked()
 		if err != nil {
 			return nil, err
 		}
@@ -335,4 +357,28 @@ func loadRecipientsPublicKeys(keys []string) (openpgp.EntityList, error) {
 		entityList = append(entityList, entity...)
 	}
 	return entityList, nil
+}
+
+// verbosePreRunInfos prints out verbose infos before executing
+// commands.
+func verbosePreRunInfos(cmd *cobra.Command, args []string) {
+	if viper.GetBool(am["verbose"].name) == true {
+		log.VerboseLog("Using config file: %s.\n", viper.ConfigFileUsed())
+		log.VerboseLog(
+			"Context:\n"+
+				"\tVersion: %s\n"+
+				"\tStorage service: %s:%d\n"+
+				"\tAuthentication service: %s:%d\n"+
+				"\tInternal parameters: working queue size %d, queue %d\n"+
+				"\tChunk parameters: size %d compressed %v\n",
+			ver.V().VersionString(),
+			viper.GetString(am["storageaddress"].name),
+			viper.GetInt(am["storageport"].name),
+			viper.GetString(am["authaddress"].name),
+			viper.GetInt(am["authport"].name),
+			viper.GetInt(am["workerscount"].name),
+			viper.GetInt(am["queuesize"].name),
+			viper.GetInt(am["chunksize"].name),
+			viper.GetBool(am["compressed"].name))
+	}
 }
