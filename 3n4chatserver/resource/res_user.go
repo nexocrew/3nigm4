@@ -7,6 +7,7 @@ package resource
 
 // Go standard libraries
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -41,10 +42,14 @@ func (a *Auth) Get(r *http.Request) (int, h.Resource) {
 	username := r.Header.Get(usernameHttpHeader)
 	password := r.Header.Get(passwordHttpHeader)
 
+	if username == "" || password == "" {
+		return http.StatusBadRequest, nil
+	}
+
 	// authenticate user via RPC service
 	token, err := a.AuthClient.Login(username, password)
 	if err != nil {
-		return http.StatusBadRequest, nil
+		return http.StatusForbidden, nil
 	}
 
 	// generate sessionToken and send reply

@@ -59,7 +59,7 @@ func GetResources() []h.ResourcePath {
 func GetLoginResource(authClient *auth.AuthRPC) []h.ResourcePath {
 	return []h.ResourcePath{
 		h.ResourcePath{
-			Auth{
+			&Auth{
 				AuthClient: authClient,
 			},
 			"/login",
