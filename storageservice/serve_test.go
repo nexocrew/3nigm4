@@ -21,6 +21,7 @@ import (
 
 // Internal dependencies.
 import (
+	"github.com/nexocrew/3nigm4/lib/auth"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 	"github.com/nexocrew/3nigm4/lib/itm"
 	"github.com/nexocrew/3nigm4/lib/logger"
@@ -158,8 +159,8 @@ func mockDbStartup(arguments *args) (database, error) {
 	return mockdb, nil
 }
 
-func mockAuthStartup(a *args) (AuthClient, error) {
-	client, err := newAuthMock()
+func mockAuthStartup(a *args) (auth.AuthClient, error) {
+	client, err := auth.NewAuthMock()
 	if err != nil {
 		return nil, err
 	}
@@ -189,8 +190,8 @@ func TestPing(t *testing.T) {
 
 func TestLoginAndLogout(t *testing.T) {
 	loginBody := ct.LoginRequest{
-		Username: mockUserInfo.Username,
-		Password: mockUserPassword,
+		Username: auth.MockUserInfo.Username,
+		Password: auth.MockUserPassword,
 	}
 	body, err := json.Marshal(&loginBody)
 	if err != nil {
@@ -339,8 +340,8 @@ func verifyJobCompletion(t *testing.T, jobID, token string, timeout time.Duratio
 func TestStorageResourceFlow(t *testing.T) {
 	// Login the user
 	loginBody := ct.LoginRequest{
-		Username: mockUserInfo.Username,
-		Password: mockUserPassword,
+		Username: auth.MockUserInfo.Username,
+		Password: auth.MockUserPassword,
 	}
 	body, err := json.Marshal(&loginBody)
 	if err != nil {
@@ -614,8 +615,8 @@ func TestStorageGetResourceNotAuthenticated(t *testing.T) {
 func TestStorageUploadResourceDuplicated(t *testing.T) {
 	// Login the user
 	loginBody := ct.LoginRequest{
-		Username: mockUserInfo.Username,
-		Password: mockUserPassword,
+		Username: auth.MockUserInfo.Username,
+		Password: auth.MockUserPassword,
 	}
 	body, err := json.Marshal(&loginBody)
 	if err != nil {
@@ -789,8 +790,8 @@ func TestStorageUploadResourceDuplicated(t *testing.T) {
 func TestStorageDeleteJobDuplicated(t *testing.T) {
 	// Login the user
 	loginBody := ct.LoginRequest{
-		Username: mockUserInfo.Username,
-		Password: mockUserPassword,
+		Username: auth.MockUserInfo.Username,
+		Password: auth.MockUserPassword,
 	}
 	body, err := json.Marshal(&loginBody)
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 
 // Internal dependencies
 import (
+	"github.com/nexocrew/3nigm4/lib/auth"
 	s3c "github.com/nexocrew/3nigm4/lib/s3"
 )
 
@@ -97,18 +98,18 @@ func mgoStartup(a *args) (database, error) {
 }
 
 // RPC client instance, usable by different goroutines simultaneously.
-var authClient AuthClient
+var authClient auth.AuthClient
 
 // This var is used to permitt to switch to mock auth implementation
 // in unit-tests, do not mess with it for other reasons.
 // The default, production targeting, implementation uses RPC Auth
 // service to manage authentication.
-var authClientStartup func(*args) (AuthClient, error) = rpcClientStartup
+var authClientStartup func(*args) (auth.AuthClient, error) = rpcClientStartup
 
 // rpcClientStartup creates an RPC client and returns it if no error
 // encountered. It manage a success log if all went right.
-func rpcClientStartup(a *args) (AuthClient, error) {
-	client, err := NewAuthRpc(arguments.authServiceAddress, arguments.authServicePort)
+func rpcClientStartup(a *args) (auth.AuthClient, error) {
+	client, err := auth.NewAuthRpc(arguments.authServiceAddress, arguments.authServicePort)
 	if err != nil {
 		return nil, err
 	}

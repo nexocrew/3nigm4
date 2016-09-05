@@ -9,7 +9,7 @@
 // optimisation logic.
 //
 
-package main
+package auth
 
 // Std golang libs
 import (
@@ -20,41 +20,40 @@ import (
 
 // Internal libs
 import (
-	"github.com/nexocrew/3nigm4/lib/auth"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
 var (
-	mockUserInfo = &auth.UserInfoResponseArg{
+	MockUserInfo = &UserInfoResponseArg{
 		Username: "userA",
 		FullName: "User A",
 		Email:    "usera@mail.com",
-		Permissions: &auth.Permissions{
+		Permissions: &Permissions{
 			SuperAdmin: false,
-			Services: map[string]auth.Level{
-				"storage": auth.LevelUser,
+			Services: map[string]Level{
+				"storage": LevelUser,
 			},
 		},
 		LastSeen: time.Now(),
 	}
-	mockUserPassword = "passwordA"
+	MockUserPassword = "passwordA"
 )
 
-type authMock struct {
+type AuthMock struct {
 	credentials map[string]string
-	sessions    map[string]*auth.UserInfoResponseArg
+	sessions    map[string]*UserInfoResponseArg
 }
 
-func newAuthMock() (*authMock, error) {
-	return &authMock{
+func NewAuthMock() (*AuthMock, error) {
+	return &AuthMock{
 		credentials: map[string]string{
-			mockUserInfo.Username: mockUserPassword,
+			MockUserInfo.Username: MockUserPassword,
 		},
-		sessions: make(map[string]*auth.UserInfoResponseArg),
+		sessions: make(map[string]*UserInfoResponseArg),
 	}, nil
 }
 
-func (a *authMock) Login(username string, password string) ([]byte, error) {
+func (a *AuthMock) Login(username string, password string) ([]byte, error) {
 	if password != a.credentials[username] {
 		return nil, fmt.Errorf("wrong credentials")
 	}
@@ -62,16 +61,16 @@ func (a *authMock) Login(username string, password string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.sessions[hex.EncodeToString(token)] = mockUserInfo
+	a.sessions[hex.EncodeToString(token)] = MockUserInfo
 	return token, nil
 }
 
-func (a *authMock) Logout(token []byte) ([]byte, error) {
+func (a *AuthMock) Logout(token []byte) ([]byte, error) {
 	delete(a.sessions, hex.EncodeToString(token))
 	return token, nil
 }
 
-func (a *authMock) AuthoriseAndGetInfo(token []byte) (*auth.UserInfoResponseArg, error) {
+func (a *AuthMock) AuthoriseAndGetInfo(token []byte) (*UserInfoResponseArg, error) {
 	info, ok := a.sessions[hex.EncodeToString(token)]
 	if !ok {
 		return nil, fmt.Errorf("wrong session token")
@@ -79,6 +78,6 @@ func (a *authMock) AuthoriseAndGetInfo(token []byte) (*auth.UserInfoResponseArg,
 	return info, nil
 }
 
-func (a *authMock) Close() error {
+func (a *AuthMock) Close() error {
 	return nil
 }
