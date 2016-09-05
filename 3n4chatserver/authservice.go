@@ -33,19 +33,19 @@ type AuthRPC struct {
 
 // NewAuthRPC creates a new instance of the RPC
 // client used to interact with the auth service.
-func NewAuthRPC(addr string, port int) (*AuthRpc, error) {
+func NewAuthRPC(addr string, port int) (*AuthRPC, error) {
 	address := fmt.Sprintf("%s:%d", addr, port)
 	rawClient, err := rpc.DialHTTP("tcp", address)
 	if err != nil {
 		return nil, err
 	}
-	return &AuthRpc{
+	return &AuthRPC{
 		client: rawClient,
 	}, nil
 }
 
 // Login grant access to users, over RPC, using username and password.
-func (a *AuthRpc) Login(username string, password string) ([]byte, error) {
+func (a *AuthRPC) Login(username string, password string) ([]byte, error) {
 	// perform login on RPC service
 	var loginResponse auth.LoginResponseArg
 	err := a.client.Call("Login.Login", &auth.LoginRequestArg{
@@ -59,7 +59,7 @@ func (a *AuthRpc) Login(username string, password string) ([]byte, error) {
 }
 
 // Logout remove actual active sessions over RPC.
-func (a *AuthRpc) Logout(token []byte) ([]byte, error) {
+func (a *AuthRPC) Logout(token []byte) ([]byte, error) {
 	var logoutResponse auth.LogoutResponseArg
 	err := a.client.Call("Login.Logout", &auth.LogoutRequestArg{
 		Token: token,
@@ -72,7 +72,7 @@ func (a *AuthRpc) Logout(token []byte) ([]byte, error) {
 
 // AuthoriseAndGetInfo if the token is valid returns info about
 // the associated user over RPC service.
-func (a *AuthRpc) AuthoriseAndGetInfo(token []byte) (*auth.UserInfoResponseArg, error) {
+func (a *AuthRPC) AuthoriseAndGetInfo(token []byte) (*auth.UserInfoResponseArg, error) {
 	// verify token and retrieve user infos
 	var authResponse auth.UserInfoResponseArg
 	err := a.client.Call("SessionAuth.UserInfo", &auth.AuthenticateRequestArg{
@@ -85,6 +85,6 @@ func (a *AuthRpc) AuthoriseAndGetInfo(token []byte) (*auth.UserInfoResponseArg, 
 }
 
 // Close closes RPC connection.
-func (a *AuthRpc) Close() error {
+func (a *AuthRPC) Close() error {
 	return a.client.Close()
 }
