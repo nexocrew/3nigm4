@@ -25,15 +25,13 @@ func router() *mux.Router {
 	// create router
 	r := mux.NewRouter()
 	// define auth routes
-	r.HandleFunc(basePath+"/authsession", login).Methods("POST")
-	r.HandleFunc(basePath+"/authsession", logout).Methods("DELETE")
-
-	// utility routes
-	// r.HandleFunc(basePath+"/ping", ping).Methods("GET")
-	// r.HandleFunc("/{"+kMuxVersion+"}/backdoor", backdoor).Methods("GET")
+	paths := res.GetLoginResource(authClient)
+	for _, path := range paths {
+		r.HandleFunc(basePath+path.Pattern, h.Handler(path.Resource))
+	}
 
 	// REST resources
-	paths := res.GetResources()
+	paths = res.GetResources()
 	for _, path := range paths {
 		r.HandleFunc(basePath+path.Pattern, h.Handler(path.Resource))
 	}
@@ -41,12 +39,4 @@ func router() *mux.Router {
 	http.Handle("/", r)
 
 	return r
-}
-
-func login(rw http.ResponseWriter, request *http.Request) {
-
-}
-
-func logout(rw http.ResponseWriter, request *http.Request) {
-
 }

@@ -8,7 +8,7 @@
 // concurrency safe and do not implement any performance
 // optimisation logic.
 //
-package main
+package auth
 
 // Go standard libraries
 import (
@@ -19,19 +19,19 @@ import (
 
 // 3n4 libraries
 import (
-	"github.com/nexocrew/3nigm4/lib/auth"
+	// "github.com/nexocrew/3nigm4/lib/auth"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
 var (
-	mockUserInfo = &auth.UserInfoResponseArg{
+	mockUserInfo = &UserInfoResponseArg{
 		Username: "userA",
 		FullName: "User A",
 		Email:    "usera@mail.com",
-		Permissions: &auth.Permissions{
+		Permissions: &Permissions{
 			SuperAdmin: false,
-			Services: map[string]auth.Level{
-				"storage": auth.LevelUser,
+			Services: map[string]Level{
+				"storage": LevelUser,
 			},
 		},
 		LastSeen: time.Now(),
@@ -41,7 +41,7 @@ var (
 
 type authMock struct {
 	credentials map[string]string
-	sessions    map[string]*auth.UserInfoResponseArg
+	sessions    map[string]*UserInfoResponseArg
 }
 
 func newAuthMock() (*authMock, error) {
@@ -49,7 +49,7 @@ func newAuthMock() (*authMock, error) {
 		credentials: map[string]string{
 			mockUserInfo.Username: mockUserPassword,
 		},
-		sessions: make(map[string]*auth.UserInfoResponseArg),
+		sessions: make(map[string]*UserInfoResponseArg),
 	}, nil
 }
 
@@ -70,7 +70,7 @@ func (a *authMock) Logout(token []byte) ([]byte, error) {
 	return token, nil
 }
 
-func (a *authMock) AuthoriseAndGetInfo(token []byte) (*auth.UserInfoResponseArg, error) {
+func (a *authMock) AuthoriseAndGetInfo(token []byte) (*UserInfoResponseArg, error) {
 	info, ok := a.sessions[hex.EncodeToString(token)]
 	if !ok {
 		return nil, fmt.Errorf("wrong session token")

@@ -8,12 +8,12 @@ package main
 // Go standard libraries
 import (
 	"fmt"
-	// "net/http"
 	"os"
 )
 
 // 3n4 libraries
 import (
+	"github.com/nexocrew/3nigm4/lib/auth"
 	"github.com/nexocrew/3nigm4/lib/logger"
 	"github.com/nexocrew/3nigm4/lib/logo"
 	ver "github.com/nexocrew/3nigm4/lib/version"
@@ -29,6 +29,9 @@ var log *logger.LogFacility
 
 // Cobra parsed arguments
 var a args
+
+// AuthRPC client
+var authClient *auth.AuthRPC
 
 // init a cobra command
 var rootCmd = &cobra.Command{

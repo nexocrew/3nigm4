@@ -1,3 +1,8 @@
+//
+// 3nigm4 chatservice package
+// Author: Federico Maggi <federicomaggi92@gmail.com>
+// v1.0 23/08/2016
+//
 package resource
 
 import (
@@ -8,6 +13,7 @@ import (
 	h "github.com/nexocrew/3nigm4/lib/httphandler"
 )
 
+type Backdoor struct{}
 type Ping struct{}
 type Pong struct {
 	Status string `json:"status"`
