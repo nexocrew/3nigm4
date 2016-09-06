@@ -14,20 +14,20 @@ import (
 )
 
 import (
-	db "github.com/nexocrew/3nigm4/lib/database/client"
+	dty "github.com/nexocrew/3nigm4/lib/database/types"
 )
 
 // Global vars protecting mutex.
 var mtx sync.Mutex
 
 // Runtime allocated global base database instance.
-var dbclient db.Database
+var dbclient dty.Database
 
 // SetGlobalDbClient must be called to set the global db client,
 // that implements the Database interface, to be used by RPC
 // exposed functions. This function must be always invoked before
 // proceeding registering other fucntions.
-func SetGlobalDbClient(database db.Database) {
+func SetGlobalDbClient(database dty.Database) {
 	mtx.Lock()
 	dbclient = database
 	mtx.Unlock()

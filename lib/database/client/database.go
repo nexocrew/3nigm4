@@ -41,43 +41,6 @@ const (
 	kMaxSessionExistance       = 24 * time.Hour
 )
 
-// DbArgs is the exposed arguments
-// required by each database interface
-// implementing structs.
-type DbArgs struct {
-	Addresses []string // cluster addresses in form <addr>:<port>;
-	User      string   // authentication username;
-	Password  string   // authentication password;
-	AuthDb    string   // the auth db.
-}
-
-// Database an interface defining a generic
-// db, package targeting, implementation.
-type Database interface {
-	// db client related functions
-	Copy() Database // retain the db client in a multi-coroutine environment;
-	Close()         // release the client;
-	// user behaviour
-	GetUser(string) (*aty.User, error) // gets a user struct from an argument username;
-	SetUser(*aty.User) error           // creates a new user in the db;
-	RemoveUser(string) error           // remove an user from the db;
-	// session behaviour
-	GetSession([]byte) (*aty.Session, error) // search for a session in the db;
-	SetSession(*aty.Session) error           // insert a session in the db;
-	RemoveSession([]byte) error              // remove an existing session;
-	RemoveAllSessions() error                // remove all sessions in the db.
-	// db create file log
-	SetFileLog(fl *dty.FileLog) error             // add a new file log when a file is uploaded;
-	UpdateFileLog(fl *dty.FileLog) error          // update an existing file log;
-	GetFileLog(file string) (*dty.FileLog, error) // get infos to a previously uploaded file;
-	RemoveFileLog(file string) error              // remove a previously added file log;
-	// async tx
-	SetAsyncTx(at *dty.AsyncTx) error           // add a new async tx record;
-	UpdateAsyncTx(at *dty.AsyncTx) error        // update an existing async tx;
-	GetAsyncTx(id string) (*dty.AsyncTx, error) // get an existing tx;
-	RemoveAsyncTx(id string) error              // remove an existing tx (typically should be done automatically with a ttl setup).
-}
-
 // Mongodb database, wrapping mgo session
 // structure.
 type Mongodb struct {
@@ -92,7 +55,7 @@ type Mongodb struct {
 }
 
 // composeDbAddress compose a string starting from dbArgs slice.
-func composeDbAddress(args *DbArgs) string {
+func composeDbAddress(args *dty.DbArgs) string {
 	dbAccess := fmt.Sprintf("mongodb://%s:%s@", args.User, args.Password)
 	for idx, addr := range args.Addresses {
 		dbAccess += addr
@@ -106,7 +69,7 @@ func composeDbAddress(args *DbArgs) string {
 
 // MgoSession get a new session starting from the standard args
 // structure.
-func MgoSession(args *DbArgs) (*Mongodb, error) {
+func MgoSession(args *dty.DbArgs) (*Mongodb, error) {
 	s, err := mgo.Dial(composeDbAddress(args))
 	if err != nil {
 		return nil, err
@@ -138,7 +101,7 @@ func MgoSession(args *DbArgs) (*Mongodb, error) {
 }
 
 // Copy the internal session to permitt multi corutine usage.
-func (d *Mongodb) Copy() Database {
+func (d *Mongodb) Copy() dty.Database {
 	return &Mongodb{
 		session:            d.session.Copy(),
 		database:           d.database,

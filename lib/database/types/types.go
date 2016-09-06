@@ -6,8 +6,46 @@ import (
 )
 
 import (
+	aty "github.com/nexocrew/3nigm4/lib/auth/types"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
+
+// Database an interface defining a generic
+// db, package targeting, implementation.
+type Database interface {
+	// db client related functions
+	Copy() Database // retain the db client in a multi-coroutine environment;
+	Close()         // release the client;
+	// user behaviour
+	GetUser(string) (*aty.User, error) // gets a user struct from an argument username;
+	SetUser(*aty.User) error           // creates a new user in the db;
+	RemoveUser(string) error           // remove an user from the db;
+	// session behaviour
+	GetSession([]byte) (*aty.Session, error) // search for a session in the db;
+	SetSession(*aty.Session) error           // insert a session in the db;
+	RemoveSession([]byte) error              // remove an existing session;
+	RemoveAllSessions() error                // remove all sessions in the db.
+	// db create file log
+	SetFileLog(fl *FileLog) error             // add a new file log when a file is uploaded;
+	UpdateFileLog(fl *FileLog) error          // update an existing file log;
+	GetFileLog(file string) (*FileLog, error) // get infos to a previously uploaded file;
+	RemoveFileLog(file string) error          // remove a previously added file log;
+	// async tx
+	SetAsyncTx(at *AsyncTx) error           // add a new async tx record;
+	UpdateAsyncTx(at *AsyncTx) error        // update an existing async tx;
+	GetAsyncTx(id string) (*AsyncTx, error) // get an existing tx;
+	RemoveAsyncTx(id string) error          // remove an existing tx (typically should be done automatically with a ttl setup).
+}
+
+// DbArgs is the exposed arguments
+// required by each database interface
+// implementing structs.
+type DbArgs struct {
+	Addresses []string // cluster addresses in form <addr>:<port>;
+	User      string   // authentication username;
+	Password  string   // authentication password;
+	AuthDb    string   // the auth db.
+}
 
 // FileLog is used to store all informations about an uploaded file,
 // this record will be used, later on, to manage access to the file and

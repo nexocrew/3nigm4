@@ -21,9 +21,11 @@ import (
 
 // Internal dependencies.
 import (
-	"github.com/nexocrew/3nigm4/lib/auth/client"
+	auth "github.com/nexocrew/3nigm4/lib/auth/client"
 	"github.com/nexocrew/3nigm4/lib/auth/mock"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
+	"github.com/nexocrew/3nigm4/lib/database/mock"
+	dty "github.com/nexocrew/3nigm4/lib/database/types"
 	"github.com/nexocrew/3nigm4/lib/itm"
 	"github.com/nexocrew/3nigm4/lib/logger"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
@@ -147,12 +149,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func mockDbStartup(arguments *args) (database, error) {
-	mockdb := newMockDb(&dbArgs{
-		addresses: strings.Split(arguments.dbAddresses, ","),
-		user:      arguments.dbUsername,
-		password:  arguments.dbPassword,
-		authDb:    arguments.dbAuth,
+func mockDbStartup(arguments *args) (dty.Database, error) {
+	mockdb := dbmock.NewMockDb(&dty.DbArgs{
+		Addresses: strings.Split(arguments.dbAddresses, ","),
+		User:      arguments.dbUsername,
+		Password:  arguments.dbPassword,
+		AuthDb:    arguments.dbAuth,
 	})
 
 	log.MessageLog("Mockdb %s successfully connected.\n", arguments.dbAddresses)
@@ -161,7 +163,7 @@ func mockDbStartup(arguments *args) (database, error) {
 }
 
 func mockAuthStartup(a *args) (auth.AuthClient, error) {
-	client, err := auth.NewAuthMock()
+	client, err := authmock.NewAuthMock()
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +193,8 @@ func TestPing(t *testing.T) {
 
 func TestLoginAndLogout(t *testing.T) {
 	loginBody := ct.LoginRequest{
-		Username: auth.MockUserInfo.Username,
-		Password: auth.MockUserPassword,
+		Username: authmock.MockUserInfo.Username,
+		Password: authmock.MockUserPassword,
 	}
 	body, err := json.Marshal(&loginBody)
 	if err != nil {
@@ -341,8 +343,8 @@ func verifyJobCompletion(t *testing.T, jobID, token string, timeout time.Duratio
 func TestStorageResourceFlow(t *testing.T) {
 	// Login the user
 	loginBody := ct.LoginRequest{
-		Username: auth.MockUserInfo.Username,
-		Password: auth.MockUserPassword,
+		Username: authmock.MockUserInfo.Username,
+		Password: authmock.MockUserPassword,
 	}
 	body, err := json.Marshal(&loginBody)
 	if err != nil {
@@ -616,8 +618,8 @@ func TestStorageGetResourceNotAuthenticated(t *testing.T) {
 func TestStorageUploadResourceDuplicated(t *testing.T) {
 	// Login the user
 	loginBody := ct.LoginRequest{
-		Username: auth.MockUserInfo.Username,
-		Password: auth.MockUserPassword,
+		Username: authmock.MockUserInfo.Username,
+		Password: authmock.MockUserPassword,
 	}
 	body, err := json.Marshal(&loginBody)
 	if err != nil {
@@ -791,8 +793,8 @@ func TestStorageUploadResourceDuplicated(t *testing.T) {
 func TestStorageDeleteJobDuplicated(t *testing.T) {
 	// Login the user
 	loginBody := ct.LoginRequest{
-		Username: auth.MockUserInfo.Username,
-		Password: auth.MockUserPassword,
+		Username: authmock.MockUserInfo.Username,
+		Password: authmock.MockUserPassword,
 	}
 	body, err := json.Marshal(&loginBody)
 	if err != nil {

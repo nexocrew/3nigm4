@@ -6,10 +6,29 @@
 
 package main
 
+// Golang std libs
+import (
+	"time"
+)
+
 // Internal libs
 import (
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
+
+const (
+	defaultDatabaseName           = "storageservice"
+	defaultFilesLogCollectionName = "fileslog"
+	defaultAsyncTxCollectionName  = "asynctx"
+	envDatabaseName               = "NEXO_FILESLOG_DATABASE"
+	envFilesLogCollectionName     = "NEXO_FILESLOG_COLLECTION"
+	envAsyncTxCollectionName      = "NEXO_ASYNCTX_COLLECTION"
+)
+
+// MaxAsyncTxExistance represent the maximum time
+// that an async job can remain pending in the database
+// before being automatically deleted.
+var MaxAsyncTxExistance = 1 * time.Hour
 
 // These are the available permission types applicable to the stored
 // files.
