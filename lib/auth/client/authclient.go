@@ -3,7 +3,7 @@
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 16/06/2016
 //
-package auth
+package authclient
 
 // Std golang packages
 import (
@@ -11,13 +11,18 @@ import (
 	"net/rpc"
 )
 
+// 3n4 libraries
+import (
+	t "github.com/nexocrew/3nigm4/lib/auth/types"
+)
+
 // AuthClient is the interface used to interact
 // with authentication services.
 type AuthClient interface {
-	Login(string, string) ([]byte, error)                     // manage user's login;
-	Logout([]byte) ([]byte, error)                            // manage user's logout;
-	AuthoriseAndGetInfo([]byte) (*UserInfoResponseArg, error) // returns authenticated user infos or an error;
-	Close() error                                             // closes eventual connections.
+	Login(string, string) ([]byte, error)                       // manage user's login;
+	Logout([]byte) ([]byte, error)                              // manage user's logout;
+	AuthoriseAndGetInfo([]byte) (*t.UserInfoResponseArg, error) // returns authenticated user infos or an error;
+	Close() error                                               // closes eventual connections.
 }
 
 // AuthRpc implements the RPC default client for
@@ -42,8 +47,8 @@ func NewAuthRpc(addr string, port int) (*AuthRpc, error) {
 // Login grant access to users, over RPC, using username and password.
 func (a *AuthRpc) Login(username string, password string) ([]byte, error) {
 	// perform login on RPC service
-	var loginResponse LoginResponseArg
-	err := a.client.Call("Login.Login", &LoginRequestArg{
+	var loginResponse t.LoginResponseArg
+	err := a.client.Call("Login.Login", &t.LoginRequestArg{
 		Username: username,
 		Password: password,
 	}, &loginResponse)
@@ -55,8 +60,8 @@ func (a *AuthRpc) Login(username string, password string) ([]byte, error) {
 
 // Logout remove actual active sessions over RPC.
 func (a *AuthRpc) Logout(token []byte) ([]byte, error) {
-	var logoutResponse LogoutResponseArg
-	err := a.client.Call("Login.Logout", &LogoutRequestArg{
+	var logoutResponse t.LogoutResponseArg
+	err := a.client.Call("Login.Logout", &t.LogoutRequestArg{
 		Token: token,
 	}, &logoutResponse)
 	if err != nil {
@@ -67,10 +72,10 @@ func (a *AuthRpc) Logout(token []byte) ([]byte, error) {
 
 // AuthoriseAndGetInfo if the token is valid returns info about
 // the associated user over RPC service.
-func (a *AuthRpc) AuthoriseAndGetInfo(token []byte) (*UserInfoResponseArg, error) {
+func (a *AuthRpc) AuthoriseAndGetInfo(token []byte) (*t.UserInfoResponseArg, error) {
 	// verify token and retrieve user infos
-	var authResponse UserInfoResponseArg
-	err := a.client.Call("SessionAuth.UserInfo", &AuthenticateRequestArg{
+	var authResponse t.UserInfoResponseArg
+	err := a.client.Call("SessionAuth.UserInfo", &t.AuthenticateRequestArg{
 		Token: token,
 	}, &authResponse)
 	if err != nil {

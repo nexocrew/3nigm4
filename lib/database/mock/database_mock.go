@@ -9,7 +9,7 @@
 // optimisation logic.
 //
 
-package auth
+package authmock
 
 // Golang std libs
 import (
@@ -27,7 +27,7 @@ type mockdb struct {
 	sessionStorage map[string]*Session
 }
 
-func newMockDb(args *DbArgs) *mockdb {
+func NewMockDb(args *DbArgs) *mockdb {
 	return &mockdb{
 		addresses:      composeDbAddress(args),
 		user:           args.User,

@@ -9,7 +9,7 @@
 // optimisation logic.
 //
 
-package auth
+package authmock
 
 // Std golang libs
 import (

@@ -11,13 +11,17 @@
 // offline tests.
 // In production this file is a simple wrapper around
 // mgo package.
-package auth
+package database
 
 // Golang std libs
 import (
 	"fmt"
 	"os"
 	"time"
+)
+
+import (
+	ty "github.com/nexocrew/3nigm4/lib/auth/types"
 )
 
 // Third party libs
@@ -53,14 +57,14 @@ type Database interface {
 	Copy() Database // retain the db client in a multi-coroutine environment;
 	Close()         // release the client;
 	// user behaviour
-	GetUser(string) (*User, error) // gets a user struct from an argument username;
-	SetUser(*User) error           // creates a new user in the db;
-	RemoveUser(string) error       // remove an user from the db;
+	GetUser(string) (*ty.User, error) // gets a user struct from an argument username;
+	SetUser(*ty.User) error           // creates a new user in the db;
+	RemoveUser(string) error          // remove an user from the db;
 	// session behaviour
-	GetSession([]byte) (*Session, error) // search for a session in the db;
-	SetSession(*Session) error           // insert a session in the db;
-	RemoveSession([]byte) error          // remove an existing session;
-	RemoveAllSessions() error            // remove all sessions in the db.
+	GetSession([]byte) (*ty.Session, error) // search for a session in the db;
+	SetSession(*ty.Session) error           // insert a session in the db;
+	RemoveSession([]byte) error             // remove an existing session;
+	RemoveAllSessions() error               // remove all sessions in the db.
 }
 
 // Mongodb database, wrapping mgo session
@@ -136,13 +140,13 @@ func (d *Mongodb) Close() {
 
 // GetUser get user strucutre from a given username, if
 // something wrong returns an error.
-func (d *Mongodb) GetUser(username string) (*User, error) {
+func (d *Mongodb) GetUser(username string) (*ty.User, error) {
 	// build query
 	selector := bson.M{
 		"username": bson.M{"$eq": username},
 	}
 	// perform db query
-	var user User
+	var user ty.User
 	err := d.session.DB(d.database).C(d.usersCollection).Find(selector).One(&user)
 	if err != nil {
 		return nil, err
@@ -152,7 +156,7 @@ func (d *Mongodb) GetUser(username string) (*User, error) {
 
 // SetUser adds an argument User struct to the database,
 // returns an error if something went wrong.
-func (d *Mongodb) SetUser(user *User) error {
+func (d *Mongodb) SetUser(user *ty.User) error {
 	selector := bson.M{
 		"username": user.Username,
 	}
@@ -183,13 +187,13 @@ func (d *Mongodb) RemoveUser(username string) error {
 // GetSession check if a session is available and still valid
 // veryfing time of last seen contact against pre-defined
 // timeout value.
-func (d *Mongodb) GetSession(token []byte) (*Session, error) {
+func (d *Mongodb) GetSession(token []byte) (*ty.Session, error) {
 	// build query
 	selector := bson.M{
 		"token": bson.M{"$eq": token},
 	}
 	// perform db query
-	var session Session
+	var session ty.Session
 	err := d.session.DB(d.database).C(d.sessionsCollection).Find(selector).One(&session)
 	if err != nil {
 		return nil, err
@@ -198,7 +202,7 @@ func (d *Mongodb) GetSession(token []byte) (*Session, error) {
 }
 
 // SetSession add a session data to the database.
-func (d *Mongodb) SetSession(session *Session) error {
+func (d *Mongodb) SetSession(session *ty.Session) error {
 	selector := bson.M{
 		"token": session.Token,
 	}

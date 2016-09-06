@@ -4,7 +4,7 @@
 // v1.0 16/06/2016
 //
 
-package auth
+package authserver
 
 // Golang std libs
 import (
@@ -14,6 +14,10 @@ import (
 	"io"
 	"strconv"
 	"time"
+)
+
+import (
+	ty "github.com/nexocrew/3nigm4/lib/auth/types"
 )
 
 // Third party libs
@@ -66,22 +70,10 @@ func generateSessionToken(username string) ([]byte, error) {
 // Login the RPC required custom type.
 type Login int
 
-// LoginRequestArg define the RPC request struct
-type LoginRequestArg struct {
-	Username string // the authenticating username;
-	Password string // plaintext password.
-}
-
-// LoginResponseArg the returned login structure
-// having the user assigned session token.
-type LoginResponseArg struct {
-	Token []byte // the session token to be used, from now on, to communicate with server.
-}
-
 // Login RPC exposed functions it's create a session token
 // after verifying that the username and password are already
 // registered in the system.
-func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
+func (t *Login) Login(args *ty.LoginRequestArg, response *ty.LoginResponseArg) error {
 	// check for session
 	if dbclient == nil {
 		return fmt.Errorf("invalid db session, unable to proceed")
@@ -116,7 +108,7 @@ func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
 	}
 	// save to the database
 	now := time.Now()
-	err = client.SetSession(&Session{
+	err = client.SetSession(&ty.Session{
 		Token:        token,
 		Username:     reference.Username,
 		LoginTime:    now,
@@ -131,21 +123,9 @@ func (t *Login) Login(args *LoginRequestArg, response *LoginResponseArg) error {
 	return nil
 }
 
-// LogoutRequestArg is the request passed to logout the
-// user's sessions.
-type LogoutRequestArg struct {
-	Token []byte // the session token used to identify the user.
-}
-
-// LogoutResponseArg is the structure used to return the
-// list of invalidated sessions.
-type LogoutResponseArg struct {
-	Invalidated []byte
-}
-
 // Logout RPC exposed function logout a user, starting from a valid active
 // session and remove all opened session related to that user.
-func (t *Login) Logout(args *LogoutRequestArg, response *LogoutResponseArg) error {
+func (t *Login) Logout(args *ty.LogoutRequestArg, response *ty.LogoutResponseArg) error {
 	// check for session
 	if dbclient == nil {
 		return fmt.Errorf("invalid db session, unable to proceed")

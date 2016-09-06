@@ -17,14 +17,14 @@ import (
 
 // Internal libs
 import (
-	"github.com/nexocrew/3nigm4/lib/auth"
+	ty "github.com/nexocrew/3nigm4/lib/auth/types"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
 // createStorageResource upload a data chunk to the S3 backend service
 // after authorising the user. It operates in async mode to perform the
 // actual upload using a working queue to integrate S3 backend.
-func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *auth.UserInfoResponseArg) {
+func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *ty.UserInfoResponseArg) {
 	if args.Arguments.Data == nil ||
 		len(args.Arguments.Data) == 0 {
 		riseError(http.StatusBadRequest,
@@ -110,7 +110,7 @@ func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobP
 // checkAclPermission verify all possible acl scenarios and check if the
 // requiring user has required permissions to access the file. If user can
 // download it it'll return true otherwise false.
-func checkAclPermission(userInfo *auth.UserInfoResponseArg, fileLog *FileLog) bool {
+func checkAclPermission(userInfo *ty.UserInfoResponseArg, fileLog *FileLog) bool {
 	// check access credentials
 	switch fileLog.Acl.Permission {
 	case Private:
@@ -138,7 +138,7 @@ func checkAclPermission(userInfo *auth.UserInfoResponseArg, fileLog *FileLog) bo
 // it is exposed via a REST GET method and returns a txId usable with the verify
 // API call toretrieve the actual downloaded data (from S3 storage). The user
 // must be correctly authenticated to be able to access the requested resource.
-func retrieveStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *auth.UserInfoResponseArg) {
+func retrieveStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *ty.UserInfoResponseArg) {
 	// retain db
 	dbSession := db.Copy()
 	defer dbSession.Close()
@@ -200,7 +200,7 @@ func retrieveStorageResource(w http.ResponseWriter, r *http.Request, args *ct.Jo
 
 // deleteStorageResource remove a file from the S3 storage: only the original file
 // owner (who uploaded it) can remove a file from there.
-func deleteStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *auth.UserInfoResponseArg) {
+func deleteStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *ty.UserInfoResponseArg) {
 	// retain db
 	dbSession := db.Copy()
 	defer dbSession.Close()

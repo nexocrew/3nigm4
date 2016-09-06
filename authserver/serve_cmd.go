@@ -17,7 +17,8 @@ import (
 
 // Internal dependencies
 import (
-	"github.com/nexocrew/3nigm4/lib/auth"
+	auth "github.com/nexocrew/3nigm4/lib/auth/server"
+	db "github.com/nexocrew/3nigm4/lib/database/client"
 )
 
 // Third party libs
@@ -48,13 +49,13 @@ func init() {
 // in unit-tests, do not mess with it for other reasons.
 // The default, production targeting, implementation uses Mongodb
 // as backend database system.
-var databaseStartup func(*args) (auth.Database, error) = mgoStartup
+var databaseStartup func(*args) (db.Database, error) = mgoStartup
 
 // mgoStartup implement startup logic for a mongodb based database
 // connection.
-func mgoStartup(arguments *args) (auth.Database, error) {
+func mgoStartup(arguments *args) (db.Database, error) {
 	// startup db
-	mgodb, err := auth.MgoSession(&auth.DbArgs{
+	mgodb, err := db.MgoSession(&db.DbArgs{
 		Addresses: strings.Split(arguments.dbAddresses, ","),
 		User:      arguments.dbUsername,
 		Password:  arguments.dbPassword,

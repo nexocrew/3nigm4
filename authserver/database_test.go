@@ -19,7 +19,7 @@ import (
 
 // Internal dependencies
 import (
-	"github.com/nexocrew/3nigm4/lib/auth"
+	"github.com/nexocrew/3nigm4/lib/auth/server"
 )
 
 // Third party libs

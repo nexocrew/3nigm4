@@ -21,7 +21,8 @@ import (
 
 // Internal dependencies.
 import (
-	"github.com/nexocrew/3nigm4/lib/auth"
+	"github.com/nexocrew/3nigm4/lib/auth/client"
+	"github.com/nexocrew/3nigm4/lib/auth/mock"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 	"github.com/nexocrew/3nigm4/lib/itm"
 	"github.com/nexocrew/3nigm4/lib/logger"

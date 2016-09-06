@@ -4,7 +4,7 @@
 // v1.0 16/06/2016
 //
 
-package auth
+package authserver
 
 // Golang std libs
 import (

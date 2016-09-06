@@ -20,7 +20,7 @@ import (
 
 // Internal dependencies.
 import (
-	"github.com/nexocrew/3nigm4/lib/auth"
+	"github.com/nexocrew/3nigm4/lib/auth/server"
 	"github.com/nexocrew/3nigm4/lib/itm"
 	"github.com/nexocrew/3nigm4/lib/logger"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"

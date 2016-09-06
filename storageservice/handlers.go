@@ -18,7 +18,7 @@ import (
 
 // Internal libs
 import (
-	"github.com/nexocrew/3nigm4/lib/auth"
+	ty "github.com/nexocrew/3nigm4/lib/auth/types"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
@@ -47,7 +47,7 @@ func riseError(status int, msg string, w http.ResponseWriter, ipa string) {
 // authoriseGettingUserInfos authorises the provided token
 // and return user associated data. If returns a nil value
 // it means something went wrong.
-func authoriseGettingUserInfos(authToken string) (*auth.UserInfoResponseArg, error) {
+func authoriseGettingUserInfos(authToken string) (*ty.UserInfoResponseArg, error) {
 	if authToken == "" {
 		return nil, fmt.Errorf("authorisation token is nil")
 	}

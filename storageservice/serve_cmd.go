@@ -15,7 +15,7 @@ import (
 
 // Internal dependencies
 import (
-	"github.com/nexocrew/3nigm4/lib/auth"
+	auth "github.com/nexocrew/3nigm4/lib/auth/client"
 	s3c "github.com/nexocrew/3nigm4/lib/s3"
 )
 
