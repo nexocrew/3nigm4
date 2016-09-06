@@ -16,6 +16,7 @@ import (
 // Internal dependencies
 import (
 	auth "github.com/nexocrew/3nigm4/lib/auth/client"
+	dbc "github.com/nexocrew/3nigm4/lib/database/client"
 	s3c "github.com/nexocrew/3nigm4/lib/s3"
 )
 
@@ -65,23 +66,23 @@ func init() {
 
 // Global database referring variable to be copied and released by
 // each goroutine.
-var db database
+var db dbc.Database
 
 // This var is used to permitt to switch to mock db implementation
 // in unit-tests, do not mess with it for other reasons.
 // The default, production targeting, implementation uses Mongodb
 // as backend database system.
-var databaseStartup func(*args) (database, error) = mgoStartup
+var databaseStartup func(*args) (dbc.Database, error) = mgoStartup
 
 // mgoStartup implement startup logic for a mongodb based database
 // connection.
-func mgoStartup(a *args) (database, error) {
+func mgoStartup(a *args) (dbc.Database, error) {
 	// startup db
-	mgodb, err := MgoSession(&dbArgs{
-		addresses: strings.Split(a.dbAddresses, ","),
-		user:      a.dbUsername,
-		password:  a.dbPassword,
-		authDb:    a.dbAuth,
+	mgodb, err := dbc.MgoSession(&dbc.DbArgs{
+		Addresses: strings.Split(a.dbAddresses, ","),
+		User:      a.dbUsername,
+		Password:  a.dbPassword,
+		AuthDb:    a.dbAuth,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to start db connection cause %s", err.Error())

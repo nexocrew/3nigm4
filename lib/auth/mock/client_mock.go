@@ -20,18 +20,19 @@ import (
 
 // Internal libs
 import (
+	ty "github.com/nexocrew/3nigm4/lib/auth/types"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
 var (
-	MockUserInfo = &UserInfoResponseArg{
+	MockUserInfo = &ty.UserInfoResponseArg{
 		Username: "userA",
 		FullName: "User A",
 		Email:    "usera@mail.com",
-		Permissions: &Permissions{
+		Permissions: &ty.Permissions{
 			SuperAdmin: false,
-			Services: map[string]Level{
-				"storage": LevelUser,
+			Services: map[string]ty.Level{
+				"storage": ty.LevelUser,
 			},
 		},
 		LastSeen: time.Now(),
@@ -41,7 +42,7 @@ var (
 
 type AuthMock struct {
 	credentials map[string]string
-	sessions    map[string]*UserInfoResponseArg
+	sessions    map[string]*ty.UserInfoResponseArg
 }
 
 func NewAuthMock() (*AuthMock, error) {
@@ -49,7 +50,7 @@ func NewAuthMock() (*AuthMock, error) {
 		credentials: map[string]string{
 			MockUserInfo.Username: MockUserPassword,
 		},
-		sessions: make(map[string]*UserInfoResponseArg),
+		sessions: make(map[string]*ty.UserInfoResponseArg),
 	}, nil
 }
 
@@ -70,7 +71,7 @@ func (a *AuthMock) Logout(token []byte) ([]byte, error) {
 	return token, nil
 }
 
-func (a *AuthMock) AuthoriseAndGetInfo(token []byte) (*UserInfoResponseArg, error) {
+func (a *AuthMock) AuthoriseAndGetInfo(token []byte) (*ty.UserInfoResponseArg, error) {
 	info, ok := a.sessions[hex.EncodeToString(token)]
 	if !ok {
 		return nil, fmt.Errorf("wrong session token")

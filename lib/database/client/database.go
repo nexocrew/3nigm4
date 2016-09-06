@@ -21,10 +21,11 @@ import (
 )
 
 import (
-	ty "github.com/nexocrew/3nigm4/lib/auth/types"
+	aty "github.com/nexocrew/3nigm4/lib/auth/types"
+	dty "github.com/nexocrew/3nigm4/lib/database/types"
 )
 
-// Third party libs
+// Third paraty libs
 import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -57,14 +58,24 @@ type Database interface {
 	Copy() Database // retain the db client in a multi-coroutine environment;
 	Close()         // release the client;
 	// user behaviour
-	GetUser(string) (*ty.User, error) // gets a user struct from an argument username;
-	SetUser(*ty.User) error           // creates a new user in the db;
-	RemoveUser(string) error          // remove an user from the db;
+	GetUser(string) (*aty.User, error) // gets a user struct from an argument username;
+	SetUser(*aty.User) error           // creates a new user in the db;
+	RemoveUser(string) error           // remove an user from the db;
 	// session behaviour
-	GetSession([]byte) (*ty.Session, error) // search for a session in the db;
-	SetSession(*ty.Session) error           // insert a session in the db;
-	RemoveSession([]byte) error             // remove an existing session;
-	RemoveAllSessions() error               // remove all sessions in the db.
+	GetSession([]byte) (*aty.Session, error) // search for a session in the db;
+	SetSession(*aty.Session) error           // insert a session in the db;
+	RemoveSession([]byte) error              // remove an existing session;
+	RemoveAllSessions() error                // remove all sessions in the db.
+	// db create file log
+	SetFileLog(fl *dty.FileLog) error             // add a new file log when a file is uploaded;
+	UpdateFileLog(fl *dty.FileLog) error          // update an existing file log;
+	GetFileLog(file string) (*dty.FileLog, error) // get infos to a previously uploaded file;
+	RemoveFileLog(file string) error              // remove a previously added file log;
+	// async tx
+	SetAsyncTx(at *dty.AsyncTx) error           // add a new async tx record;
+	UpdateAsyncTx(at *dty.AsyncTx) error        // update an existing async tx;
+	GetAsyncTx(id string) (*dty.AsyncTx, error) // get an existing tx;
+	RemoveAsyncTx(id string) error              // remove an existing tx (typically should be done automatically with a ttl setup).
 }
 
 // Mongodb database, wrapping mgo session
@@ -75,6 +86,9 @@ type Mongodb struct {
 	database           string
 	usersCollection    string
 	sessionsCollection string
+
+	filelogCollection string
+	asyncTxCollection string
 }
 
 // composeDbAddress compose a string starting from dbArgs slice.
@@ -140,13 +154,13 @@ func (d *Mongodb) Close() {
 
 // GetUser get user strucutre from a given username, if
 // something wrong returns an error.
-func (d *Mongodb) GetUser(username string) (*ty.User, error) {
+func (d *Mongodb) GetUser(username string) (*aty.User, error) {
 	// build query
 	selector := bson.M{
 		"username": bson.M{"$eq": username},
 	}
 	// perform db query
-	var user ty.User
+	var user aty.User
 	err := d.session.DB(d.database).C(d.usersCollection).Find(selector).One(&user)
 	if err != nil {
 		return nil, err
@@ -156,7 +170,7 @@ func (d *Mongodb) GetUser(username string) (*ty.User, error) {
 
 // SetUser adds an argument User struct to the database,
 // returns an error if something went wrong.
-func (d *Mongodb) SetUser(user *ty.User) error {
+func (d *Mongodb) SetUser(user *aty.User) error {
 	selector := bson.M{
 		"username": user.Username,
 	}
@@ -187,13 +201,13 @@ func (d *Mongodb) RemoveUser(username string) error {
 // GetSession check if a session is available and still valid
 // veryfing time of last seen contact against pre-defined
 // timeout value.
-func (d *Mongodb) GetSession(token []byte) (*ty.Session, error) {
+func (d *Mongodb) GetSession(token []byte) (*aty.Session, error) {
 	// build query
 	selector := bson.M{
 		"token": bson.M{"$eq": token},
 	}
 	// perform db query
-	var session ty.Session
+	var session aty.Session
 	err := d.session.DB(d.database).C(d.sessionsCollection).Find(selector).One(&session)
 	if err != nil {
 		return nil, err
@@ -202,7 +216,7 @@ func (d *Mongodb) GetSession(token []byte) (*ty.Session, error) {
 }
 
 // SetSession add a session data to the database.
-func (d *Mongodb) SetSession(session *ty.Session) error {
+func (d *Mongodb) SetSession(session *aty.Session) error {
 	selector := bson.M{
 		"token": session.Token,
 	}
@@ -286,6 +300,120 @@ func (d *Mongodb) EnsureMongodbIndexes() error {
 		return err
 	}
 	err = d.session.DB(d.database).C(d.sessionsCollection).EnsureIndex(cleanSessionIndex)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetFileLog get file informations from the db.
+func (d *Mongodb) GetFileLog(filename string) (*dty.FileLog, error) {
+	// build query
+	selector := bson.M{
+		"id": bson.M{"$eq": filename},
+	}
+	// perform db query
+	var filelog dty.FileLog
+	err := d.session.DB(d.database).C(d.filelogCollection).Find(selector).One(&filelog)
+	if err != nil {
+		return nil, err
+	}
+	return &filelog, nil
+}
+
+// SetFileLog add a new file log to the database
+// this operation will tipically be performed after
+// uploading successfully a data file to the S3
+// backend.
+func (d *Mongodb) SetFileLog(fl *dty.FileLog) error {
+	err := d.session.DB(d.database).C(d.filelogCollection).Insert(fl)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateFileLog update a previously created document
+// with updated argument structure.
+func (d *Mongodb) UpdateFileLog(fl *dty.FileLog) error {
+	selector := bson.M{
+		"id": fl.Id,
+	}
+	update := bson.M{
+		"$set": fl,
+	}
+	err := d.session.DB(d.database).C(d.filelogCollection).Update(selector, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveFileLog remove an existing file log from the db.
+func (d *Mongodb) RemoveFileLog(filename string) error {
+	// build query
+	selector := bson.M{
+		"id": bson.M{"$eq": filename},
+	}
+	// perform db remove
+	err := d.session.DB(d.database).C(d.filelogCollection).Remove(selector)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetAsyncTx returns an async tx document from the mongodb
+// instance.
+func (d *Mongodb) GetAsyncTx(id string) (*dty.AsyncTx, error) {
+	// build query
+	selector := bson.M{
+		"id": bson.M{"$eq": id},
+	}
+	// perform db query
+	var tx dty.AsyncTx
+	err := d.session.DB(d.database).C(d.asyncTxCollection).Find(selector).One(&tx)
+	if err != nil {
+		return nil, err
+	}
+	return &tx, nil
+}
+
+// SetAsyncTx add a new async tx document to the mongodb
+// instance.
+func (d *Mongodb) SetAsyncTx(at *dty.AsyncTx) error {
+	err := d.session.DB(d.database).C(d.asyncTxCollection).Insert(at)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateAsyncTx update an existing tx with the argument passed
+// doc.
+func (d *Mongodb) UpdateAsyncTx(at *dty.AsyncTx) error {
+	selector := bson.M{
+		"id": at.Id,
+	}
+	update := bson.M{
+		"$set": at,
+	}
+	err := d.session.DB(d.database).C(d.asyncTxCollection).Update(selector, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveAsyncTx removes an existing async tx from the mongodb
+// instance.
+func (d *Mongodb) RemoveAsyncTx(id string) error {
+	// build query
+	selector := bson.M{
+		"id": bson.M{"$eq": id},
+	}
+	// perform db remove
+	err := d.session.DB(d.database).C(d.asyncTxCollection).Remove(selector)
 	if err != nil {
 		return err
 	}

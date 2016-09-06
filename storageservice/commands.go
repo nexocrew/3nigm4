@@ -17,14 +17,15 @@ import (
 
 // Internal libs
 import (
-	ty "github.com/nexocrew/3nigm4/lib/auth/types"
+	aty "github.com/nexocrew/3nigm4/lib/auth/types"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
+	dty "github.com/nexocrew/3nigm4/lib/database/types"
 )
 
 // createStorageResource upload a data chunk to the S3 backend service
 // after authorising the user. It operates in async mode to perform the
 // actual upload using a working queue to integrate S3 backend.
-func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *ty.UserInfoResponseArg) {
+func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *aty.UserInfoResponseArg) {
 	if args.Arguments.Data == nil ||
 		len(args.Arguments.Data) == 0 {
 		riseError(http.StatusBadRequest,
@@ -40,7 +41,7 @@ func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobP
 	defer dbSession.Close()
 	// insert file log in the database
 	checksum := sha256.Sum256(args.Arguments.Data)
-	fl := &FileLog{
+	fl := &dty.FileLog{
 		Id:         args.Arguments.ResourceID,
 		Size:       len(args.Arguments.Data),
 		Bucket:     arguments.s3Bucket,
@@ -50,12 +51,12 @@ func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobP
 			Hash: checksum[:],
 			Type: "SHA256",
 		},
-		Ownership: Owner{
+		Ownership: dty.Owner{
 			Username:  userInfo.Username,
 			OriginIp:  r.RemoteAddr,
 			UserAgent: r.UserAgent(),
 		},
-		Acl: Acl{
+		Acl: dty.Acl{
 			Permission:   args.Arguments.Permission,
 			SharingUsers: args.Arguments.SharingUsers,
 		},
@@ -72,7 +73,7 @@ func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobP
 	jobId := generateTranscationId(fl.Id, userInfo.Username, &now)
 
 	// add async tx record
-	err = dbSession.SetAsyncTx(&AsyncTx{
+	err = dbSession.SetAsyncTx(&dty.AsyncTx{
 		Id:        jobId,
 		Complete:  false,
 		TimeStamp: fl.Creation,
@@ -110,7 +111,7 @@ func createStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobP
 // checkAclPermission verify all possible acl scenarios and check if the
 // requiring user has required permissions to access the file. If user can
 // download it it'll return true otherwise false.
-func checkAclPermission(userInfo *ty.UserInfoResponseArg, fileLog *FileLog) bool {
+func checkAclPermission(userInfo *aty.UserInfoResponseArg, fileLog *dty.FileLog) bool {
 	// check access credentials
 	switch fileLog.Acl.Permission {
 	case Private:
@@ -138,7 +139,7 @@ func checkAclPermission(userInfo *ty.UserInfoResponseArg, fileLog *FileLog) bool
 // it is exposed via a REST GET method and returns a txId usable with the verify
 // API call toretrieve the actual downloaded data (from S3 storage). The user
 // must be correctly authenticated to be able to access the requested resource.
-func retrieveStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *ty.UserInfoResponseArg) {
+func retrieveStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *aty.UserInfoResponseArg) {
 	// retain db
 	dbSession := db.Copy()
 	defer dbSession.Close()
@@ -164,11 +165,11 @@ func retrieveStorageResource(w http.ResponseWriter, r *http.Request, args *ct.Jo
 	// generate tx id
 	jobId := generateTranscationId(args.Arguments.ResourceID, userInfo.Username, &now)
 	// add async tx record
-	err = dbSession.SetAsyncTx(&AsyncTx{
+	err = dbSession.SetAsyncTx(&dty.AsyncTx{
 		Id:        jobId,
 		Complete:  false,
 		TimeStamp: now,
-		Ownership: Owner{
+		Ownership: dty.Owner{
 			Username:  userInfo.Username,
 			OriginIp:  r.RemoteAddr,
 			UserAgent: r.UserAgent(),
@@ -200,7 +201,7 @@ func retrieveStorageResource(w http.ResponseWriter, r *http.Request, args *ct.Jo
 
 // deleteStorageResource remove a file from the S3 storage: only the original file
 // owner (who uploaded it) can remove a file from there.
-func deleteStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *ty.UserInfoResponseArg) {
+func deleteStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobPostRequest, userInfo *aty.UserInfoResponseArg) {
 	// retain db
 	dbSession := db.Copy()
 	defer dbSession.Close()
@@ -231,11 +232,11 @@ func deleteStorageResource(w http.ResponseWriter, r *http.Request, args *ct.JobP
 	// generate tx id
 	jobId := generateTranscationId(args.Arguments.ResourceID, userInfo.Username, &now)
 	// add async tx record
-	err = dbSession.SetAsyncTx(&AsyncTx{
+	err = dbSession.SetAsyncTx(&dty.AsyncTx{
 		Id:        jobId,
 		Complete:  false,
 		TimeStamp: now,
-		Ownership: Owner{
+		Ownership: dty.Owner{
 			Username:  userInfo.Username,
 			OriginIp:  r.RemoteAddr,
 			UserAgent: r.UserAgent(),

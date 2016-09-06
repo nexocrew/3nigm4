@@ -9,7 +9,7 @@
 // optimisation logic.
 //
 
-package authmock
+package dbmock
 
 // Golang std libs
 import (
@@ -17,35 +17,40 @@ import (
 	"fmt"
 )
 
-type mockdb struct {
+import (
+	ty "github.com/nexocrew/3nigm4/lib/auth/types"
+	db "github.com/nexocrew/3nigm4/lib/database/client"
+)
+
+type Mockdb struct {
 	addresses string
 	user      string
 	password  string
 	authDb    string
 	// in memory storage
-	userStorage    map[string]*User
-	sessionStorage map[string]*Session
+	userStorage    map[string]*ty.User
+	sessionStorage map[string]*ty.Session
 }
 
-func NewMockDb(args *DbArgs) *mockdb {
-	return &mockdb{
+func NewMockDb(args *db.DbArgs) *Mockdb {
+	return &Mockdb{
 		addresses:      composeDbAddress(args),
 		user:           args.User,
 		password:       args.Password,
 		authDb:         args.AuthDb,
-		userStorage:    make(map[string]*User),
-		sessionStorage: make(map[string]*Session),
+		userStorage:    make(map[string]*ty.User),
+		sessionStorage: make(map[string]*ty.Session),
 	}
 }
 
-func (d *mockdb) Copy() Database {
+func (d *Mockdb) Copy() db.Database {
 	return d
 }
 
-func (d *mockdb) Close() {
+func (d *Mockdb) Close() {
 }
 
-func (d *mockdb) GetUser(username string) (*User, error) {
+func (d *Mockdb) GetUser(username string) (*ty.User, error) {
 	user, ok := d.userStorage[username]
 	if !ok {
 		return nil, fmt.Errorf("unable to find the required %s user", username)
@@ -53,7 +58,7 @@ func (d *mockdb) GetUser(username string) (*User, error) {
 	return user, nil
 }
 
-func (d *mockdb) SetUser(user *User) error {
+func (d *Mockdb) SetUser(user *ty.User) error {
 	_, ok := d.userStorage[user.Username]
 	if ok {
 		return fmt.Errorf("user %s already exist in the db", user.Username)
@@ -62,7 +67,7 @@ func (d *mockdb) SetUser(user *User) error {
 	return nil
 }
 
-func (d *mockdb) RemoveUser(username string) error {
+func (d *Mockdb) RemoveUser(username string) error {
 	if _, ok := d.userStorage[username]; !ok {
 		return fmt.Errorf("unable to find required %s user", username)
 	}
@@ -70,7 +75,7 @@ func (d *mockdb) RemoveUser(username string) error {
 	return nil
 }
 
-func (d *mockdb) GetSession(token []byte) (*Session, error) {
+func (d *Mockdb) GetSession(token []byte) (*ty.Session, error) {
 	h := hex.EncodeToString(token)
 	session, ok := d.sessionStorage[h]
 	if !ok {
@@ -79,13 +84,13 @@ func (d *mockdb) GetSession(token []byte) (*Session, error) {
 	return session, nil
 }
 
-func (d *mockdb) SetSession(s *Session) error {
+func (d *Mockdb) SetSession(s *ty.Session) error {
 	h := hex.EncodeToString(s.Token)
 	d.sessionStorage[h] = s
 	return nil
 }
 
-func (d *mockdb) RemoveSession(token []byte) error {
+func (d *Mockdb) RemoveSession(token []byte) error {
 	h := hex.EncodeToString(token)
 	if _, ok := d.sessionStorage[h]; !ok {
 		return fmt.Errorf("unable to find required %s session", h)
@@ -94,7 +99,20 @@ func (d *mockdb) RemoveSession(token []byte) error {
 	return nil
 }
 
-func (d *mockdb) RemoveAllSessions() error {
-	d.sessionStorage = make(map[string]*Session)
+func (d *Mockdb) RemoveAllSessions() error {
+	d.sessionStorage = make(map[string]*ty.Session)
 	return nil
+}
+
+// composeDbAddress compose a string starting from dbArgs slice.
+func composeDbAddress(args *db.DbArgs) string {
+	dbAccess := fmt.Sprintf("mongodb://%s:%s@", args.User, args.Password)
+	for idx, addr := range args.Addresses {
+		dbAccess += addr
+		if idx != len(args.Addresses)-1 {
+			dbAccess += ","
+		}
+	}
+	dbAccess += fmt.Sprintf("/?authSource=%s", args.AuthDb)
+	return dbAccess
 }

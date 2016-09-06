@@ -17,17 +17,25 @@ import (
 	"testing"
 	"time"
 )
+import (
+	"golang.org/x/crypto/bcrypt"
+)
 
 // Internal dependencies.
 import (
-	"github.com/nexocrew/3nigm4/lib/auth/server"
+	ty "github.com/nexocrew/3nigm4/lib/auth/types"
+	db "github.com/nexocrew/3nigm4/lib/database/client"
+	"github.com/nexocrew/3nigm4/lib/database/mock"
 	"github.com/nexocrew/3nigm4/lib/itm"
 	"github.com/nexocrew/3nigm4/lib/logger"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
-func mockStartup(arguments *args) (auth.Database, error) {
-	mockdb := newMockDb(&auth.DbArgs{
+// Default bcrypt iterations
+const kBCryptIterations = 10
+
+func mockStartup(arguments *args) (db.Database, error) {
+	mockdb := dbmock.NewMockDb(&db.DbArgs{
 		Addresses: strings.Split(arguments.dbAddresses, ","),
 		User:      arguments.dbUsername,
 		Password:  arguments.dbPassword,
@@ -45,22 +53,22 @@ func mockStartup(arguments *args) (auth.Database, error) {
 }
 
 // prepareMockDb define all credentials used in tests.
-func prepareMockDb(db *mockdb) error {
+func prepareMockDb(db *dbmock.Mockdb) error {
 	// add test user
 	hash, err := bcryptPassword("passwordA")
 	if err != nil {
 		return err
 	}
-	err = db.SetUser(&auth.User{
+	err = db.SetUser(&ty.User{
 		Username:       "userA",
 		FullName:       "user A",
 		Email:          "userA@email.com",
 		IsDisabled:     false,
 		HashedPassword: hash,
-		Permissions: auth.Permissions{
+		Permissions: ty.Permissions{
 			SuperAdmin: false,
-			Services: map[string]auth.Level{
-				"test": auth.LevelAdmin,
+			Services: map[string]ty.Level{
+				"test": ty.LevelAdmin,
 			},
 		},
 	})
@@ -73,13 +81,13 @@ func prepareMockDb(db *mockdb) error {
 	if err != nil {
 		return err
 	}
-	err = db.SetUser(&auth.User{
+	err = db.SetUser(&ty.User{
 		Username:       "asuperadmin",
 		FullName:       "Super Admin",
 		Email:          "superadmin@email.com",
 		IsDisabled:     false,
 		HashedPassword: hash,
-		Permissions: auth.Permissions{
+		Permissions: ty.Permissions{
 			SuperAdmin: true,
 		},
 	})
@@ -88,6 +96,14 @@ func prepareMockDb(db *mockdb) error {
 	}
 
 	return nil
+}
+
+func bcryptPassword(pwd string) ([]byte, error) {
+	pwdBytes, err := bcrypt.GenerateFromPassword([]byte(pwd), kBCryptIterations)
+	if err != nil {
+		return nil, err
+	}
+	return pwdBytes, nil
 }
 
 func TestMain(m *testing.M) {
@@ -169,8 +185,8 @@ func TestRPCServe(t *testing.T) {
 	t.Logf("Client connected to %s.\n", address)
 
 	// login
-	var loginResponse auth.LoginResponseArg
-	err = client.Call("Login.Login", &auth.LoginRequestArg{
+	var loginResponse ty.LoginResponseArg
+	err = client.Call("Login.Login", &ty.LoginRequestArg{
 		Username: "userA",
 		Password: "passwordA",
 	}, &loginResponse)
@@ -184,8 +200,8 @@ func TestRPCServe(t *testing.T) {
 		t.Fatalf("Invalid token size, having %d expecting 64.\n", len(loginResponse.Token))
 	}
 	// session validation
-	var sessionResponse auth.AuthenticateResponseArg
-	err = client.Call("SessionAuth.Authenticate", &auth.AuthenticateRequestArg{
+	var sessionResponse ty.AuthenticateResponseArg
+	err = client.Call("SessionAuth.Authenticate", &ty.AuthenticateRequestArg{
 		Token: loginResponse.Token,
 	}, &sessionResponse)
 	if err != nil {
@@ -195,19 +211,19 @@ func TestRPCServe(t *testing.T) {
 		t.Fatalf("Wrong username, having %s expecting \"userA\".\n", sessionResponse.Username)
 	}
 	// userinfo
-	var userinfoResponse auth.UserInfoResponseArg
-	err = client.Call("SessionAuth.UserInfo", &auth.AuthenticateRequestArg{
+	var userinfoResponse ty.UserInfoResponseArg
+	err = client.Call("SessionAuth.UserInfo", &ty.AuthenticateRequestArg{
 		Token: loginResponse.Token,
 	}, &userinfoResponse)
 	if err != nil {
 		t.Fatalf("Unable to get userinfo: %s.\n", err.Error())
 	}
-	if userinfoResponse.Permissions.Services["test"] != auth.LevelAdmin {
-		t.Fatalf("Wrong auth level, having %d expecting %d.\n", userinfoResponse.Permissions.Services["test"], auth.LevelAdmin)
+	if userinfoResponse.Permissions.Services["test"] != ty.LevelAdmin {
+		t.Fatalf("Wrong auth level, having %d expecting %d.\n", userinfoResponse.Permissions.Services["test"], ty.LevelAdmin)
 	}
 	// logout
-	var logoutResponse auth.LogoutResponseArg
-	err = client.Call("Login.Logout", &auth.LogoutRequestArg{
+	var logoutResponse ty.LogoutResponseArg
+	err = client.Call("Login.Logout", &ty.LogoutRequestArg{
 		Token: loginResponse.Token,
 	}, &logoutResponse)
 	if err != nil {
@@ -229,8 +245,8 @@ func TestRPCServeSuperAdmin(t *testing.T) {
 	t.Logf("Client connected to %s.\n", address)
 
 	// login
-	var loginResponse auth.LoginResponseArg
-	err = client.Call("Login.Login", &auth.LoginRequestArg{
+	var loginResponse ty.LoginResponseArg
+	err = client.Call("Login.Login", &ty.LoginRequestArg{
 		Username: "asuperadmin",
 		Password: "passwordS",
 	}, &loginResponse)
@@ -244,23 +260,23 @@ func TestRPCServeSuperAdmin(t *testing.T) {
 		t.Fatalf("Invalid token size, having %d expecting 64.\n", len(loginResponse.Token))
 	}
 	// create user
-	var voidResponse auth.VoidResponseArg
+	var voidResponse ty.VoidResponseArg
 	hash, err := bcryptPassword("passwordB")
 	if err != nil {
 		t.Fatalf("Unable to bcrypt password: %s.\n", err.Error())
 	}
-	err = client.Call("SessionAuth.UpsertUser", &auth.UpserUserRequestArg{
+	err = client.Call("SessionAuth.UpsertUser", &ty.UpserUserRequestArg{
 		Token: loginResponse.Token,
-		User: auth.User{
+		User: ty.User{
 			Username:       "userB",
 			FullName:       "user B",
 			Email:          "userB@email.com",
 			IsDisabled:     false,
 			HashedPassword: hash,
-			Permissions: auth.Permissions{
+			Permissions: ty.Permissions{
 				SuperAdmin: false,
-				Services: map[string]auth.Level{
-					"test": auth.LevelAdmin,
+				Services: map[string]ty.Level{
+					"test": ty.LevelAdmin,
 				},
 			},
 		},
@@ -269,7 +285,7 @@ func TestRPCServeSuperAdmin(t *testing.T) {
 		t.Fatalf("Unable to upsert user: %S.\n", err.Error())
 	}
 	// remove user
-	err = client.Call("SessionAuth.RemoveUser", &auth.RemoveUserRequestArg{
+	err = client.Call("SessionAuth.RemoveUser", &ty.RemoveUserRequestArg{
 		Token:    loginResponse.Token,
 		Username: "userB",
 	}, &voidResponse)
@@ -277,7 +293,7 @@ func TestRPCServeSuperAdmin(t *testing.T) {
 		t.Fatalf("Unable to remove user: %s.\n", err.Error())
 	}
 	// kick off all sessions
-	err = client.Call("SessionAuth.KickOutAllSessions", &auth.AuthenticateRequestArg{
+	err = client.Call("SessionAuth.KickOutAllSessions", &ty.AuthenticateRequestArg{
 		Token: loginResponse.Token,
 	}, &voidResponse)
 	if err != nil {
@@ -285,8 +301,8 @@ func TestRPCServeSuperAdmin(t *testing.T) {
 	}
 
 	// logout
-	var logoutResponse auth.LogoutResponseArg
-	err = client.Call("Login.Logout", &auth.LogoutRequestArg{
+	var logoutResponse ty.LogoutResponseArg
+	err = client.Call("Login.Logout", &ty.LogoutRequestArg{
 		Token: loginResponse.Token,
 	}, &logoutResponse)
 	if err == nil {
