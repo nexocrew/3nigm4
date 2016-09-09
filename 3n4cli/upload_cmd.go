@@ -149,13 +149,16 @@ func upload(cmd *cobra.Command, args []string) error {
 	// https://github.com/spf13/viper/issues/112) of the Cobra
 	// project.
 	sharingUsers := strings.Split(viper.GetString(am["sharingusers"].name), ",")
+	var context fm.ContextID
 	rf, err := ec.SaveChunks(
 		ds,
 		viper.GetDuration(am["timetolive"].name),
 		&fm.Permission{
 			Permission:   ct.Permission(viper.GetInt(am["permission"].name)),
 			SharingUsers: sharingUsers,
-		})
+		},
+		&context,
+	)
 	if err != nil {
 		return err
 	}

@@ -88,8 +88,9 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to decode reference file: %s", err.Error())
 	}
 
+	var context fm.ContextID
 	// delete resources from reference
-	err = fm.DeleteChunks(ds, &reference)
+	err = fm.DeleteChunks(ds, &reference, &context)
 	if err != nil {
 		return err
 	}

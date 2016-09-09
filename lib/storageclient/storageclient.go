@@ -557,7 +557,7 @@ func (s *StorageClient) DeleteChunks(filename string, files []string, operationI
 
 // ProgressStatus conforms to the DataSaver interface and returns
 // progress metrics about the in progress operation.
-func (s *StorageClient) ProgressStatus(requestID fm.ContextID) (*Progress, error) {
+func (s *StorageClient) ProgressStatus(requestID fm.ContextID) (fm.ProgressStatus, error) {
 	value, ok := s.requests[string(requestID)]
 	if !ok {
 		return nil, fmt.Errorf("unable to access request %s progress status", requestID)

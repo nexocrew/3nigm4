@@ -28,6 +28,20 @@ type Progress struct {
 	Errors   int
 }
 
+// TotalUnits part of the ProgressStatus
+// interface returns the total number of
+// units to be processed.
+func (p *Progress) TotalUnits() int {
+	return p.Total
+}
+
+// Done part of the ProgressStatus
+// interface returns the number of already
+// processed elements.
+func (p *Progress) Done() int {
+	return p.Progress
+}
+
 // Status the status of the required resource operation is
 // used to asyncronously return the data passed back by the
 // job GET method from APIs.

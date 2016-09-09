@@ -102,8 +102,9 @@ func download(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to decode reference file: %s", err.Error())
 	}
 
+	var context fm.ContextID
 	// get resources from reference
-	ec, err := fm.LoadChunks(ds, &reference, masterkey)
+	ec, err := fm.LoadChunks(ds, &reference, masterkey, &context)
 	if err != nil {
 		return err
 	}

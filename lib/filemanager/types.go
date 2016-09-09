@@ -82,6 +82,8 @@ type ContextID string
 // operation, can be used to monitor how the op.
 // is going on and how quickly
 type ProgressStatus interface {
+	TotalUnits() int // the total number of processing units;
+	Done() int       // number of alreay processed (on the total number);
 }
 
 // DataSaver interface of the actual saver for
