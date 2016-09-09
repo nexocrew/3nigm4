@@ -351,7 +351,8 @@ func TestUploadResources(t *testing.T) {
 		0,
 		&fm.Permission{
 			Permission: 2,
-		})
+		},
+		nil)
 	if err != nil {
 		t.Fatalf("Unable to uplaod files: %s.\n", err.Error())
 	}
@@ -399,7 +400,7 @@ func TestDownloadResources(t *testing.T) {
 		}
 	}()
 
-	chunks, err := sc.RetrieveChunks(testFileName, uploadGeneratedFileNames)
+	chunks, err := sc.RetrieveChunks(testFileName, uploadGeneratedFileNames, nil)
 	if err != nil {
 		t.Fatalf("Unable to retrieve files: %s.\n", err.Error())
 	}
@@ -442,7 +443,7 @@ func TestDeleteResources(t *testing.T) {
 		}
 	}()
 
-	err = sc.DeleteChunks(testFileName, uploadGeneratedFileNames)
+	err = sc.DeleteChunks(testFileName, uploadGeneratedFileNames, nil)
 	if err != nil {
 		t.Fatalf("Unable to delete files: %s.\n", err.Error())
 	}

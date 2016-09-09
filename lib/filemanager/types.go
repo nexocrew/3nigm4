@@ -70,12 +70,19 @@ type Permission struct {
 	SharingUsers []string
 }
 
+// ProgressStatus status of a DataSaver managed
+// operation, can be used to monitor how the op.
+// is going on and how quickly
+type ProgressStatus interface {
+}
+
 // DataSaver interface of the actual saver for
 // encrypted data: this can be a local file system,
 // a remote fs or APIs or any other system capable
 // of storing data chunks.
 type DataSaver interface {
-	SaveChunks(string, [][]byte, []byte, time.Duration, *Permission) ([]string, error) // Saves chunks using a file name, bucket, actual data, a checksum reference and an expire date;
-	RetrieveChunks(string, []string) ([][]byte, error)                                 // Retrieve all resources composing a file;
-	DeleteChunks(string, []string) error                                               // removes all resources composing a file.
+	ProgressStatus(string) ProgressStatus                                                       // Get a requestID argument and return progress infos about;
+	SaveChunks(string, [][]byte, []byte, time.Duration, *Permission, *string) ([]string, error) // Saves chunks using a file name, bucket, actual data, a checksum reference and an expire date;
+	RetrieveChunks(string, []string, *string) ([][]byte, error)                                 // Retrieve all resources composing a file;
+	DeleteChunks(string, []string, *string) error                                               // removes all resources composing a file.
 }

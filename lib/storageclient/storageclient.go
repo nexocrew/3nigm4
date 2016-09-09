@@ -363,9 +363,13 @@ func remove(a interface{}) error {
 
 // SaveChunks start the async upload of all argument passed chunks
 // generating a single name for each one.
-func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expire time.Duration, permission *fm.Permission) ([]string, error) {
+func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expire time.Duration, permission *fm.Permission, operationID *string) ([]string, error) {
 	now := time.Now()
 	requestID := generateTranscationID(filename, &now)
+	// set argument passed operation id if available
+	if operationID != nil {
+		*operationID = requestID
+	}
 	// check for pending uploads
 	_, ok := s.requests[requestID]
 	if ok {
@@ -419,9 +423,14 @@ func (s *StorageClient) SaveChunks(filename string, chunks [][]byte, hashedValue
 
 // RetrieveChunks starts the async retrieve of previously uploaded
 // chunks starting from the returned files names.
-func (s *StorageClient) RetrieveChunks(filename string, files []string) ([][]byte, error) {
+func (s *StorageClient) RetrieveChunks(filename string, files []string, operationID *string) ([][]byte, error) {
 	now := time.Now()
 	requestID := generateTranscationID(filename, &now)
+	// set argument passed operation id if available
+	if operationID != nil {
+		*operationID = requestID
+	}
+
 	// check for pending uploads
 	_, ok := s.requests[requestID]
 	if ok {
@@ -484,9 +493,13 @@ func composedError(errors map[string]error) error {
 
 // DeleteChunks delete, requiring the API frontend, all resources
 // composing a file (several resources compose a single file).
-func (s *StorageClient) DeleteChunks(filename string, files []string) error {
+func (s *StorageClient) DeleteChunks(filename string, files []string, operationID *string) error {
 	now := time.Now()
 	requestID := generateTranscationID(filename, &now)
+	// set argument passed operation id if available
+	if operationID != nil {
+		*operationID = requestID
+	}
 	// check for pending uploads
 	_, ok := s.requests[requestID]
 	if ok {
@@ -540,4 +553,14 @@ func (s *StorageClient) DeleteChunks(filename string, files []string) error {
 	}
 
 	return nil
+}
+
+// ProgressStatus conforms to the DataSaver interface and returns
+// progress metrics about the in progress operation.
+func (s *StorageClient) ProgressStatus(requestID string) (*Progress, err) {
+	progress, ok := s.requests[requestID].Progress
+	if !ok {
+		return nil, fmt.Errorf("unable to access request %s progress status", requestID)
+	}
+	return &progress, nil
 }
