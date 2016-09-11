@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"sync"
 )
 
 // Internal dependencies
@@ -25,6 +26,7 @@ import (
 // Third party libs
 import (
 	"github.com/howeyc/gopass"
+	"github.com/sethgrid/multibar"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/openpgp"
@@ -37,7 +39,7 @@ var UploadCmd = &cobra.Command{
 	Use:     "upload",
 	Short:   "Uploads a file to secure storage",
 	Long:    "Uploads a local file to the cloud storage returning a resource file usable to retrieve or share data.",
-	Example: "3n4cli store upload -k /tmp/userA.asc,/tmp/userB.asc -M -O /tmp/resources.3rf -i ~/file.ext -p 2 -v",
+	Example: "3n4cli store upload --destkeys /tmp/userA.asc,/tmp/userB.asc -M -O /tmp/resources.3rf -i ~/file.ext -p 2 -v",
 	PreRun:  verbosePreRunInfos,
 }
 
@@ -91,12 +93,16 @@ func upload(cmd *cobra.Command, args []string) error {
 	// as a workaround the bug (issue #112
 	// https://github.com/spf13/viper/issues/112) of the Cobra
 	// project.
-	destinationKeys := strings.Split(viper.GetString(am["destkeys"].name), ",")
-	recipientsKeys, err := loadRecipientsPublicKeys(destinationKeys)
-	if err != nil {
-		return err
+	destkeys := viper.GetString(am["destkeys"].name)
+	if destkeys != "" {
+		destinationKeys := strings.Split(destkeys, ",")
+		recipientsKeys, err := loadRecipientsPublicKeys(destinationKeys)
+		if err != nil {
+			return err
+		}
+		entityList = append(entityList, recipientsKeys...)
 	}
-	entityList = append(entityList, recipientsKeys...)
+
 	// get private key
 	signerEntityList, err := checkAndLoadPgpPrivateKey(viper.GetString(am["privatekey"].name))
 	if err != nil {
@@ -117,8 +123,6 @@ func upload(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-
-	log.MessageLog("Starting data upload...\n")
 
 	// create new store manager
 	ds, err, errc := sc.NewStorageClient(
@@ -143,6 +147,18 @@ func upload(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// create the multibar container
+	// this allows our bars to work together without stomping on one another
+	progressBars, _ := multibar.New()
+	barProgress := progressBars.MakeBar(100, "uploading")
+	// listen in for changes on the progress bars
+	go progressBars.Listen()
+
+	var context fm.ContextID
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go progressBarUpdate(&context, ds, barProgress, wg)
+
 	// upload resources and get reference file
 	// manually splits string using the strings.Split function
 	// as a workaround the bug (issue #112
@@ -155,10 +171,13 @@ func upload(cmd *cobra.Command, args []string) error {
 		&fm.Permission{
 			Permission:   ct.Permission(viper.GetInt(am["permission"].name)),
 			SharingUsers: sharingUsers,
-		})
+		},
+		&context,
+	)
 	if err != nil {
 		return err
 	}
+	wg.Wait()
 
 	// encode reference file
 	refData, err := json.Marshal(rf)

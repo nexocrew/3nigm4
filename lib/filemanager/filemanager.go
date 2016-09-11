@@ -267,8 +267,8 @@ func NewEncryptedChunks(rawKey []byte, filepath string, chunkSize uint64, compre
 
 // SaveChunks saves encrypted data chunks to
 // a structure implementing the DataSaver interface.
-func (e *EncryptedChunks) SaveChunks(ds DataSaver, expires time.Duration, permission *Permission) (*ReferenceFile, error) {
-	filesPaths, err := ds.SaveChunks(e.metadata.FileName, e.chunks, e.metadata.CheckSum[:], expires, permission)
+func (e *EncryptedChunks) SaveChunks(ds DataSaver, expires time.Duration, permission *Permission, operationID *ContextID) (*ReferenceFile, error) {
+	filesPaths, err := ds.SaveChunks(e.metadata.FileName, e.chunks, e.metadata.CheckSum[:], expires, permission, operationID)
 	if err != nil {
 		return nil, err
 	}
@@ -296,8 +296,8 @@ func (e *EncryptedChunks) SaveChunks(ds DataSaver, expires time.Duration, permis
 // the DataSaver interface, given a reference file in
 // input. It returns a complete encrypted chunks structure
 // from which decrypt the original file.
-func LoadChunks(ds DataSaver, reference *ReferenceFile, rawKey []byte) (*EncryptedChunks, error) {
-	chunks, err := ds.RetrieveChunks(reference.FileName, reference.ChunksPaths)
+func LoadChunks(ds DataSaver, reference *ReferenceFile, rawKey []byte, operationID *ContextID) (*EncryptedChunks, error) {
+	chunks, err := ds.RetrieveChunks(reference.FileName, reference.ChunksPaths, operationID)
 	if err != nil {
 		return nil, err
 	}
@@ -335,8 +335,8 @@ func LoadChunks(ds DataSaver, reference *ReferenceFile, rawKey []byte) (*Encrypt
 // is not exposed as a struct function to avoid requiring having loaded
 // them before deleting (all authentication and authorisation logics will
 // be implemnted server side).
-func DeleteChunks(ds DataSaver, reference *ReferenceFile) error {
-	return ds.DeleteChunks(reference.FileName, reference.ChunksPaths)
+func DeleteChunks(ds DataSaver, reference *ReferenceFile, operationID *ContextID) error {
+	return ds.DeleteChunks(reference.FileName, reference.ChunksPaths, operationID)
 }
 
 // GetFile returns the recomposed file merging all

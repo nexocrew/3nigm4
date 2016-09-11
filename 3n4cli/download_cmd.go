@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"sync"
 )
 
 // Internal dependencies
@@ -23,6 +24,7 @@ import (
 // Third party libs
 import (
 	"github.com/howeyc/gopass"
+	"github.com/sethgrid/multibar"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -102,11 +104,24 @@ func download(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to decode reference file: %s", err.Error())
 	}
 
+	// create the multibar container
+	// this allows our bars to work together without stomping on one another
+	progressBars, _ := multibar.New()
+	barProgress := progressBars.MakeBar(100, "downloading")
+	// listen in for changes on the progress bars
+	go progressBars.Listen()
+
+	var context fm.ContextID
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go progressBarUpdate(&context, ds, barProgress, wg)
+
 	// get resources from reference
-	ec, err := fm.LoadChunks(ds, &reference, masterkey)
+	ec, err := fm.LoadChunks(ds, &reference, masterkey, &context)
 	if err != nil {
 		return err
 	}
+	wg.Wait()
 
 	// save decoded files
 	destinationPath := viper.GetString(am["output"].name)

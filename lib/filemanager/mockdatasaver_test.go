@@ -28,7 +28,7 @@ func NewLocalDataSaver(root string) (*localDataSaver, error) {
 	}, nil
 }
 
-func (l *localDataSaver) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expire time.Duration, permission *Permission) ([]string, error) {
+func (l *localDataSaver) SaveChunks(filename string, chunks [][]byte, hashedValue []byte, expire time.Duration, permission *Permission, context *ContextID) ([]string, error) {
 	paths := make([]string, len(chunks))
 	for idx, chunk := range chunks {
 		id, err := ChunkFileId(filename, idx, hashedValue)
@@ -44,7 +44,7 @@ func (l *localDataSaver) SaveChunks(filename string, chunks [][]byte, hashedValu
 	return paths, nil
 }
 
-func (l *localDataSaver) RetrieveChunks(filename string, files []string) ([][]byte, error) {
+func (l *localDataSaver) RetrieveChunks(filename string, files []string, context *ContextID) ([][]byte, error) {
 	chunks := make([][]byte, len(files))
 	for idx, file := range files {
 		data, err := ioutil.ReadFile(filepath.Join(l.rootPath, file))
@@ -56,6 +56,10 @@ func (l *localDataSaver) RetrieveChunks(filename string, files []string) ([][]by
 	return chunks, nil
 }
 
-func (l *localDataSaver) DeleteChunks(filename string, files []string) error {
+func (l *localDataSaver) DeleteChunks(filename string, files []string, context *ContextID) error {
 	return os.RemoveAll(l.rootPath)
+}
+
+func (l *localDataSaver) ProgressStatus(requestID ContextID) (ProgressStatus, error) {
+	return nil, fmt.Errorf("not implemented in mock structure")
 }

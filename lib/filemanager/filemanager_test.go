@@ -331,11 +331,11 @@ func TestDataSaverLogics(t *testing.T) {
 	}
 
 	// do it!
-	reference, err := chunks.SaveChunks(ds, 0, nil)
+	reference, err := chunks.SaveChunks(ds, 0, nil, nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
-	defer DeleteChunks(ds, reference)
+	defer DeleteChunks(ds, reference, nil)
 
 	// check files existance
 	for _, file := range reference.ChunksPaths {
@@ -351,7 +351,7 @@ func TestDataSaverLogics(t *testing.T) {
 	}
 
 	// recompose it
-	recomposedChunks, err := LoadChunks(ds, reference, nil)
+	recomposedChunks, err := LoadChunks(ds, reference, nil, nil)
 	if err != nil {
 		t.Fatalf("Unable to load chunks: %s.\n", err.Error())
 	}
@@ -401,11 +401,11 @@ func TestDataSaverLogicsWithPassword(t *testing.T) {
 	}
 
 	// do it!
-	reference, err := chunks.SaveChunks(ds, 0, nil)
+	reference, err := chunks.SaveChunks(ds, 0, nil, nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
-	defer DeleteChunks(ds, reference)
+	defer DeleteChunks(ds, reference, nil)
 
 	// check files existance
 	for _, file := range reference.ChunksPaths {
@@ -421,7 +421,7 @@ func TestDataSaverLogicsWithPassword(t *testing.T) {
 	}
 
 	// recompose it
-	recomposedChunks, err := LoadChunks(ds, reference, rawKey)
+	recomposedChunks, err := LoadChunks(ds, reference, rawKey, nil)
 	if err != nil {
 		t.Fatalf("Unable to load chunks: %s.\n", err.Error())
 	}
@@ -471,11 +471,11 @@ func TestDataSaverLogicsWithWrongPassword(t *testing.T) {
 	}
 
 	// do it!
-	reference, err := chunks.SaveChunks(ds, 0, nil)
+	reference, err := chunks.SaveChunks(ds, 0, nil, nil)
 	if err != nil {
 		t.Fatalf("Unable to save chunks using data saver: %s.\n", err.Error())
 	}
-	defer DeleteChunks(ds, reference)
+	defer DeleteChunks(ds, reference, nil)
 
 	// check files existance
 	for _, file := range reference.ChunksPaths {
@@ -491,7 +491,7 @@ func TestDataSaverLogicsWithWrongPassword(t *testing.T) {
 	}
 
 	// recompose it
-	recomposedChunks, err := LoadChunks(ds, reference, nil)
+	recomposedChunks, err := LoadChunks(ds, reference, nil, nil)
 	if err != nil {
 		t.Fatalf("Unable to load chunks: %s.\n", err.Error())
 	}
