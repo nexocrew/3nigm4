@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 )
 
 // Internal dependencies
@@ -23,6 +24,7 @@ import (
 
 // Third party libs
 import (
+	"github.com/sethgrid/multibar"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -88,12 +90,24 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to decode reference file: %s", err.Error())
 	}
 
+	// create the multibar container
+	// this allows our bars to work together without stomping on one another
+	progressBars, _ := multibar.New()
+	barProgress := progressBars.MakeBar(100, "deleting")
+	// listen in for changes on the progress bars
+	go progressBars.Listen()
+
 	var context fm.ContextID
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go progressBarUpdate(&context, ds, barProgress, wg)
+
 	// delete resources from reference
 	err = fm.DeleteChunks(ds, &reference, &context)
 	if err != nil {
 		return err
 	}
+	wg.Wait()
 
 	// remove reference file
 	os.Remove(refin)

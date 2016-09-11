@@ -9,10 +9,19 @@ package main
 // Golang std libs
 import (
 	"os"
+	"sync"
+	"time"
+)
+
+// Internal dependencies
+import (
+	fm "github.com/nexocrew/3nigm4/lib/filemanager"
+	sc "github.com/nexocrew/3nigm4/lib/storageclient"
 )
 
 // Third party libs
 import (
+	"github.com/sethgrid/multibar"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -70,9 +79,30 @@ func manageAsyncErrors(errc <-chan error) {
 	}
 }
 
+// progressBarUpdate function should be invoked concurrently to
+// update cli progress bar.
+func progressBarUpdate(ctx *fm.ContextID, ds *sc.StorageClient, pf multibar.ProgressFunc, wg *sync.WaitGroup) {
+	for {
+		if *ctx == "" {
+			time.Sleep(time.Millisecond * 15)
+			continue
+		}
+		status, err := ds.ProgressStatus(*ctx)
+		if err != nil {
+			break
+		}
+		// x : 100 = progress : total
+		pf((100 * status.Done()) / status.TotalUnits())
+		if status.Done() == status.TotalUnits() {
+			break
+		}
+		time.Sleep(time.Millisecond * 15)
+	}
+	wg.Done()
+}
+
 // serve command expose a RPC service that exposes all authentication
 // related function to the outside.
 func store(cmd *cobra.Command, args []string) error {
-
 	return nil
 }
