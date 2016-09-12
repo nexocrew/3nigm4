@@ -13,7 +13,6 @@ package ishtm
 
 // Golang std libs
 import (
-	"encoding/hex"
 	"fmt"
 	"time"
 )
@@ -24,7 +23,7 @@ type mockdb struct {
 	password  string
 	authDb    string
 	// in memory storage
-	jobsStorage map[string]*Job
+	jobsStorage map[string]Job
 }
 
 func newMockDb(args *DbArgs) *mockdb {
@@ -33,7 +32,7 @@ func newMockDb(args *DbArgs) *mockdb {
 		user:        args.User,
 		password:    args.Password,
 		authDb:      args.AuthDb,
-		jobsStorage: make(map[string]*Job),
+		jobsStorage: make(map[string]Job),
 	}
 }
 
@@ -62,7 +61,7 @@ func (d *mockdb) GetJob(id string) (*Job, error) {
 	if !ok {
 		return nil, fmt.Errorf("unable to find the required %s job", id)
 	}
-	return job, nil
+	return &job, nil
 }
 
 func (d *mockdb) SetJob(job *Job) error {
@@ -70,7 +69,7 @@ func (d *mockdb) SetJob(job *Job) error {
 	if ok {
 		return fmt.Errorf("job %s already exist in the db", job.ID)
 	}
-	d.jobsStorage[job.ID] = job
+	d.jobsStorage[job.ID] = *job
 	return nil
 }
 

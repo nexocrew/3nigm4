@@ -46,7 +46,6 @@ type Database interface {
 	GetJobs(string) ([]Job, error) // list jobs for owner's username.
 	GetJob(string) (*Job, error)   // gets a job struct from an argument jobID;
 	SetJob(*Job) error             // upsert a job in the db;
-	RemoveUser(string) error       // remove an job from the db;
 	// ttd behaviour
 	GetInDelivery(time.Time) ([]Job, error)
 }
