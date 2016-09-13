@@ -27,7 +27,7 @@ func TestNewJob(t *testing.T) {
 	}
 	recipients := make([]Recipient, 0)
 
-	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod")
+	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
 	GlobalEncryptionSalt = []byte("thisissa")
 
 	now := time.Now().UTC()
@@ -66,7 +66,7 @@ func TestRefresTtd(t *testing.T) {
 	}
 	recipients := make([]Recipient, 0)
 
-	GlobalEncryptionKey = []byte("thisisatesttempkey")
+	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
 	GlobalEncryptionSalt = []byte("thisissa")
 
 	now := time.Now().UTC()

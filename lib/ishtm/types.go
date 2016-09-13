@@ -20,8 +20,8 @@ type Recipient struct {
 }
 
 type Credential struct {
-	EncryptedSeed    []byte `bson:"seed"`
-	EncryptedAuthKey []byte `bson:"authkey"`
+	SoftwareToken []byte `bson:"swtoken"`
+	SecondaryKey  []byte `bson:"secondarykey"`
 }
 
 type OwnerID struct {

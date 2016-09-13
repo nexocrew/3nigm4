@@ -17,68 +17,7 @@ import (
 // Internal packages
 import (
 	ct "github.com/nexocrew/3nigm4/lib/commons"
-	crypto3n4 "github.com/nexocrew/3nigm4/lib/crypto"
 )
-
-// Third party packages
-import (
-	"github.com/gokyle/hotp"
-)
-
-var (
-	GlobalEncryptionKey  []byte
-	GlobalEncryptionSalt []byte
-)
-
-func generateCredential() (*Credential, []byte, error) {
-	// first create
-	token, err := hotp.GenerateHOTP(8, true)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create hotp cause %s", err.Error())
-	}
-
-	// QR code
-	qr, err := token.QR("3n4")
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate QR code cause %s", err.Error())
-	}
-
-	tokenBytes, err := hotp.Marshal(token)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to marshal hotp token, cause %s", err.Error())
-	}
-
-	// encrypt seed
-	tokenEnc, err := crypto3n4.AesEncrypt(
-		GlobalEncryptionKey,
-		GlobalEncryptionSalt,
-		tokenBytes,
-		crypto3n4.CBC,
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	authKey, err := ct.RandomBytesForLen(32)
-	if err != nil {
-		return nil, nil, err
-	}
-	// encrypt auth key:
-	authKeyEnc, err := crypto3n4.AesEncrypt(
-		GlobalEncryptionKey,
-		GlobalEncryptionSalt,
-		authKey,
-		crypto3n4.CBC,
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return &Credential{
-		EncryptedAuthKey: authKeyEnc,
-		EncryptedSeed:    tokenEnc,
-	}, qr, nil
-}
 
 // generateJobID generate an hashed string id from user and data
 // dependand values randomised with random bytes.
