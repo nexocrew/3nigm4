@@ -24,7 +24,11 @@ import (
 )
 
 var (
-	GlobalEncryptionKey  []byte
+	// GlobalEncryptionKey setted by the lib including service is used
+	// to encrypt data in the database.
+	GlobalEncryptionKey []byte
+	// GlobalEncryptionSalt setted by the lib including service is used
+	// to salt PBKDF2 derivation.
 	GlobalEncryptionSalt []byte
 )
 
@@ -127,6 +131,10 @@ func verifySecondaryKey(key []byte, credentials *Credential) error {
 	return nil
 }
 
+const (
+	ckeckIncrementTolerance = 7 // max number of checks before sw token become disaligned.
+)
+
 func verifyOTP(code string, credentials *Credential) (*Credential, error) {
 	if credentials == nil {
 		return nil, fmt.Errorf("argument credentials is required and should not be nil")
@@ -139,10 +147,9 @@ func verifyOTP(code string, credentials *Credential) (*Credential, error) {
 	}
 
 	// verify value
-	if swtoken.Check(code) != true {
+	if swtoken.Scan(code, ckeckIncrementTolerance) != true {
 		return nil, fmt.Errorf("provided code is not valid")
 	}
-	swtoken.Increment()
 
 	tokenEnc, err := encryptHotp(swtoken)
 	if err != nil {

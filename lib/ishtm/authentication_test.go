@@ -31,7 +31,7 @@ func getSwToken(credentials *Credential) (*hotp.HOTP, error) {
 	return swtoken, nil
 }
 
-func TestOTPGeneration(t *testing.T) {
+func TestOTPVerification(t *testing.T) {
 	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
 	GlobalEncryptionSalt = []byte("thisissa")
 
@@ -45,6 +45,7 @@ func TestOTPGeneration(t *testing.T) {
 		t.Fatalf("Software token extraction error: %s.\n", err.Error())
 	}
 	otp := clientToken.OTP()
+	t.Logf("OTP: %s.\n", otp)
 
 	// verify otp
 	verificationCreds, err := verifyOTP(otp, creds)
@@ -52,11 +53,54 @@ func TestOTPGeneration(t *testing.T) {
 		t.Fatalf("Verification failed: %s.\n", err.Error())
 	}
 
-	clientToken.Increment()
 	otp = clientToken.OTP()
+	t.Logf("OTP: %s.\n", otp)
 
 	verificationCreds, err = verifyOTP(otp, verificationCreds)
 	if err != nil {
 		t.Fatalf("Verification failed: %s.\n", err.Error())
+	}
+
+	for i := 0; i < ckeckIncrementTolerance; i++ {
+		otp = clientToken.OTP()
+		t.Logf("OTP: %s.\n", otp)
+	}
+
+	verificationCreds, err = verifyOTP(otp, verificationCreds)
+	if err != nil {
+		t.Fatalf("Verification failed: %s.\n", err.Error())
+	}
+}
+
+func TestOTPOutRange(t *testing.T) {
+	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
+	GlobalEncryptionSalt = []byte("thisissa")
+
+	creds, _, err := generateCredential()
+	if err != nil {
+		t.Fatalf("Unable to generate credentials: %s.\n", err.Error())
+	}
+	//  get swtoken
+	clientToken, err := getSwToken(creds)
+	if err != nil {
+		t.Fatalf("Software token extraction error: %s.\n", err.Error())
+	}
+	otp := clientToken.OTP()
+	t.Logf("OTP: %s.\n", otp)
+
+	// verify otp
+	verificationCreds, err := verifyOTP(otp, creds)
+	if err != nil {
+		t.Fatalf("Verification failed: %s.\n", err.Error())
+	}
+
+	for i := 0; i < ckeckIncrementTolerance+1; i++ {
+		otp = clientToken.OTP()
+		t.Logf("OTP: %s.\n", otp)
+	}
+
+	verificationCreds, err = verifyOTP(otp, verificationCreds)
+	if err == nil {
+		t.Fatalf("Verification must fail if async is more than %d clicks.\n", ckeckIncrementTolerance)
 	}
 }
