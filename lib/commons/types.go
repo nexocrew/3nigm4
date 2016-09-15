@@ -115,3 +115,25 @@ type OpResult struct {
 	Data      []byte // downloaded data, if any;
 	Error     error  // setted if an error was produced fro the upload instruction.
 }
+
+// Recipient defines the recipients for a will, this structure is used
+// both in REST API handlers and in database representation.
+type Recipient struct {
+	Name  string `bson:"name" json:"name"`    // recipient's name;
+	Email string `bson:"email" json: "email"` // recipient's email address;
+	// pgp key identity
+	KeyID       uint64 `bson:"keyid" json:"keyid"`             // recipient encryption public key id;
+	Fingerprint []byte `bson:"fingerprint" json:"fingerprint"` // recipient encryption public key fingerprint.
+}
+
+// WillPostRequest contains all required informations to create
+// a new will task from REST APIs.
+type WillPostRequest struct {
+	// data from reference file
+	Reference []byte `json:"reference"` // reference data from storage functionality;
+	// will settings
+	DeliveryOffset time.Duration `json:"deliveryoffset"` // offset from not to deliver the reference if not delayed by the uploading user;
+	NotifyDeadline bool          `json:"notifydeadline"` // notify, via email, to the uploader the deadline approach;
+	// sharing settings
+	Recipients []Recipient `json:"recipients"` // slice of recipients that shour recieve the reference file.
+}

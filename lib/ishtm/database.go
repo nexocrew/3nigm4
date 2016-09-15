@@ -43,11 +43,11 @@ type Database interface {
 	Copy() Database // retain the db client in a multi-coroutine environment;
 	Close()         // release the client;
 	// job behaviour
-	GetJobs(string) ([]Job, error) // list jobs for owner's username.
-	GetJob(string) (*Job, error)   // gets a job struct from an argument jobID;
-	SetJob(*Job) error             // upsert a job in the db;
+	GetWills(string) ([]Will, error) // list wills for owner's username.
+	GetWill(string) (*Will, error)   // gets a will struct from an argument jobID;
+	SetWill(*Will) error             // upsert a will in the db;
 	// ttd behaviour
-	GetInDelivery(time.Time) ([]Job, error)
+	GetInDelivery(time.Time) ([]Will, error)
 }
 
 // Mongodb database, wrapping mgo session
@@ -113,45 +113,45 @@ func (d *Mongodb) Close() {
 	d.session.Close()
 }
 
-// GetJobs retrieve all jobs related to a specified user.
-func (d *Mongodb) GetJobs(owner string) ([]Job, error) {
+// GetWills retrieve all wills related to a specified user.
+func (d *Mongodb) GetWills(owner string) ([]Will, error) {
 	// build query
 	selector := bson.M{
 		"owner.name": bson.M{"$eq": owner},
 	}
 	// perform db query
-	var jobs []Job
-	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).All(&jobs)
+	var wills []Will
+	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).All(&wills)
 	if err != nil {
 		return nil, err
 	}
-	return jobs, nil
+	return wills, nil
 }
 
-// GetJob get job structure from a given jobID, if
+// GetWill get will structure from a given jobID, if
 // something wrong returns an error.
-func (d *Mongodb) GetJob(id string) (*Job, error) {
+func (d *Mongodb) GetWill(id string) (*Will, error) {
 	// build query
 	selector := bson.M{
 		"id": bson.M{"$eq": id},
 	}
 	// perform db query
-	var job Job
-	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).One(&job)
+	var will Will
+	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).One(&will)
 	if err != nil {
 		return nil, err
 	}
-	return &job, nil
+	return &will, nil
 }
 
-// SetJob adds an argument Job struct to the database,
+// SetWill upsert an argument Will struct to the database,
 // returns an error if something went wrong.
-func (d *Mongodb) SetJob(job *Job) error {
+func (d *Mongodb) SetWill(will *Will) error {
 	selector := bson.M{
-		"id": job.ID,
+		"id": will.ID,
 	}
 	update := bson.M{
-		"$set": job,
+		"$set": will,
 	}
 	_, err := d.session.DB(d.database).C(d.jobsCollection).Upsert(selector, update)
 	if err != nil {
@@ -160,8 +160,8 @@ func (d *Mongodb) SetJob(job *Job) error {
 	return nil
 }
 
-// RemoveJob remove an existing job from the db.
-func (d *Mongodb) RemoveJob(id string) error {
+// RemoveWill remove an existing will from the db.
+func (d *Mongodb) RemoveWill(id string) error {
 	// build query
 	selector := bson.M{
 		"id": bson.M{"$eq": id},
@@ -174,9 +174,9 @@ func (d *Mongodb) RemoveJob(id string) error {
 	return nil
 }
 
-// GetInDelivery returns jobs having passed by the actual
+// GetInDelivery returns wills having passed by the actual
 // time stamp.
-func (d *Mongodb) GetInDelivery(actual time.Time) ([]Job, error) {
+func (d *Mongodb) GetInDelivery(actual time.Time) ([]Will, error) {
 	// build query
 	selector := bson.M{
 		"ttd": bson.M{
@@ -184,19 +184,19 @@ func (d *Mongodb) GetInDelivery(actual time.Time) ([]Job, error) {
 		},
 	}
 	// perform db query
-	var jobs []Job
-	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).All(&jobs)
+	var wills []Will
+	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).All(&wills)
 	if err != nil {
 		return nil, err
 	}
-	return jobs, nil
+	return wills, nil
 }
 
 // EnsureMongodbIndexes assign mongodb indexes to the right
 // collections, this should be done only the first time the
 // collection is created.
 func (d *Mongodb) EnsureMongodbIndexes() error {
-	jobIndex := mgo.Index{
+	willIndex := mgo.Index{
 		Key:        []string{"id"},
 		Unique:     true,
 		Background: true,
@@ -214,7 +214,7 @@ func (d *Mongodb) EnsureMongodbIndexes() error {
 		Background: true,
 		Sparse:     false,
 	}
-	err := d.session.DB(d.database).C(d.jobsCollection).EnsureIndex(jobIndex)
+	err := d.session.DB(d.database).C(d.jobsCollection).EnsureIndex(willIndex)
 	if err != nil {
 		return err
 	}

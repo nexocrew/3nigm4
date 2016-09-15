@@ -1,12 +1,12 @@
 //
-// 3nigm4 storageservice package
+// 3nigm4 ishtmservice package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
-// v1.0 16/06/2016
+// v1.0 14/09/2016
 //
 
 package main
 
-// Golang std libs
+// Golang std pkgs
 import (
 	"bytes"
 	"encoding/hex"
@@ -15,13 +15,14 @@ import (
 	"net/http"
 )
 
-// Internal libs
+// Internal pkgs
 import (
 	"github.com/nexocrew/3nigm4/lib/auth"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
+	"github.com/nexocrew/3nigm4/lib/ishtm"
 )
 
-// Third party
+// Third party pkgs
 import (
 	_ "github.com/gorilla/mux"
 )
@@ -138,6 +139,82 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		})
 	if err != nil {
 		panic(err)
+	}
+}
+
+func postWill(w http.ResponseWriter, r *http.Request) {
+	// authorise and get user's info
+	// extract token from headers
+	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
+	if err != nil {
+		riseError(http.StatusUnauthorized,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+
+	// get message BODY
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(r.Body)
+	body := buf.Bytes()
+	// parse json body
+	var willRequest ct.WillPostRequest
+	err = json.Unmarshal(body, &willRequest)
+	if err != nil {
+		riseError(http.StatusBadRequest,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+	// check for arguments
+	if willRequest.Reference == nil ||
+		len(willRequest.Reference) == 0 ||
+		willRequest.Recipients == nil ||
+		len(willRequest.Recipients) == 0 {
+		riseError(http.StatusBadRequest,
+			"wrong request body values", w,
+			r.RemoteAddr)
+		return
+	}
+
+	// create will
+	will := ishtm.NewWill()
+
+}
+
+func getWill(w http.ResponseWriter, r *http.Request) {
+	// authorise and get user's info
+	// extract token from headers
+	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
+	if err != nil {
+		riseError(http.StatusUnauthorized,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+}
+
+func patchWill(w http.ResponseWriter, r *http.Request) {
+	// authorise and get user's info
+	// extract token from headers
+	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
+	if err != nil {
+		riseError(http.StatusUnauthorized,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
+	}
+}
+
+func delete(w http.ResponseWriter, r *http.Request) {
+	// authorise and get user's info
+	// extract token from headers
+	userInfo, err := authoriseGettingUserInfos(r.Header.Get(ct.SecurityTokenKey))
+	if err != nil {
+		riseError(http.StatusUnauthorized,
+			err.Error(), w,
+			r.RemoteAddr)
+		return
 	}
 }
 

@@ -139,11 +139,11 @@ func serve(cmd *cobra.Command, args []string) error {
 	// define auth routes
 	route.HandleFunc("/v1/authsession", login).Methods("POST")
 	route.HandleFunc("/v1/authsession", logout).Methods("DELETE")
-	// define async storage routes: the REST resource is a job. Every type a
-	// job is created using a POST method the status of the request can be
-	// vefified using the FET method on the returned jobid.
-	// route.HandleFunc("/v1/ishtm/job", postJob).Methods("POST")
-	// route.HandleFunc("/v1/ishtm/job/{jobid:[A-Fa-f0-9]+}", getJob).Methods("GET")
+	// exposed routes to manage ishtm will
+	route.HandleFunc("/v1/ishtm/will", postWill).Methods("POST")
+	route.HandleFunc("/v1/ishtm/will/{willid:[A-Fa-f0-9]+}", getWill).Methods("GET")
+	route.HandleFunc("/v1/ishtm/will/{willid:[A-Fa-f0-9]+}", patchWill).Methods("PATCH")
+	route.HandleFunc("/v1/ishtm/will/{willid:[A-Fa-f0-9]+}", deleteWill).Methods("DELETE")
 	// utility routes
 	route.HandleFunc("/v1/ping", getPing).Methods("GET")
 	// root routes

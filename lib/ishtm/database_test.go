@@ -23,16 +23,16 @@ type mockdb struct {
 	password  string
 	authDb    string
 	// in memory storage
-	jobsStorage map[string]Job
+	willsStorage map[string]Will
 }
 
 func newMockDb(args *DbArgs) *mockdb {
 	return &mockdb{
-		addresses:   composeDbAddress(args),
-		user:        args.User,
-		password:    args.Password,
-		authDb:      args.AuthDb,
-		jobsStorage: make(map[string]Job),
+		addresses:    composeDbAddress(args),
+		user:         args.User,
+		password:     args.Password,
+		authDb:       args.AuthDb,
+		willsStorage: make(map[string]Will),
 	}
 }
 
@@ -43,9 +43,9 @@ func (d *mockdb) Copy() Database {
 func (d *mockdb) Close() {
 }
 
-func (d *mockdb) GetJobs(owner string) ([]Job, error) {
-	result := make([]Job, 0)
-	for _, value := range d.jobsStorage {
+func (d *mockdb) GetWills(owner string) ([]Will, error) {
+	result := make([]Will, 0)
+	for _, value := range d.willsStorage {
 		if value.Owner.Name == owner {
 			result = append(result, value)
 		}
@@ -56,34 +56,34 @@ func (d *mockdb) GetJobs(owner string) ([]Job, error) {
 	return result, nil
 }
 
-func (d *mockdb) GetJob(id string) (*Job, error) {
-	job, ok := d.jobsStorage[id]
+func (d *mockdb) GetWill(id string) (*Will, error) {
+	will, ok := d.willsStorage[id]
 	if !ok {
-		return nil, fmt.Errorf("unable to find the required %s job", id)
+		return nil, fmt.Errorf("unable to find the required %s will", id)
 	}
-	return &job, nil
+	return &will, nil
 }
 
-func (d *mockdb) SetJob(job *Job) error {
-	_, ok := d.jobsStorage[job.ID]
+func (d *mockdb) SetWill(will *Will) error {
+	_, ok := d.willsStorage[will.ID]
 	if ok {
-		return fmt.Errorf("job %s already exist in the db", job.ID)
+		return fmt.Errorf("will %s already exist in the db", will.ID)
 	}
-	d.jobsStorage[job.ID] = *job
+	d.willsStorage[will.ID] = *will
 	return nil
 }
 
 func (d *mockdb) RemoveUser(id string) error {
-	if _, ok := d.jobsStorage[id]; !ok {
-		return fmt.Errorf("unable to find required %s job", id)
+	if _, ok := d.willsStorage[id]; !ok {
+		return fmt.Errorf("unable to find required %s will", id)
 	}
-	delete(d.jobsStorage, id)
+	delete(d.willsStorage, id)
 	return nil
 }
 
-func (d *mockdb) GetInDelivery(actual time.Time) ([]Job, error) {
-	result := make([]Job, 0)
-	for _, value := range d.jobsStorage {
+func (d *mockdb) GetInDelivery(actual time.Time) ([]Will, error) {
+	result := make([]Will, 0)
+	for _, value := range d.willsStorage {
 		if value.TimeToDelivery.Sub(actual.UTC()) < 0 {
 			result = append(result, value)
 		}
