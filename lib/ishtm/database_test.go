@@ -73,14 +73,6 @@ func (d *mockdb) SetWill(will *Will) error {
 	return nil
 }
 
-func (d *mockdb) RemoveUser(id string) error {
-	if _, ok := d.willsStorage[id]; !ok {
-		return fmt.Errorf("unable to find required %s will", id)
-	}
-	delete(d.willsStorage, id)
-	return nil
-}
-
 func (d *mockdb) GetInDelivery(actual time.Time) ([]Will, error) {
 	result := make([]Will, 0)
 	for _, value := range d.willsStorage {
@@ -89,4 +81,12 @@ func (d *mockdb) GetInDelivery(actual time.Time) ([]Will, error) {
 		}
 	}
 	return result, nil
+}
+
+func (d *mockdb) RemoveWill(id string) error {
+	if _, ok := d.willsStorage[id]; !ok {
+		return fmt.Errorf("unable to find required %s will", id)
+	}
+	delete(d.willsStorage, id)
+	return nil
 }

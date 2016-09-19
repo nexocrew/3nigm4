@@ -132,8 +132,46 @@ type WillPostRequest struct {
 	// data from reference file
 	Reference []byte `json:"reference"` // reference data from storage functionality;
 	// will settings
-	DeliveryOffset time.Duration `json:"deliveryoffset"` // offset from not to deliver the reference if not delayed by the uploading user;
+	ExtensionUnit  time.Duration `json:"extensionunit"`  // extension unit to deliver the reference if not delayed by the uploading user;
 	NotifyDeadline bool          `json:"notifydeadline"` // notify, via email, to the uploader the deadline approach;
 	// sharing settings
 	Recipients []Recipient `json:"recipients"` // slice of recipients that shour recieve the reference file.
+}
+
+// WillCredentials are used to authenticate the user on will behaviour
+// that is enforced returning two quantities (that will be added to typical
+// login token): a qrcode and a secondary security code.
+type WillCredentials struct {
+	QRCode       []byte `json:"qrcode"`
+	SecondaryKey string `json:"secondarykey"`
+}
+
+// WillPostResponse returns produced will data from the
+// POST handler.
+type WillPostResponse struct {
+	ID          string           `json:"id"`
+	Credentials *WillCredentials `json:"credentials"`
+}
+
+// WillGetResponse is the GET response retuned by the handler.
+type WillGetResponse struct {
+	ID             string        `json:"id"`
+	Creation       time.Time     `json:"creation"`
+	LastModified   time.Time     `json:"lastmodified"`
+	ReferenceFile  []byte        `json:"referencefile"`
+	Recipients     []Recipient   `json:"recipients,omitempty"`
+	LastPing       time.Time     `json:"lastping"`      // UTC located;
+	TimeToDelivery time.Time     `json:"ttd,omitempty"` // UTC located;
+	ExtensionUnit  time.Duration `json:"extensionunit,omitempty"`
+	NotifyDeadline bool          `json:"notifydeadline,omitempty"`
+	DeliveryOffset time.Duration `json:"deliveryoffset,omitempty"`
+	Disabled       bool          `json:"disabled,omitempty"`
+}
+
+// WillPatchRequest is used to update expiration date for
+// a will document.
+type WillPatchRequest struct {
+	Index        int    `json:"index,omitempty"`
+	Otp          string `json:"otp"`
+	SecondaryKey string `json:"secondarykey,omitempty"`
 }

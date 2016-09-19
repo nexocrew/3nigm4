@@ -24,9 +24,6 @@ type Credential struct {
 type OwnerID struct {
 	Name  string `bson:"name"`
 	Email string `bson:"email"`
-	// pgp key identity
-	KeyID       uint64 `bson:"keyid"`
-	Fingerprint []byte `bson:"fingerprint"`
 	// ping credentials
 	Credentials []Credential `bson:"credentials"`
 }
@@ -49,4 +46,7 @@ type Will struct {
 	TimeToDelivery time.Time      `bson:"ttd"`      // UTC located;
 	Settings       Settings       `bson:"settings"`
 	Disabled       bool           `bson:"disabled"`
+	// delivery related
+	DeliveryKey []byte `bson:"deliverykey"`
+	Deliverable bool   `bson:"deliverable,omitempty"`
 }

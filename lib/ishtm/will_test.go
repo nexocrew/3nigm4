@@ -19,10 +19,8 @@ import (
 
 func TestNewWill(t *testing.T) {
 	owner := &OwnerID{
-		Name:        "userA",
-		Email:       "userA@mail.com",
-		KeyID:       23984,
-		Fingerprint: []byte("a3ir0ffe30b1fa2"),
+		Name:  "userA",
+		Email: "userA@mail.com",
 	}
 	settings := &Settings{
 		ExtensionUnit:  time.Duration(3000 * time.Millisecond),
@@ -58,10 +56,8 @@ func TestNewWill(t *testing.T) {
 
 func TestRefresTtd(t *testing.T) {
 	owner := &OwnerID{
-		Name:        "userA",
-		Email:       "userA@mail.com",
-		KeyID:       23984,
-		Fingerprint: []byte("a3ir0ffe30b1fa2"),
+		Name:  "userA",
+		Email: "userA@mail.com",
 	}
 	settings := &Settings{
 		ExtensionUnit:  time.Duration(3000 * time.Millisecond),

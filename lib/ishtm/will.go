@@ -8,6 +8,7 @@ package ishtm
 
 // Golang std packages
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -37,11 +38,15 @@ func generateJobID(owner *OwnerID, reference []byte, actual *time.Time) (string,
 	return hex.EncodeToString(checksum[:]), nil
 }
 
+const (
+	deliveryKeySize = 64 // lenght in bytes for delivery key.
+)
+
 // NewWill init a new job struct with argument passed parameters
 // validating to avoid nil values. Returns a new Will instance, a
 // QR code to seed OTP generation and an error if something went
 // wrong.
-func NewWill(owner *OwnerID, reference []byte, settings *Settings, recipients []ct.Recipient) (*Will, []byte, error) {
+func NewWill(owner *OwnerID, reference []byte, settings *Settings, recipients []ct.Recipient) (*Will, *ct.WillCredentials, error) {
 	if owner == nil ||
 		settings == nil {
 		return nil, nil, fmt.Errorf("provided arguments should not be nil")
@@ -73,6 +78,12 @@ func NewWill(owner *OwnerID, reference []byte, settings *Settings, recipients []
 	}
 	owner.Credentials = []Credential{*basicCredential}
 
+	// generate delivery key
+	deliveryKey, err := ct.RandomBytesForLen(deliveryKeySize)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// init structure
 	will := &Will{
 		ID:             id,
@@ -84,8 +95,45 @@ func NewWill(owner *OwnerID, reference []byte, settings *Settings, recipients []
 		LastPing:       now,
 		TimeToDelivery: ttd,
 		Settings:       *settings,
+		DeliveryKey:    deliveryKey,
+		Deliverable:    false,
 	}
-	return will, qrcode, nil
+	return will,
+		&ct.WillCredentials{
+			QRCode:       qrcode,
+			SecondaryKey: hex.EncodeToString(basicCredential.SecondaryKey),
+		}, nil
+}
+
+// VerifyOtp verify otp validity and updates
+// credentials structure for an argument index.
+// The secondary key is used when the otp is not passed
+// by the request structure.
+func (j *Will) VerifyOtp(idx int, otp string, secondary string) error {
+	if len(j.Owner.Credentials) <= idx {
+		return fmt.Errorf("required credential index is out of bounds, havind %d but max %d", idx, len(j.Owner.Credentials))
+	}
+	credential := j.Owner.Credentials[idx]
+	// check for available credentials
+	if otp != "" {
+		updated, err := verifyOTP(otp, &credential)
+		if err != nil {
+			return err
+		}
+		j.Owner.Credentials[idx] = *updated
+	} else if secondary != "" {
+		secondaryKey, err := hex.DecodeString(secondary)
+		if err != nil {
+			return fmt.Errorf("unable to decode secondary key (%s)", err.Error())
+		}
+		if bytes.Compare(secondaryKey, credential.SecondaryKey) != 0 {
+			return fmt.Errorf("secondary key is not valid")
+		}
+	} else {
+		return fmt.Errorf("unsupported nil credentials")
+	}
+	return nil
+
 }
 
 // Refresh reference time to delivery deadline.

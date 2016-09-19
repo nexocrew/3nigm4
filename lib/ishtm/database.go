@@ -46,6 +46,7 @@ type Database interface {
 	GetWills(string) ([]Will, error) // list wills for owner's username.
 	GetWill(string) (*Will, error)   // gets a will struct from an argument jobID;
 	SetWill(*Will) error             // upsert a will in the db;
+	RemoveWill(string) error         // remove a will from the db;
 	// ttd behaviour
 	GetInDelivery(time.Time) ([]Will, error)
 }
