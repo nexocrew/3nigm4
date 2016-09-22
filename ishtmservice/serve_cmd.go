@@ -15,7 +15,8 @@ import (
 
 // Internal pkgs
 import (
-	hm "github.com/nexocrew/3nigm4/lib/ishtm"
+	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
+	ishtmdb "github.com/nexocrew/3nigm4/lib/ishtm/db"
 )
 
 // Third party pkgs
@@ -34,7 +35,7 @@ func init() {
 var ServeCmd = &cobra.Command{
 	Use:     "serve",
 	Short:   "Serve trougth http/https",
-	Long:    "Launch http service to expose storage API services.",
+	Long:    "Launch http service to expose ISHTM API services.",
 	Example: "ishtmservice serve -d 127.0.0.1:27017 -u dbuser -w dbpwd -a 0.0.0.0 -p 443 -s /tmp/cert.pem -S /tmp/pvkey.pem -v",
 }
 
@@ -59,19 +60,19 @@ func init() {
 
 // Global database referring variable to be copied and released by
 // each goroutine.
-var db hm.Database
+var db ct.Database
 
 // This var is used to permitt to switch to mock db implementation
 // in unit-tests, do not mess with it for other reasons.
 // The default, production targeting, implementation uses Mongodb
 // as backend database system.
-var databaseStartup func(*args) (hm.Database, error) = mgoStartup
+var databaseStartup func(*args) (ct.Database, error) = mgoStartup
 
 // mgoStartup implement startup logic for a mongodb based database
 // connection.
-func mgoStartup(a *args) (hm.Database, error) {
+func mgoStartup(a *args) (ct.Database, error) {
 	// startup db
-	mgodb, err := hm.MgoSession(&hm.DbArgs{
+	mgodb, err := ishtmdb.MgoSession(&ct.DbArgs{
 		Addresses: strings.Split(a.dbAddresses, ","),
 		User:      a.dbUsername,
 		Password:  a.dbPassword,

@@ -1,16 +1,21 @@
 //
-// 3nigm4 ishtm package
+// 3nigm4 ishtmdb package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 11/09/2016
 //
 
-package ishtm
+package ishtmdb
 
 // Golang std libs
 import (
-	"fmt"
 	"os"
 	"time"
+)
+
+// Internal packages
+import (
+	types "github.com/nexocrew/3nigm4/lib/ishtm/commons"
+	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 )
 
 // Third party libs
@@ -26,31 +31,6 @@ const (
 	envJobsCollectionName = "NEXO_ISHTM_USERS_COLLECTION"
 )
 
-// DbArgs is the exposed arguments
-// required by each database interface
-// implementing structs.
-type DbArgs struct {
-	Addresses []string // cluster addresses in form <addr>:<port>;
-	User      string   // authentication username;
-	Password  string   // authentication password;
-	AuthDb    string   // the auth db.
-}
-
-// Database an interface defining a generic
-// db, package targeting, implementation.
-type Database interface {
-	// db client related functions
-	Copy() Database // retain the db client in a multi-coroutine environment;
-	Close()         // release the client;
-	// job behaviour
-	GetWills(string) ([]Will, error) // list wills for owner's username.
-	GetWill(string) (*Will, error)   // gets a will struct from an argument jobID;
-	SetWill(*Will) error             // upsert a will in the db;
-	RemoveWill(string) error         // remove a will from the db;
-	// ttd behaviour
-	GetInDelivery(time.Time) ([]Will, error)
-}
-
 // Mongodb database, wrapping mgo session
 // structure.
 type Mongodb struct {
@@ -60,23 +40,10 @@ type Mongodb struct {
 	jobsCollection string
 }
 
-// composeDbAddress compose a string starting from dbArgs slice.
-func composeDbAddress(args *DbArgs) string {
-	dbAccess := fmt.Sprintf("mongodb://%s:%s@", args.User, args.Password)
-	for idx, addr := range args.Addresses {
-		dbAccess += addr
-		if idx != len(args.Addresses)-1 {
-			dbAccess += ","
-		}
-	}
-	dbAccess += fmt.Sprintf("/?authSource=%s", args.AuthDb)
-	return dbAccess
-}
-
 // MgoSession get a new session starting from the standard args
 // structure.
-func MgoSession(args *DbArgs) (*Mongodb, error) {
-	s, err := mgo.Dial(composeDbAddress(args))
+func MgoSession(args *types.DbArgs) (*Mongodb, error) {
+	s, err := mgo.Dial(types.ComposeDbAddress(args))
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +68,7 @@ func MgoSession(args *DbArgs) (*Mongodb, error) {
 }
 
 // Copy the internal session to permitt multi corutine usage.
-func (d *Mongodb) Copy() Database {
+func (d *Mongodb) Copy() types.Database {
 	return &Mongodb{
 		session:        d.session.Copy(),
 		database:       d.database,
@@ -115,13 +82,13 @@ func (d *Mongodb) Close() {
 }
 
 // GetWills retrieve all wills related to a specified user.
-func (d *Mongodb) GetWills(owner string) ([]Will, error) {
+func (d *Mongodb) GetWills(owner string) ([]will.Will, error) {
 	// build query
 	selector := bson.M{
 		"owner.name": bson.M{"$eq": owner},
 	}
 	// perform db query
-	var wills []Will
+	var wills []will.Will
 	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).All(&wills)
 	if err != nil {
 		return nil, err
@@ -131,13 +98,13 @@ func (d *Mongodb) GetWills(owner string) ([]Will, error) {
 
 // GetWill get will structure from a given jobID, if
 // something wrong returns an error.
-func (d *Mongodb) GetWill(id string) (*Will, error) {
+func (d *Mongodb) GetWill(id string) (*will.Will, error) {
 	// build query
 	selector := bson.M{
 		"id": bson.M{"$eq": id},
 	}
 	// perform db query
-	var will Will
+	var will will.Will
 	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).One(&will)
 	if err != nil {
 		return nil, err
@@ -147,7 +114,7 @@ func (d *Mongodb) GetWill(id string) (*Will, error) {
 
 // SetWill upsert an argument Will struct to the database,
 // returns an error if something went wrong.
-func (d *Mongodb) SetWill(will *Will) error {
+func (d *Mongodb) SetWill(will *will.Will) error {
 	selector := bson.M{
 		"id": will.ID,
 	}
@@ -177,7 +144,7 @@ func (d *Mongodb) RemoveWill(id string) error {
 
 // GetInDelivery returns wills having passed by the actual
 // time stamp.
-func (d *Mongodb) GetInDelivery(actual time.Time) ([]Will, error) {
+func (d *Mongodb) GetInDelivery(actual time.Time) ([]will.Will, error) {
 	// build query
 	selector := bson.M{
 		"ttd": bson.M{
@@ -185,7 +152,7 @@ func (d *Mongodb) GetInDelivery(actual time.Time) ([]Will, error) {
 		},
 	}
 	// perform db query
-	var wills []Will
+	var wills []will.Will
 	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).All(&wills)
 	if err != nil {
 		return nil, err

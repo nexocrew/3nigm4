@@ -1,10 +1,10 @@
 //
-// 3nigm4 ishtm package
+// 3nigm4 will package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 11/09/2016
 //
 
-package ishtm
+package will
 
 // Golang std packages
 import (

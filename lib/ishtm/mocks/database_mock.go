@@ -1,5 +1,5 @@
 //
-// 3nigm4 ishtm package
+// 3nigm4 ishtmmocks package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 11/09/2016
 //
@@ -9,7 +9,9 @@
 // optimisation logic.
 //
 
-package ishtm
+// Package ishtmmocks implements unit-tests mocks for the
+// ishtm service.
+package ishtmmocks
 
 // Golang std libs
 import (
@@ -17,34 +19,40 @@ import (
 	"time"
 )
 
-type mockdb struct {
+// Internal packages
+import (
+	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
+	"github.com/nexocrew/3nigm4/lib/ishtm/will"
+)
+
+type Mockdb struct {
 	addresses string
 	user      string
 	password  string
 	authDb    string
 	// in memory storage
-	willsStorage map[string]Will
+	willsStorage map[string]will.Will
 }
 
-func newMockDb(args *DbArgs) *mockdb {
-	return &mockdb{
-		addresses:    composeDbAddress(args),
+func NewMockDb(args *ct.DbArgs) *Mockdb {
+	return &Mockdb{
+		addresses:    ct.ComposeDbAddress(args),
 		user:         args.User,
 		password:     args.Password,
 		authDb:       args.AuthDb,
-		willsStorage: make(map[string]Will),
+		willsStorage: make(map[string]will.Will),
 	}
 }
 
-func (d *mockdb) Copy() Database {
+func (d *Mockdb) Copy() ct.Database {
 	return d
 }
 
-func (d *mockdb) Close() {
+func (d *Mockdb) Close() {
 }
 
-func (d *mockdb) GetWills(owner string) ([]Will, error) {
-	result := make([]Will, 0)
+func (d *Mockdb) GetWills(owner string) ([]will.Will, error) {
+	result := make([]will.Will, 0)
 	for _, value := range d.willsStorage {
 		if value.Owner.Name == owner {
 			result = append(result, value)
@@ -56,7 +64,7 @@ func (d *mockdb) GetWills(owner string) ([]Will, error) {
 	return result, nil
 }
 
-func (d *mockdb) GetWill(id string) (*Will, error) {
+func (d *Mockdb) GetWill(id string) (*will.Will, error) {
 	will, ok := d.willsStorage[id]
 	if !ok {
 		return nil, fmt.Errorf("unable to find the required %s will", id)
@@ -64,7 +72,7 @@ func (d *mockdb) GetWill(id string) (*Will, error) {
 	return &will, nil
 }
 
-func (d *mockdb) SetWill(will *Will) error {
+func (d *Mockdb) SetWill(will *will.Will) error {
 	_, ok := d.willsStorage[will.ID]
 	if ok {
 		return fmt.Errorf("will %s already exist in the db", will.ID)
@@ -73,8 +81,8 @@ func (d *mockdb) SetWill(will *Will) error {
 	return nil
 }
 
-func (d *mockdb) GetInDelivery(actual time.Time) ([]Will, error) {
-	result := make([]Will, 0)
+func (d *Mockdb) GetInDelivery(actual time.Time) ([]will.Will, error) {
+	result := make([]will.Will, 0)
 	for _, value := range d.willsStorage {
 		if value.TimeToDelivery.Sub(actual.UTC()) < 0 {
 			result = append(result, value)
@@ -83,7 +91,7 @@ func (d *mockdb) GetInDelivery(actual time.Time) ([]Will, error) {
 	return result, nil
 }
 
-func (d *mockdb) RemoveWill(id string) error {
+func (d *Mockdb) RemoveWill(id string) error {
 	if _, ok := d.willsStorage[id]; !ok {
 		return fmt.Errorf("unable to find required %s will", id)
 	}

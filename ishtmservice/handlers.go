@@ -21,7 +21,7 @@ import (
 import (
 	"github.com/nexocrew/3nigm4/lib/auth"
 	ct "github.com/nexocrew/3nigm4/lib/commons"
-	"github.com/nexocrew/3nigm4/lib/ishtm"
+	wl "github.com/nexocrew/3nigm4/lib/ishtm/will"
 )
 
 // Third party pkgs
@@ -184,13 +184,13 @@ func postWill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create will
-	will, credentials, err := ishtm.NewWill(
-		&ishtm.OwnerID{
+	will, credentials, err := wl.NewWill(
+		&wl.OwnerID{
 			Name:  userInfo.Username,
 			Email: userInfo.Email,
 		},
 		willRequest.Reference,
-		&ishtm.Settings{
+		&wl.Settings{
 			DeliveryOffset: additionalExpiration,
 			DisableOffset:  false,
 			NotifyDeadline: willRequest.NotifyDeadline,

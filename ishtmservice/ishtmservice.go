@@ -62,7 +62,7 @@ func Execute() error {
 
 func printLogo() {
 	// print logo
-	fmt.Printf("%s", logo.Logo("Storage REST API backend server", ver.V().VersionString(), nil))
+	fmt.Printf("%s", logo.Logo("Ishtm REST API backend server", ver.V().VersionString(), nil))
 }
 
 func main() {
