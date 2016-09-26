@@ -18,7 +18,6 @@ Table of contents
  - [Components](#components)
  - [Installation](#installation)
  - [Testing](#testing)
- - [Benchmark](#benchmark)
  - [Documentation](#documentation)
  - [Contribution](#contribution)
  - [Contributors](#contributors)
@@ -49,12 +48,7 @@ All 3n4 services are available as docker images (official Docker Hub):
 Each image have a specific README file reporting specific deployment instructions and requirements.
 
 ## Testing
-_Todo_
-
-
-## Benchmark
-_Todo_
-
+We are right now in alpha with the first version of all componets. To have access to the test instance and try using the 3n4 client please contact [@dyst0ni3](https://github.com/dystonie): you'll be provided with test credentials.
 
 ## Docs
 In the `docs/` directory you can find useful documentation.
