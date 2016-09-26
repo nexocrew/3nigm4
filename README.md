@@ -37,7 +37,7 @@ While the security community's aim is more often focused on vulnerability detect
 The 3n4 project is composed of two main components:
 - **A storage service (3n4store)**: storing data after removing all metadata from uploaded files (they are actually chunked and anonymized). Based on the use of PGP and AES and maintaining, client side, all critical infos about the uploaded file;
 - **A “If Something Happens To Me" service (3n4ishtm)**: the service will let any user upload sensible data references (encrypted using PGP using the recipient’s keys and referring to files using the previously described storage service) and to deliver it, to pre-defined recipients, if the legitimate data owner do not ping the system after a specific amount of time;
--- **A command line client tool (3n4cli)**: the client to access all 3n4 services.
+- **A command line client tool (3n4cli)**: the client to access all 3n4 services.
 
 ## Installation
 All 3n4 services are available as docker images (official Docker Hub):
