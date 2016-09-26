@@ -13,15 +13,15 @@ _“if something happens to me” let the computer act on my behalf..._
 Table of contents
 ---------------------
 
- - [Context](#Context)
- - [Description](#Description)
- - [Components](#Components)
- - [Installation](#Installation)
- - [Testing](#Testing)
- - [Benchmark](#Benchmark)
- - [Documentation](#Documentation)
- - [Contribution](#Contribution)
- - [Contributors](#Contributors)
+ - [Context](#context)
+ - [Description](#description)
+ - [Components](#components)
+ - [Installation](#installation)
+ - [Testing](#testing)
+ - [Benchmark](#benchmark)
+ - [Documentation](#documentation)
+ - [Contribution](#contribution)
+ - [Contributors](#contributors)
 
 ## Context
 In the last few years we have unfortunately seen many different examples of researchers, journalists or political opponents being arrested or killed while operating in totalitarian regimes, often also having their research work destroyed or shelved. These kind of occurrences cannot be predicted with certainty and can happen very suddenly. Starting from these facts, we started thinking about how to provide a solution to those people, giving them the opportunity to securely share critical informations with third parties, even while in prison or deceased: this is the main objective of the 3n4 project.
