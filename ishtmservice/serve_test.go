@@ -23,7 +23,7 @@ import (
 	ct "github.com/nexocrew/3nigm4/lib/commons"
 	ishtmct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	mockdb "github.com/nexocrew/3nigm4/lib/ishtm/mocks"
-	_ "github.com/nexocrew/3nigm4/lib/ishtm/will"
+	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 	"github.com/nexocrew/3nigm4/lib/itm"
 	"github.com/nexocrew/3nigm4/lib/logger"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
@@ -50,6 +50,9 @@ func TestMain(m *testing.M) {
 	}
 	databaseStartup = mockDbStartup
 	authClientStartup = mockAuthStartup
+
+	will.GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
+	will.GlobalEncryptionSalt = []byte("thisissa")
 
 	var errorCounter wq.AtomicCounter
 	errorChan := make(chan error, 0)
