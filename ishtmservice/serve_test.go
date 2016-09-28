@@ -207,7 +207,7 @@ func TestWillPost(t *testing.T) {
 		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
 	}
 
-	// create job
+	// create will
 	req, err = http.NewRequest(
 		"POST",
 		fmt.Sprintf("http://%s:%d/v1/ishtm/will", mockServiceAddress, mockServicePort),
@@ -220,4 +220,66 @@ func TestWillPost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to perform will POST request on server: %s.\n", err.Error())
 	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to create will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ = ioutil.ReadAll(resp.Body)
+	var willPostResponse ct.WillPostResponse
+	err = json.Unmarshal(respBody, &willPostResponse)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	resp.Body.Close()
+
+	if willPostResponse.ID == "" {
+		t.Fatalf("Unexpected void ID.\n")
+	}
+	t.Log(willPostResponse.ID)
+
+	if willPostResponse.Credentials.QRCode == nil ||
+		len(willPostResponse.Credentials.QRCode) < 2900 {
+		t.Fatalf("Returned nil QRCode, not acceptable.\n")
+	}
+	t.Logf("QRCode png data of size: %d bytes.\n", len(willPostResponse.Credentials.QRCode))
+
+	if willPostResponse.Credentials.SecondaryKey == "" {
+		t.Fatalf("Secondary key is nil, should not be the case.\n")
+	}
+	t.Logf("Secondary key: %s.\n", willPostResponse.Credentials.SecondaryKey)
+
+	// check on the db
+	actualWill, err := db.GetWill(willPostResponse.ID)
+	if err != nil {
+		t.Fatalf("Unable to find required will: %s.\n", err.Error())
+	}
+
+	if actualWill.Deliverable != false {
+		t.Fatalf("Unexpected deliverable state, having true expecting false.\n")
+	}
+	if actualWill.Owner.Name != mockUserInfo.Username {
+		t.Fatalf("Unexpected owner having %s expecting %s.\n", actualWill.Owner.Name, mockUserInfo.Username)
+	}
+	if actualWill.Owner.Email != mockUserInfo.Email {
+		t.Fatalf("Unexpected owner email having %s expecting %s.\n", actualWill.Owner.Email, mockUserInfo.Email)
+	}
+	if len(actualWill.Owner.Credentials) != 1 {
+		t.Fatalf("Unexpected credentials slice size: having %d expecting %d.\n", len(actualWill.Owner.Credentials), 1)
+	}
+	if actualWill.Owner.Credentials[0].SoftwareToken == nil ||
+		len(actualWill.Owner.Credentials[0].SoftwareToken) == 0 {
+		t.Fatalf("Unexpected credential token size having %d expecting > 0.\n", len(actualWill.Owner.Credentials[0].SoftwareToken))
+	}
+	if actualWill.Owner.Credentials[0].SecondaryKey == nil ||
+		len(actualWill.Owner.Credentials[0].SecondaryKey) == 0 {
+		t.Fatalf("Unexpected credential secondary key size having %d expecting > 0.\n", len(actualWill.Owner.Credentials[0].SecondaryKey))
+	}
+	if actualWill.Disabled != false {
+		t.Fatalf("Unexpected disable state should be false.\n")
+	}
+	if bytes.Compare(actualWill.ReferenceFile, willRequest.Reference) != 0 {
+		t.Fatalf("Unexpected reference file.\n")
+	}
+
 }
