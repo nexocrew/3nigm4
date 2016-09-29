@@ -148,6 +148,7 @@ var (
 	additionalExpiration = 24 * time.Hour
 )
 
+// postWill creates a new will from the request.
 func postWill(w http.ResponseWriter, r *http.Request) {
 	// authorise and get user's info
 	// extract token from headers
@@ -231,6 +232,8 @@ func postWill(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getWill returns a will details to the owner or to recipeints (having
+// passed the delivery key).
 func getWill(w http.ResponseWriter, r *http.Request) {
 	// get id from url
 	vars := mux.Vars(r)
@@ -438,6 +441,8 @@ func patchWill(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// deleteWill remove a will from the database: user is authenticated, as
+// for patchWill using otp or secondary key (but passed as URL query arguments).
 func deleteWill(w http.ResponseWriter, r *http.Request) {
 	// get id from url
 	vars := mux.Vars(r)

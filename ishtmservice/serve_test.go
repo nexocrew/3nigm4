@@ -44,6 +44,9 @@ var (
 	willID               string
 	otp                  *hotp.HOTP
 	secondaryKey         string
+	deliveryKey          string
+	lastPing             time.Time
+	referenceData        = []byte("test reference data")
 )
 
 const (
@@ -240,7 +243,7 @@ func TestWillPost(t *testing.T) {
 	// define request body
 	now := time.Now()
 	willRequest := ct.WillPostRequest{
-		Reference:      []byte("test reference data"),
+		Reference:      referenceData,
 		ExtensionUnit:  time.Duration(48 * time.Hour),
 		NotifyDeadline: true,
 		Recipients: []ct.Recipient{
@@ -308,6 +311,11 @@ func TestWillPost(t *testing.T) {
 	if actualWill.Deliverable != false {
 		t.Fatalf("Unexpected deliverable state, having true expecting false.\n")
 	}
+	if actualWill.DeliveryKey == nil ||
+		len(actualWill.DeliveryKey) == 0 {
+		t.Fatalf("Delivery key must not be nil.\n")
+	}
+	t.Logf("Delivery Key: %s.\n", hex.EncodeToString(actualWill.DeliveryKey))
 	if actualWill.Owner.Name != mockUserInfo.Username {
 		t.Fatalf("Unexpected owner having %s expecting %s.\n", actualWill.Owner.Name, mockUserInfo.Username)
 	}
@@ -392,6 +400,7 @@ func TestWillPost(t *testing.T) {
 		t.Fatalf("Unable to decrypt with global keys the user sowftware token: %s.\n", err.Error())
 	}
 	secondaryKey = willPostResponse.Credentials.SecondaryKey
+	deliveryKey = hex.EncodeToString(actualWill.DeliveryKey)
 }
 
 func TestWillPatchWithOtp(t *testing.T) {
@@ -455,16 +464,16 @@ func TestWillPatchWithOtp(t *testing.T) {
 		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s", mockServiceAddress, mockServicePort, willID),
 		bytes.NewBuffer(body))
 	if err != nil {
-		t.Fatalf("Unable to prepare the will POST request: %s.\n", err.Error())
+		t.Fatalf("Unable to prepare the will PATCH request: %s.\n", err.Error())
 	}
 	req.Header.Set(ct.SecurityTokenKey, session.Token)
 	resp, err = client.Do(req)
 	if err != nil {
-		t.Fatalf("Unable to perform will POST request on server: %s.\n", err.Error())
+		t.Fatalf("Unable to perform will PATCH request on server: %s.\n", err.Error())
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("Unable to create will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+		t.Fatalf("Unable to patch will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
 	}
 
 	respBody, _ = ioutil.ReadAll(resp.Body)
@@ -513,16 +522,16 @@ func TestWillPatchWithOtp(t *testing.T) {
 		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s", mockServiceAddress, mockServicePort, willID),
 		bytes.NewBuffer(body))
 	if err != nil {
-		t.Fatalf("Unable to prepare the will POST request: %s.\n", err.Error())
+		t.Fatalf("Unable to prepare the will PATCH request: %s.\n", err.Error())
 	}
 	req.Header.Set(ct.SecurityTokenKey, session.Token)
 	resp, err = client.Do(req)
 	if err != nil {
-		t.Fatalf("Unable to perform will POST request on server: %s.\n", err.Error())
+		t.Fatalf("Unable to perform will PATCH request on server: %s.\n", err.Error())
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("Unable to create will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+		t.Fatalf("Unable to patch will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
 	}
 
 	// check ping value
@@ -587,10 +596,6 @@ func TestWillPatchWithSecondary(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	if otp == nil {
-		t.Fatalf("Otp must not be nil.\n")
-	}
-
 	time.Sleep(300 * time.Millisecond)
 	// define request body
 	willRequest := ct.WillPatchRequest{
@@ -608,16 +613,16 @@ func TestWillPatchWithSecondary(t *testing.T) {
 		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s", mockServiceAddress, mockServicePort, willID),
 		bytes.NewBuffer(body))
 	if err != nil {
-		t.Fatalf("Unable to prepare the will POST request: %s.\n", err.Error())
+		t.Fatalf("Unable to prepare the will PATCH request: %s.\n", err.Error())
 	}
 	req.Header.Set(ct.SecurityTokenKey, session.Token)
 	resp, err = client.Do(req)
 	if err != nil {
-		t.Fatalf("Unable to perform will POST request on server: %s.\n", err.Error())
+		t.Fatalf("Unable to perform will PATCH request on server: %s.\n", err.Error())
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("Unable to create will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+		t.Fatalf("Unable to patch will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
 	}
 
 	respBody, _ = ioutil.ReadAll(resp.Body)
@@ -648,4 +653,248 @@ func TestWillPatchWithSecondary(t *testing.T) {
 			actualWill.TimeToDelivery.Sub(expectedTtd)/time.Millisecond,
 			actualWill.Settings.ExtensionUnit/time.Millisecond)
 	}
+	lastPing = now
+}
+
+func TestWillGetForOwner(t *testing.T) {
+	// Login the user
+	loginBody := ct.LoginRequest{
+		Username: mockUserInfo.Username,
+		Password: mockUserPassword,
+	}
+	body, err := json.Marshal(&loginBody)
+	if err != nil {
+		t.Fatalf("Unable to marshal request body: %s.\n", err.Error())
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/authsession", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the login request: %s.\n", err.Error())
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform login request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to access login service, returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	var session ct.LoginResponse
+	err = json.Unmarshal(respBody, &session)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if session.Token == "" ||
+		len(session.Token) == 0 {
+		t.Fatalf("Invalid token: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	// get will
+	req, err = http.NewRequest(
+		"GET",
+		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s", mockServiceAddress, mockServicePort, willID),
+		nil)
+	if err != nil {
+		t.Fatalf("Unable to prepare the will GET request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform will GET request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to get will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ = ioutil.ReadAll(resp.Body)
+	var getResponse ct.WillGetResponse
+	err = json.Unmarshal(respBody, &getResponse)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	resp.Body.Close()
+
+	if getResponse.ID != willID {
+		t.Fatalf("Unexpected will id, having %s expecting %s.\n", getResponse.ID, willID)
+	}
+	if len(getResponse.Recipients) == 0 {
+		t.Fatalf("Owner must be able to retrieve recipients.\n")
+	}
+	if getResponse.ExtensionUnit == 0 {
+		t.Fatalf("Owner must be able to retrieve extension unit.\n")
+	}
+	if getResponse.NotifyDeadline != true {
+		t.Fatalf("Owner must retrieve notify deadline flag.\n")
+	}
+	if getResponse.LastPing.Sub(lastPing) > timePositiveToleranceLimit ||
+		getResponse.LastPing.Sub(lastPing) < timeNegativeToleranceLimit {
+		t.Fatalf("Last ping time is wrong should be ~0 but found %d ms.\n",
+			getResponse.LastPing.Sub(lastPing)/1*time.Millisecond)
+	}
+	if bytes.Compare(referenceData, getResponse.ReferenceFile) != 0 {
+		t.Fatalf("Unexpected reference file.\n")
+	}
+}
+
+func TestWillGetForRecipient(t *testing.T) {
+	client := &http.Client{}
+	// get will
+	req, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s?deliverykey=%s",
+			mockServiceAddress,
+			mockServicePort,
+			willID,
+			deliveryKey),
+		nil)
+	if err != nil {
+		t.Fatalf("Unable to prepare the will GET request: %s.\n", err.Error())
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform will GET request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to get will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	var getResponse ct.WillGetResponse
+	err = json.Unmarshal(respBody, &getResponse)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	resp.Body.Close()
+
+	if getResponse.ID != willID {
+		t.Fatalf("Unexpected will id, having %s expecting %s.\n", getResponse.ID, willID)
+	}
+	if len(getResponse.Recipients) != 0 {
+		t.Fatalf("Recipient must not be able to retrieve recipients.\n")
+	}
+	if getResponse.ExtensionUnit != 0 {
+		t.Fatalf("Recipient must not be able to retrieve extension unit.\n")
+	}
+	if getResponse.NotifyDeadline == true {
+		t.Fatalf("Recipient must not retrieve notify deadline flag.\n")
+	}
+	if getResponse.LastPing.Sub(lastPing) > timePositiveToleranceLimit ||
+		getResponse.LastPing.Sub(lastPing) < timeNegativeToleranceLimit {
+		t.Fatalf("Last ping time is wrong should be ~0 but found %d ms.\n",
+			getResponse.LastPing.Sub(lastPing)/1*time.Millisecond)
+	}
+	if bytes.Compare(referenceData, getResponse.ReferenceFile) != 0 {
+		t.Fatalf("Unexpected reference file.\n")
+	}
+}
+
+func TestWillDelete(t *testing.T) {
+	// Login the user
+	loginBody := ct.LoginRequest{
+		Username: mockUserInfo.Username,
+		Password: mockUserPassword,
+	}
+	body, err := json.Marshal(&loginBody)
+	if err != nil {
+		t.Fatalf("Unable to marshal request body: %s.\n", err.Error())
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/authsession", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the login request: %s.\n", err.Error())
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform login request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to access login service, returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	var session ct.LoginResponse
+	err = json.Unmarshal(respBody, &session)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if session.Token == "" ||
+		len(session.Token) == 0 {
+		t.Fatalf("Invalid token: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	// backup it
+	actualWill, err := db.GetWill(willID)
+	if err != nil {
+		t.Fatalf("Unable to find required will: %s.\n", err.Error())
+	}
+
+	if otp == nil {
+		t.Fatalf("Otp must not be nil.\n")
+	}
+
+	// delete will with otp
+	req, err = http.NewRequest(
+		"DELETE",
+		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s?otp=%s",
+			mockServiceAddress,
+			mockServicePort,
+			willID,
+			otp.OTP()),
+		nil)
+	if err != nil {
+		t.Fatalf("Unable to prepare the will DELETE request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform will DELETE request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to delete will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	// restore will
+	err = db.SetWill(actualWill)
+	if err != nil {
+		t.Fatalf("Unable to restore will in the database: %s.\n", err.Error())
+	}
+
+	// delete will with secondary key
+	req, err = http.NewRequest(
+		"DELETE",
+		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s?secondarykey=%s",
+			mockServiceAddress,
+			mockServicePort,
+			willID,
+			secondaryKey),
+		nil)
+	if err != nil {
+		t.Fatalf("Unable to prepare the will DELETE request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform will DELETE request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to delete will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
 }
