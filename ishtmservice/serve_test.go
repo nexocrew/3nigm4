@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -21,6 +22,7 @@ import (
 // Internal dependencies.
 import (
 	ct "github.com/nexocrew/3nigm4/lib/commons"
+	crypto3n4 "github.com/nexocrew/3nigm4/lib/crypto"
 	ishtmct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	mockdb "github.com/nexocrew/3nigm4/lib/ishtm/mocks"
 	"github.com/nexocrew/3nigm4/lib/ishtm/will"
@@ -29,10 +31,57 @@ import (
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
-var (
-	mockServiceAddress = "127.0.0.1"
-	mockServicePort    = 17973
+// Third party packages
+import (
+	"github.com/gokyle/hotp"
 )
+
+var (
+	mockServiceAddress   = "127.0.0.1"
+	mockServicePort      = 17973
+	GlobalEncryptionKey  = []byte("thisisatesttempkeyiroeofod090877")
+	GlobalEncryptionSalt = []byte("thisissa")
+	willID               string
+	otp                  *hotp.HOTP
+	secondaryKey         string
+)
+
+const (
+	timePositiveToleranceLimit = 1 * time.Millisecond
+	timeNegativeToleranceLimit = -1 * time.Millisecond
+)
+
+func decryptHotp(encryptedToken []byte) (*hotp.HOTP, error) {
+	// decrypt token content
+	plaintext, err := crypto3n4.AesDecrypt(
+		GlobalEncryptionKey,
+		encryptedToken,
+		crypto3n4.CBC,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	swtoken, err := hotp.Unmarshal(plaintext)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal token data, cause %s", err.Error())
+	}
+	return swtoken, nil
+}
+
+func decryptSecondaryKey(key []byte) ([]byte, error) {
+	// decrypt token content
+	plaintext, err := crypto3n4.AesDecrypt(
+		GlobalEncryptionKey,
+		key,
+		crypto3n4.CBC,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return plaintext, nil
+}
 
 func TestMain(m *testing.M) {
 	// start up logging facility
@@ -51,8 +100,8 @@ func TestMain(m *testing.M) {
 	databaseStartup = mockDbStartup
 	authClientStartup = mockAuthStartup
 
-	will.GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
-	will.GlobalEncryptionSalt = []byte("thisissa")
+	will.GlobalEncryptionKey = GlobalEncryptionKey
+	will.GlobalEncryptionSalt = GlobalEncryptionSalt
 
 	var errorCounter wq.AtomicCounter
 	errorChan := make(chan error, 0)
@@ -189,6 +238,7 @@ func TestWillPost(t *testing.T) {
 	resp.Body.Close()
 
 	// define request body
+	now := time.Now()
 	willRequest := ct.WillPostRequest{
 		Reference:      []byte("test reference data"),
 		ExtensionUnit:  time.Duration(48 * time.Hour),
@@ -281,5 +331,321 @@ func TestWillPost(t *testing.T) {
 	if bytes.Compare(actualWill.ReferenceFile, willRequest.Reference) != 0 {
 		t.Fatalf("Unexpected reference file.\n")
 	}
+	if actualWill.Creation.Sub(now) > 1*time.Millisecond {
+		t.Fatalf("Unexpected creation time having %s expecting %s (diff %d ms).\n",
+			actualWill.Creation.String(),
+			now.String(),
+			actualWill.Creation.Sub(now)/time.Millisecond)
+	}
+	if actualWill.LastModified.Sub(now) > 1*time.Millisecond {
+		t.Fatalf("Unexpected last modified time having %s expecting %s (diff %d ms).\n",
+			actualWill.LastModified.String(),
+			now.String(),
+			actualWill.LastModified.Sub(now)/time.Millisecond)
+	}
+	if actualWill.LastPing.Sub(now) > 1*time.Millisecond {
+		t.Fatalf("Unexpected last ping time having %s expecting %s (diff %d ms).\n",
+			actualWill.LastPing.String(),
+			now.String(),
+			actualWill.LastPing.Sub(now)/time.Millisecond)
+	}
+	// expected time should consider delivery offser if setted in the
+	// settings configuration.
+	expectedTtd := now.Add(willRequest.ExtensionUnit)
+	if actualWill.Settings.DisableOffset != true {
+		expectedTtd = expectedTtd.Add(actualWill.Settings.DeliveryOffset)
+	}
+	if actualWill.TimeToDelivery.Sub(expectedTtd) > timePositiveToleranceLimit ||
+		actualWill.TimeToDelivery.Sub(expectedTtd) < timeNegativeToleranceLimit {
+		t.Fatalf("Unexpected delivery time: having %s expecting %s (diff %d ms).\n",
+			actualWill.TimeToDelivery,
+			expectedTtd,
+			actualWill.TimeToDelivery.Sub(expectedTtd)/time.Millisecond)
+	}
+	if len(actualWill.Recipients) != 1 {
+		t.Fatalf("Unexpected number of recipients, having %d expecting %d.\n", len(actualWill.Recipients), 1)
+	}
+	if actualWill.Recipients[0].Name != willRequest.Recipients[0].Name {
+		t.Fatalf("Unexpected recipient name, having %s expecting %s.\n",
+			actualWill.Recipients[0].Name,
+			willRequest.Recipients[0].Name)
+	}
+	if actualWill.Recipients[0].Email != willRequest.Recipients[0].Email {
+		t.Fatalf("Unexpected recipient email, having %s expecting %s.\n",
+			actualWill.Recipients[0].Email,
+			willRequest.Recipients[0].Email)
+	}
+	if actualWill.Recipients[0].KeyID != willRequest.Recipients[0].KeyID {
+		t.Fatalf("Unexpected recipient keyid, having %d expecting %d.\n",
+			actualWill.Recipients[0].KeyID,
+			willRequest.Recipients[0].KeyID)
+	}
+	if bytes.Compare(actualWill.Recipients[0].Fingerprint, willRequest.Recipients[0].Fingerprint) != 0 {
+		t.Fatalf("Unexpected recipient fingerprint, having %s expecting %s.\n",
+			hex.EncodeToString(actualWill.Recipients[0].Fingerprint),
+			hex.EncodeToString(willRequest.Recipients[0].Fingerprint))
+	}
+	// set global vars for following tests
+	willID = actualWill.ID
+	otp, err = decryptHotp(actualWill.Owner.Credentials[0].SoftwareToken)
+	if err != nil {
+		t.Fatalf("Unable to decrypt with global keys the user sowftware token: %s.\n", err.Error())
+	}
+	secondaryKey = willPostResponse.Credentials.SecondaryKey
+}
 
+func TestWillPatchWithOtp(t *testing.T) {
+	// Login the user
+	loginBody := ct.LoginRequest{
+		Username: mockUserInfo.Username,
+		Password: mockUserPassword,
+	}
+	body, err := json.Marshal(&loginBody)
+	if err != nil {
+		t.Fatalf("Unable to marshal request body: %s.\n", err.Error())
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/authsession", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the login request: %s.\n", err.Error())
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform login request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to access login service, returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	var session ct.LoginResponse
+	err = json.Unmarshal(respBody, &session)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if session.Token == "" ||
+		len(session.Token) == 0 {
+		t.Fatalf("Invalid token: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	if otp == nil {
+		t.Fatalf("Otp must not be nil.\n")
+	}
+
+	time.Sleep(300 * time.Millisecond)
+	// define request body
+	willRequest := ct.WillPatchRequest{
+		Otp: otp.OTP(),
+	}
+	body, err = json.Marshal(&willRequest)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+
+	now := time.Now()
+	// patch will
+	req, err = http.NewRequest(
+		"PATCH",
+		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s", mockServiceAddress, mockServicePort, willID),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the will POST request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform will POST request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to create will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ = ioutil.ReadAll(resp.Body)
+	var stdResponse ct.StandardResponse
+	err = json.Unmarshal(respBody, &stdResponse)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	resp.Body.Close()
+
+	// check ping value
+	actualWill, err := db.GetWill(willID)
+	if err != nil {
+		t.Fatalf("Unable to find required will: %s.\n", err.Error())
+	}
+
+	// expected time should consider delivery offser if setted in the
+	// settings configuration.
+	expectedTtd := now.Add(actualWill.Settings.ExtensionUnit)
+	if actualWill.Settings.DisableOffset != true {
+		expectedTtd = expectedTtd.Add(actualWill.Settings.DeliveryOffset)
+	}
+	if actualWill.TimeToDelivery.Sub(expectedTtd) > timePositiveToleranceLimit ||
+		actualWill.TimeToDelivery.Sub(expectedTtd) < timeNegativeToleranceLimit {
+		t.Fatalf("Unexpected delivery time: having %s expecting %s (diff %d ms) with extension %d ms.\n",
+			actualWill.TimeToDelivery,
+			expectedTtd,
+			actualWill.TimeToDelivery.Sub(expectedTtd)/time.Millisecond,
+			actualWill.Settings.ExtensionUnit/time.Millisecond)
+	}
+
+	time.Sleep(700 * time.Millisecond)
+	// define request body
+	willRequest = ct.WillPatchRequest{
+		Otp: otp.OTP(),
+	}
+	body, err = json.Marshal(&willRequest)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+
+	now = time.Now()
+	// patch will
+	req, err = http.NewRequest(
+		"PATCH",
+		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s", mockServiceAddress, mockServicePort, willID),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the will POST request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform will POST request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to create will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	// check ping value
+	actualWill, err = db.GetWill(willID)
+	if err != nil {
+		t.Fatalf("Unable to find required will: %s.\n", err.Error())
+	}
+
+	// expected time should consider delivery offser if setted in the
+	// settings configuration.
+	expectedTtd = now.Add(actualWill.Settings.ExtensionUnit)
+	if actualWill.Settings.DisableOffset != true {
+		expectedTtd = expectedTtd.Add(actualWill.Settings.DeliveryOffset)
+	}
+	if actualWill.TimeToDelivery.Sub(expectedTtd) > timePositiveToleranceLimit ||
+		actualWill.TimeToDelivery.Sub(expectedTtd) < timeNegativeToleranceLimit {
+		t.Fatalf("Unexpected delivery time: having %s expecting %s (diff %d ms) with extension %d ms.\n",
+			actualWill.TimeToDelivery,
+			expectedTtd,
+			actualWill.TimeToDelivery.Sub(expectedTtd)/time.Millisecond,
+			actualWill.Settings.ExtensionUnit/time.Millisecond)
+	}
+}
+
+func TestWillPatchWithSecondary(t *testing.T) {
+	// Login the user
+	loginBody := ct.LoginRequest{
+		Username: mockUserInfo.Username,
+		Password: mockUserPassword,
+	}
+	body, err := json.Marshal(&loginBody)
+	if err != nil {
+		t.Fatalf("Unable to marshal request body: %s.\n", err.Error())
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s:%d/v1/authsession", mockServiceAddress, mockServicePort),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the login request: %s.\n", err.Error())
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform login request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to access login service, returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ := ioutil.ReadAll(resp.Body)
+	var session ct.LoginResponse
+	err = json.Unmarshal(respBody, &session)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	if session.Token == "" ||
+		len(session.Token) == 0 {
+		t.Fatalf("Invalid token: should not be nil.\n")
+	}
+	resp.Body.Close()
+
+	if otp == nil {
+		t.Fatalf("Otp must not be nil.\n")
+	}
+
+	time.Sleep(300 * time.Millisecond)
+	// define request body
+	willRequest := ct.WillPatchRequest{
+		SecondaryKey: secondaryKey,
+	}
+	body, err = json.Marshal(&willRequest)
+	if err != nil {
+		t.Fatalf("Unable to marshal request bodu: %s.\n", err.Error())
+	}
+
+	now := time.Now()
+	// patch will
+	req, err = http.NewRequest(
+		"PATCH",
+		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s", mockServiceAddress, mockServicePort, willID),
+		bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Unable to prepare the will POST request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform will POST request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unable to create will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
+	}
+
+	respBody, _ = ioutil.ReadAll(resp.Body)
+	var stdResponse ct.StandardResponse
+	err = json.Unmarshal(respBody, &stdResponse)
+	if err != nil {
+		t.Fatalf("Unable to unmarshal response body: %s.\n", err.Error())
+	}
+	resp.Body.Close()
+
+	// check ping value
+	actualWill, err := db.GetWill(willID)
+	if err != nil {
+		t.Fatalf("Unable to find required will: %s.\n", err.Error())
+	}
+
+	// expected time should consider delivery offser if setted in the
+	// settings configuration.
+	expectedTtd := now.Add(actualWill.Settings.ExtensionUnit)
+	if actualWill.Settings.DisableOffset != true {
+		expectedTtd = expectedTtd.Add(actualWill.Settings.DeliveryOffset)
+	}
+	if actualWill.TimeToDelivery.Sub(expectedTtd) > timePositiveToleranceLimit ||
+		actualWill.TimeToDelivery.Sub(expectedTtd) < timeNegativeToleranceLimit {
+		t.Fatalf("Unexpected delivery time: having %s expecting %s (diff %d ms) with extension %d ms.\n",
+			actualWill.TimeToDelivery,
+			expectedTtd,
+			actualWill.TimeToDelivery.Sub(expectedTtd)/time.Millisecond,
+			actualWill.Settings.ExtensionUnit/time.Millisecond)
+	}
 }

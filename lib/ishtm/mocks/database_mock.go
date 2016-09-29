@@ -73,10 +73,6 @@ func (d *Mockdb) GetWill(id string) (*will.Will, error) {
 }
 
 func (d *Mockdb) SetWill(will *will.Will) error {
-	_, ok := d.willsStorage[will.ID]
-	if ok {
-		return fmt.Errorf("will %s already exist in the db", will.ID)
-	}
 	d.willsStorage[will.ID] = *will
 	return nil
 }

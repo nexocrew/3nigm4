@@ -415,6 +415,15 @@ func patchWill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// save it!
+	err = dbSession.SetWill(will)
+	if err != nil {
+		riseError(http.StatusInternalServerError,
+			fmt.Sprintf("unable to save to the db %s", err.Error()), w,
+			r.RemoteAddr)
+		return
+	}
+
 	// return response message
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(

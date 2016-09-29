@@ -179,7 +179,7 @@ func (j *Will) Refresh() error {
 		return fmt.Errorf("invalid offset, should never be zero or negative")
 	}
 	// defer ttd
-	ttd := j.TimeToDelivery.Add(j.Settings.ExtensionUnit)
+	ttd := now.Add(j.Settings.ExtensionUnit)
 	if j.Settings.DisableOffset != true {
 		ttd = ttd.Add(j.Settings.DeliveryOffset)
 	}
