@@ -1,28 +1,33 @@
 //
-// 3nigm4 storageservice package
+// 3nigm4 ishtmservice package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
-// v1.0 16/06/2016
+// v1.0 14/09/2016
 //
 
 package main
 
-// Golang std libs
+// Golang std pkgs
 import (
 	"fmt"
 	"net/http"
 	"strings"
 )
 
-// Internal dependencies
+// Internal pkgs
 import (
-	s3c "github.com/nexocrew/3nigm4/lib/s3"
+	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
+	ishtmdb "github.com/nexocrew/3nigm4/lib/ishtm/db"
 )
 
-// Third party libs
+// Third party pkgs
 import (
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 )
+
+func init() {
+	RootCmd.AddCommand(ServeCmd)
+}
 
 // ServeCmd start the http/https server listening
 // on exec args, used to register to cobra lib root
@@ -30,8 +35,8 @@ import (
 var ServeCmd = &cobra.Command{
 	Use:     "serve",
 	Short:   "Serve trougth http/https",
-	Long:    "Launch http service to expose storage API services.",
-	Example: "storageservice serve -d 127.0.0.1:27017 -u dbuser -w dbpwd -a 0.0.0.0 -p 443 -s /tmp/cert.pem -S /tmp/pvkey.pem -v",
+	Long:    "Launch http service to expose ISHTM API services.",
+	Example: "ishtmservice serve -d 127.0.0.1:27017 -u dbuser -w dbpwd -a 0.0.0.0 -p 443 -s /tmp/cert.pem -S /tmp/pvkey.pem -v",
 }
 
 func init() {
@@ -49,38 +54,29 @@ func init() {
 	// auth RPC service
 	ServeCmd.PersistentFlags().StringVarP(&arguments.authServiceAddress, "authaddr", "A", "", "the authorisation RPC service address")
 	ServeCmd.PersistentFlags().IntVarP(&arguments.authServicePort, "authport", "P", 7931, "the authorisation RPC service port")
-	// s3 references
-	ServeCmd.PersistentFlags().StringVarP(&arguments.s3Endpoint, "s3endpoint", "", "s3.amazonaws.com", "s3 backend service endpoint")
-	ServeCmd.PersistentFlags().StringVarP(&arguments.s3Region, "s3region", "", "eu-central-1", "s3 backend service region")
-	ServeCmd.PersistentFlags().StringVarP(&arguments.s3Id, "s3id", "", "", "s3 backend service id")
-	ServeCmd.PersistentFlags().StringVarP(&arguments.s3Secret, "s3secret", "", "", "s3 backend service secret")
-	ServeCmd.PersistentFlags().StringVarP(&arguments.s3Token, "s3token", "", "", "s3 backend service token")
-	ServeCmd.PersistentFlags().IntVarP(&arguments.s3WorkingQueueSize, "s3wqsize", "", 24, "s3 working queue size")
-	ServeCmd.PersistentFlags().IntVarP(&arguments.s3QueueSize, "s3queuesize", "", 300, "s3 queue size")
-	ServeCmd.PersistentFlags().StringVarP(&arguments.s3Bucket, "s3bucket", "", "3nigm4", "s3 backend service target bucket")
 	// files parameters
 	ServeCmd.RunE = serve
 }
 
 // Global database referring variable to be copied and released by
 // each goroutine.
-var db database
+var db ct.Database
 
 // This var is used to permitt to switch to mock db implementation
 // in unit-tests, do not mess with it for other reasons.
 // The default, production targeting, implementation uses Mongodb
 // as backend database system.
-var databaseStartup func(*args) (database, error) = mgoStartup
+var databaseStartup func(*args) (ct.Database, error) = mgoStartup
 
 // mgoStartup implement startup logic for a mongodb based database
 // connection.
-func mgoStartup(a *args) (database, error) {
+func mgoStartup(a *args) (ct.Database, error) {
 	// startup db
-	mgodb, err := MgoSession(&dbArgs{
-		addresses: strings.Split(a.dbAddresses, ","),
-		user:      a.dbUsername,
-		password:  a.dbPassword,
-		authDb:    a.dbAuth,
+	mgodb, err := ishtmdb.MgoSession(&ct.DbArgs{
+		Addresses: strings.Split(a.dbAddresses, ","),
+		User:      a.dbUsername,
+		Password:  a.dbPassword,
+		AuthDb:    a.dbAuth,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to start db connection cause %s", err.Error())
@@ -120,31 +116,7 @@ func rpcClientStartup(a *args) (AuthClient, error) {
 	return client, nil
 }
 
-// S3 backend service managed with working
-// queue.
-var s3backend *s3c.Session
-
-// s3backendStartup initialise the global s3 backend session.
-func s3backendStartup(a *args) (*s3c.Session, error) {
-	s3, err := s3c.NewSession(
-		a.s3Endpoint,
-		a.s3Region,
-		a.s3Id,
-		a.s3Secret,
-		a.s3Token,
-		a.s3WorkingQueueSize,
-		a.s3QueueSize,
-		a.verbose)
-	if err != nil {
-		return nil, err
-	}
-
-	log.MessageLog("Initialised S3 backend session to endpoint %s on region %s.\n", a.s3Endpoint, a.s3Region)
-
-	return s3, nil
-}
-
-// serve command expose REST APIs.
+// serve command expose a REST API.
 func serve(cmd *cobra.Command, args []string) error {
 	printLogo()
 
@@ -163,25 +135,16 @@ func serve(cmd *cobra.Command, args []string) error {
 	}
 	defer authClient.Close()
 
-	// startup S3 backend
-	s3backend, err = s3backendStartup(&arguments)
-	if err != nil {
-		return fmt.Errorf("unable to initialise s3 backend session: %s", err.Error())
-	}
-	defer s3backend.Close()
-	// start wq chan for async processing
-	go manageS3chans(s3backend)
-
 	// create router
 	route := mux.NewRouter()
 	// define auth routes
 	route.HandleFunc("/v1/authsession", login).Methods("POST")
 	route.HandleFunc("/v1/authsession", logout).Methods("DELETE")
-	// define async storage routes: the REST resource is a job. Every type a
-	// job is created using a POST method the status of the request can be
-	// vefified using the FET method on the returned jobid.
-	route.HandleFunc("/v1/storage/job", postJob).Methods("POST")
-	route.HandleFunc("/v1/storage/job/{jobid:[A-Fa-f0-9]+}", getJob).Methods("GET")
+	// exposed routes to manage ishtm will
+	route.HandleFunc("/v1/ishtm/will", postWill).Methods("POST")
+	route.HandleFunc("/v1/ishtm/will/{willid:[A-Fa-f0-9]+}", getWill).Methods("GET")
+	route.HandleFunc("/v1/ishtm/will/{willid:[A-Fa-f0-9]+}", patchWill).Methods("PATCH")
+	route.HandleFunc("/v1/ishtm/will/{willid:[A-Fa-f0-9]+}", deleteWill).Methods("DELETE")
 	// utility routes
 	route.HandleFunc("/v1/ping", getPing).Methods("GET")
 	// root routes
