@@ -291,6 +291,20 @@ var am map[string]cliArguments = map[string]cliArguments{
 		usage:     "the username for authenticate the service user",
 		kind:      String,
 	},
+	"ishtmeaddress": cliArguments{
+		name:      "ishtmeaddress",
+		shorthand: "",
+		value:     "https://ishtm.3n4.io",
+		usage:     "the ishtm service APIs address",
+		kind:      String,
+	},
+	"ishtmport": cliArguments{
+		name:      "ishtmport",
+		shorthand: "",
+		value:     443,
+		usage:     "the ishtm service port",
+		kind:      Int,
+	},
 }
 
 // checkAndLoadPgpPrivateKey verify if a private key ring has been already
