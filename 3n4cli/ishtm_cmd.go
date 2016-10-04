@@ -7,9 +7,7 @@
 package main
 
 // Golang std libs
-import (
-	"os"
-)
+import ()
 
 // Internal dependencies
 import ()
@@ -24,7 +22,7 @@ import (
 // upload, get, ping and delete data to server instance.
 var IshtmCmd = &cobra.Command{
 	Use:       "ishtm",
-	Short:     "\"If something happens to me\" command",
+	Short:     "\"If something happens to me\" service",
 	Long:      "\"If something happens to me\" let you upload a \"will\" to the server and plan it's delivery... just in case.",
 	Example:   "3n4cli ishtm",
 	ValidArgs: []string{"create", "get", "ping", "delete"},
@@ -34,12 +32,9 @@ func init() {
 	// API references
 	setArgument(IshtmCmd, "ishtmeaddress")
 	setArgument(IshtmCmd, "ishtmport")
-	// i/o paths
-	setArgument(IshtmCmd, "referencein")
 
 	viper.BindPFlag(am["ishtmeaddress"].name, IshtmCmd.PersistentFlags().Lookup(am["ishtmeaddress"].name))
 	viper.BindPFlag(am["ishtmport"].name, IshtmCmd.PersistentFlags().Lookup(am["ishtmport"].name))
-	viper.BindPFlag(am["referencein"].name, IshtmCmd.PersistentFlags().Lookup(am["referencein"].name))
 
 	RootCmd.AddCommand(IshtmCmd)
 
