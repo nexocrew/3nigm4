@@ -24,7 +24,6 @@ var IshtmCmd = &cobra.Command{
 	Use:       "ishtm",
 	Short:     "\"If something happens to me\" service",
 	Long:      "\"If something happens to me\" let you upload a \"will\" to the server and plan it's delivery... just in case.",
-	Example:   "3n4cli ishtm",
 	ValidArgs: []string{"create", "get", "ping", "delete"},
 }
 

@@ -14,8 +14,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -38,7 +36,7 @@ var CreateCmd = &cobra.Command{
 	Use:     "create",
 	Short:   "Creates and upload a \"will\" activity",
 	Long:    "Creates and upload a \"will\" starting from a resource file and a user defined delivery deadline.",
-	Example: "3n4cli ishtm create -i ~/reference.3n4",
+	Example: "3n4cli ishtm create --input ~/reference.3n4 --output ~/qrcode.png --extension 9096 --notify true recep@mail.com:Recep:4738293:E44AC9C25D690AF5,john@mail.com:John:8674859:EFAAD0153EAE6EDE",
 	PreRun:  verbosePreRunInfos,
 }
 
@@ -114,21 +112,9 @@ func create(cmd *cobra.Command, args []string) error {
 
 	// check for output path
 	qrcodePath := viper.GetString(am["output"].name)
-	if qrcodePath == "" {
-		return fmt.Errorf("a output path is required to save the produced QRCode png image")
-	}
-	info, err := os.Stat(qrcodePath)
-	if os.IsExist(err) {
-		return fmt.Errorf("a file named %s already exist, please remove it before proceeding", qrcodePath)
-	}
-	if info.IsDir() {
-		return fmt.Errorf("a file path must be indicated not a directory (%s)", qrcodePath)
-	}
-	dir := filepath.Dir(qrcodePath)
-	info, err = os.Stat(dir)
-	if err != nil ||
-		info.IsDir() != true {
-		return fmt.Errorf("provided path to output file is invalid, %d do not exist", dir)
+	err = ct.VerifyDestinationPath(qrcodePath)
+	if err != nil {
+		return err
 	}
 
 	// extract recipients
@@ -194,7 +180,7 @@ func create(cmd *cobra.Command, args []string) error {
 	resp.Body.Close()
 
 	// save qrcode
-	err = ioutil.WriteFile(qrcodePath, willResponse.Credentials.QRCode, 0700)
+	err = ioutil.WriteFile(qrcodePath, willResponse.Credentials.QRCode, 0600)
 	if err != nil {
 		return fmt.Errorf("critical error unable to save QRCode to file, cause %s, manually save this hex encoded png image",
 			err.Error(),
