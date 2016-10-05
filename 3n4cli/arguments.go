@@ -326,6 +326,13 @@ var am map[string]cliArguments = map[string]cliArguments{
 		usage:     "list of recipients for the \"ishtm\" service, they should listed as <mail>:<name>:<keyid>:<hex_signature>,... mail address is required",
 		kind:      String,
 	},
+	"id": cliArguments{
+		name:      "id",
+		shorthand: "D",
+		value:     "",
+		usage:     "the ID for a \"ishtm will\" record",
+		kind:      String,
+	},
 }
 
 // checkAndLoadPgpPrivateKey verify if a private key ring has been already
