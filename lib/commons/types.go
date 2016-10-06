@@ -142,8 +142,8 @@ type WillPostRequest struct {
 // that is enforced returning two quantities (that will be added to typical
 // login token): a qrcode and a secondary security code.
 type WillCredentials struct {
-	QRCode       []byte `json:"qrcode"`
-	SecondaryKey string `json:"secondarykey"`
+	QRCode        []byte   `json:"qrcode"`
+	SecondaryKeys []string `json:"secondarykeys"`
 }
 
 // WillPostResponse returns produced will data from the

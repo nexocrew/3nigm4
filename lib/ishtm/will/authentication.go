@@ -9,6 +9,7 @@ package will
 // Golang std packages
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 )
 
@@ -70,65 +71,88 @@ func decryptHotp(encryptedToken []byte) (*hotp.HOTP, error) {
 	return swtoken, nil
 }
 
-func generateCredential() (*Credential, []byte, error) {
+const (
+	secondaryKeysNumber = 4
+	secondaryKeySize    = 16
+)
+
+func generateCredential() (*Credential, []byte, []string, error) {
 	// first create
 	token, err := hotp.GenerateHOTP(8, true)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create hotp cause %s", err.Error())
+		return nil, nil, nil, fmt.Errorf("unable to create hotp cause %s", err.Error())
 	}
 
 	// QR code
 	qr, err := token.QR("3n4")
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate QR code cause %s", err.Error())
+		return nil, nil, nil, fmt.Errorf("unable to generate QR code cause %s", err.Error())
 	}
 
 	tokenEnc, err := encryptHotp(token)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	authKey, err := ct.RandomBytesForLen(32)
-	if err != nil {
-		return nil, nil, err
-	}
-	// encrypt auth key:
-	authKeyEnc, err := crypto3n4.AesEncrypt(
-		GlobalEncryptionKey,
-		GlobalEncryptionSalt,
-		authKey,
-		crypto3n4.CBC,
-	)
-	if err != nil {
-		return nil, nil, err
+	plainKeys := make([]string, 0)
+	secondaryKeys := make([][]byte, 0)
+	for idx := 0; idx < secondaryKeysNumber; idx++ {
+		authKey, err := ct.RandomBytesForLen(secondaryKeySize)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		// encrypt auth key:
+		authKeyEnc, err := crypto3n4.AesEncrypt(
+			GlobalEncryptionKey,
+			GlobalEncryptionSalt,
+			authKey,
+			crypto3n4.CBC,
+		)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		secondaryKeys = append(secondaryKeys, authKeyEnc)
+		plainKeys = append(plainKeys, hex.EncodeToString(authKey))
 	}
 
 	return &Credential{
-		SecondaryKey:  authKeyEnc,
+		SecondaryKeys: secondaryKeys,
 		SoftwareToken: tokenEnc,
-	}, qr, nil
+	}, qr, plainKeys, nil
 }
 
-func verifySecondaryKey(key []byte, credentials *Credential) error {
+func removeKey(slice [][]byte, s int) [][]byte {
+	return append(slice[:s], slice[s+1:]...)
+}
+
+func verifySecondaryKeys(reference []byte, credentials *Credential) (*Credential, error) {
 	if credentials == nil {
-		return fmt.Errorf("argument credentials is required and should not be nil")
+		return nil, fmt.Errorf("argument credentials is required and should not be nil")
 	}
 
-	// decrypt token content
-	plaintext, err := crypto3n4.AesDecrypt(
-		GlobalEncryptionKey,
-		credentials.SecondaryKey,
-		crypto3n4.CBC,
-	)
-	if err != nil {
-		return err
+	var verified bool
+	for idx, key := range credentials.SecondaryKeys {
+		// decrypt token content
+		plaintext, err := crypto3n4.AesDecrypt(
+			GlobalEncryptionKey,
+			key,
+			crypto3n4.CBC,
+		)
+		if err != nil {
+			return nil, err
+		}
+		// compare
+		if bytes.Compare(plaintext, reference) == 0 {
+			verified = true
+			credentials.SecondaryKeys = removeKey(credentials.SecondaryKeys, idx)
+			break
+		}
 	}
 
-	// compare
-	if bytes.Compare(plaintext, key) != 0 {
-		return fmt.Errorf("unknown secondary key")
+	if verified != true {
+		return nil, fmt.Errorf("unknown secondary key")
 	}
-	return nil
+	return credentials, nil
 }
 
 const (
