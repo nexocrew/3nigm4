@@ -43,7 +43,7 @@ var (
 	GlobalEncryptionSalt = []byte("thisissa")
 	willID               string
 	otp                  *hotp.HOTP
-	secondaryKey         string
+	secondaryKeys        []string
 	deliveryKey          string
 	lastPing             time.Time
 	referenceData        = []byte("test reference data")
@@ -297,10 +297,10 @@ func TestWillPost(t *testing.T) {
 	}
 	t.Logf("QRCode png data of size: %d bytes.\n", len(willPostResponse.Credentials.QRCode))
 
-	if willPostResponse.Credentials.SecondaryKey == "" {
-		t.Fatalf("Secondary key is nil, should not be the case.\n")
+	if len(willPostResponse.Credentials.SecondaryKeys) == 0 {
+		t.Fatalf("Secondary keys are nil, should not be the case.\n")
 	}
-	t.Logf("Secondary key: %s.\n", willPostResponse.Credentials.SecondaryKey)
+	t.Logf("Secondary keys: %v.\n", willPostResponse.Credentials.SecondaryKeys)
 
 	// check on the db
 	actualWill, err := db.GetWill(willPostResponse.ID)
@@ -329,9 +329,9 @@ func TestWillPost(t *testing.T) {
 		len(actualWill.Owner.Credentials[0].SoftwareToken) == 0 {
 		t.Fatalf("Unexpected credential token size having %d expecting > 0.\n", len(actualWill.Owner.Credentials[0].SoftwareToken))
 	}
-	if actualWill.Owner.Credentials[0].SecondaryKey == nil ||
-		len(actualWill.Owner.Credentials[0].SecondaryKey) == 0 {
-		t.Fatalf("Unexpected credential secondary key size having %d expecting > 0.\n", len(actualWill.Owner.Credentials[0].SecondaryKey))
+	if actualWill.Owner.Credentials[0].SecondaryKeys == nil ||
+		len(actualWill.Owner.Credentials[0].SecondaryKeys) == 0 {
+		t.Fatalf("Unexpected credential secondary key size having %d expecting > 0.\n", len(actualWill.Owner.Credentials[0].SecondaryKeys))
 	}
 	if actualWill.Disabled != false {
 		t.Fatalf("Unexpected disable state should be false.\n")
@@ -399,7 +399,7 @@ func TestWillPost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to decrypt with global keys the user sowftware token: %s.\n", err.Error())
 	}
-	secondaryKey = willPostResponse.Credentials.SecondaryKey
+	secondaryKeys = willPostResponse.Credentials.SecondaryKeys
 	deliveryKey = hex.EncodeToString(actualWill.DeliveryKey)
 }
 
@@ -597,9 +597,12 @@ func TestWillPatchWithSecondary(t *testing.T) {
 	resp.Body.Close()
 
 	time.Sleep(300 * time.Millisecond)
+	if len(secondaryKeys) < 1 {
+		t.Fatalf("Unable to proceed without at least a secondary key.\n")
+	}
 	// define request body
 	willRequest := ct.WillPatchRequest{
-		SecondaryKey: secondaryKey,
+		SecondaryKey: secondaryKeys[0],
 	}
 	body, err = json.Marshal(&willRequest)
 	if err != nil {
@@ -875,6 +878,32 @@ func TestWillDelete(t *testing.T) {
 		t.Fatalf("Unable to restore will in the database: %s.\n", err.Error())
 	}
 
+	if len(secondaryKeys) < 2 {
+		t.Fatalf("Unable to proceed without at least a secondary key.\n")
+	}
+
+	// delete will with secondary key invalid
+	req, err = http.NewRequest(
+		"DELETE",
+		fmt.Sprintf("http://%s:%d/v1/ishtm/will/%s?secondarykey=%s",
+			mockServiceAddress,
+			mockServicePort,
+			willID,
+			secondaryKeys[0]),
+		nil)
+	if err != nil {
+		t.Fatalf("Unable to prepare the will DELETE request: %s.\n", err.Error())
+	}
+	req.Header.Set(ct.SecurityTokenKey, session.Token)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform will DELETE request on server: %s.\n", err.Error())
+	}
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("Try delating with already used secondary should return %d but produced %d.\n", http.StatusUnauthorized, resp.StatusCode)
+	}
+
 	// delete will with secondary key
 	req, err = http.NewRequest(
 		"DELETE",
@@ -882,7 +911,7 @@ func TestWillDelete(t *testing.T) {
 			mockServiceAddress,
 			mockServicePort,
 			willID,
-			secondaryKey),
+			secondaryKeys[1]),
 		nil)
 	if err != nil {
 		t.Fatalf("Unable to prepare the will DELETE request: %s.\n", err.Error())
@@ -896,5 +925,4 @@ func TestWillDelete(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("Unable to delete will returned %d but expected %d.\n", resp.StatusCode, http.StatusOK)
 	}
-
 }
