@@ -188,7 +188,11 @@ func create(cmd *cobra.Command, args []string) error {
 		)
 	}
 	log.MessageLog("Will ID: %s\n", willResponse.ID)
-	log.MessageLog("Will secondary key: %s\n", willResponse.Credentials.SecondaryKey)
+	var secondaryString string
+	for idx, key := range willResponse.Credentials.SecondaryKeys {
+		secondaryString += fmt.Sprintf("\t%d) %s\n", idx, key)
+	}
+	log.MessageLog("Will secondary keys:\n%s\n", secondaryString)
 
 	return nil
 }
