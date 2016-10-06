@@ -333,6 +333,13 @@ var am map[string]cliArguments = map[string]cliArguments{
 		usage:     "the ID for a \"ishtm will\" record",
 		kind:      String,
 	},
+	"secondary": cliArguments{
+		name:      "secondary",
+		shorthand: "",
+		value:     false,
+		usage:     "use secondary key, instead of OTP, to authenticate on a \"ishtm will\" manipulating function",
+		kind:      Bool,
+	},
 }
 
 // checkAndLoadPgpPrivateKey verify if a private key ring has been already

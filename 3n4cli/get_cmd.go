@@ -28,7 +28,7 @@ import (
 )
 
 // GetCmd get a will record (totally or partially)
-// from a will ID,
+// from a will ID.
 var GetCmd = &cobra.Command{
 	Use:     "get",
 	Short:   "Get and download a \"will\" activity",
