@@ -8,6 +8,7 @@ package will
 
 // Golang std packages
 import (
+	"encoding/hex"
 	"fmt"
 	"testing"
 )
@@ -35,7 +36,7 @@ func TestOTPVerification(t *testing.T) {
 	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
 	GlobalEncryptionSalt = []byte("thisissa")
 
-	creds, _, err := generateCredential()
+	creds, _, _, err := generateCredential()
 	if err != nil {
 		t.Fatalf("Unable to generate credentials: %s.\n", err.Error())
 	}
@@ -76,7 +77,7 @@ func TestOTPOutRange(t *testing.T) {
 	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
 	GlobalEncryptionSalt = []byte("thisissa")
 
-	creds, _, err := generateCredential()
+	creds, _, _, err := generateCredential()
 	if err != nil {
 		t.Fatalf("Unable to generate credentials: %s.\n", err.Error())
 	}
@@ -102,5 +103,68 @@ func TestOTPOutRange(t *testing.T) {
 	verificationCreds, err = verifyOTP(otp, verificationCreds)
 	if err == nil {
 		t.Fatalf("Verification must fail if async is more than %d clicks.\n", ckeckIncrementTolerance)
+	}
+}
+
+func TestSecondaryKeys(t *testing.T) {
+	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
+	GlobalEncryptionSalt = []byte("thisissa")
+
+	creds, _, keys, err := generateCredential()
+	if err != nil {
+		t.Fatalf("Unable to generate credentials: %s.\n", err.Error())
+	}
+
+	if len(keys) != secondaryKeysNumber {
+		t.Fatalf("Unexpected number of secondary keys, having %d expecting %d.\n", len(keys), secondaryKeysNumber)
+	}
+
+	keyRaw, err := hex.DecodeString(keys[0])
+	if err != nil {
+		t.Fatalf("Unable to decode hex: %s.\n", err.Error())
+	}
+
+	modifyiedCreds, err := verifySecondaryKeys(keyRaw, creds)
+	if err != nil {
+		t.Fatalf("Unrecognised key: %s.\n", err.Error())
+	}
+	if len(modifyiedCreds.SecondaryKeys) != secondaryKeysNumber-1 {
+		t.Fatalf("Unexpected number of secondary keys, having %d expecting %d.\n", len(modifyiedCreds.SecondaryKeys), secondaryKeysNumber-1)
+	}
+
+	keyRaw, err = hex.DecodeString(keys[1])
+	if err != nil {
+		t.Fatalf("Unable to decode hex: %s.\n", err.Error())
+	}
+
+	modifyiedCreds, err = verifySecondaryKeys(keyRaw, creds)
+	if err != nil {
+		t.Fatalf("Unrecognised key: %s.\n", err.Error())
+	}
+	if len(modifyiedCreds.SecondaryKeys) != secondaryKeysNumber-2 {
+		t.Fatalf("Unexpected number of secondary keys, having %d expecting %d.\n", len(modifyiedCreds.SecondaryKeys), secondaryKeysNumber-2)
+	}
+
+	keyRaw, err = hex.DecodeString(keys[2])
+	if err != nil {
+		t.Fatalf("Unable to decode hex: %s.\n", err.Error())
+	}
+
+	modifyiedCreds, err = verifySecondaryKeys(keyRaw, creds)
+	if err != nil {
+		t.Fatalf("Unrecognised key: %s.\n", err.Error())
+	}
+	if len(modifyiedCreds.SecondaryKeys) != secondaryKeysNumber-3 {
+		t.Fatalf("Unexpected number of secondary keys, having %d expecting %d.\n", len(modifyiedCreds.SecondaryKeys), secondaryKeysNumber-3)
+	}
+
+	keyRaw, err = hex.DecodeString(keys[1])
+	if err != nil {
+		t.Fatalf("Unable to decode hex: %s.\n", err.Error())
+	}
+
+	modifyiedCreds, err = verifySecondaryKeys(keyRaw, creds)
+	if err == nil {
+		t.Fatalf("An already used key should not be usable again.\n")
 	}
 }
