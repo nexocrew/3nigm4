@@ -308,8 +308,8 @@ func TestWillPost(t *testing.T) {
 		t.Fatalf("Unable to find required will: %s.\n", err.Error())
 	}
 
-	if actualWill.Deliverable != false {
-		t.Fatalf("Unexpected deliverable state, having true expecting false.\n")
+	if actualWill.Removable != false {
+		t.Fatalf("Unexpected removable state, having true expecting false.\n")
 	}
 	if actualWill.DeliveryKey == nil ||
 		len(actualWill.DeliveryKey) == 0 {

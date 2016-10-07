@@ -151,13 +151,35 @@ func (d *Mongodb) GetInDelivery(actual time.Time) ([]will.Will, error) {
 			"$lt": actual.UTC(),
 		},
 	}
-	// perform db query
+
+	change := mgo.Change{
+		Update: bson.M{
+			"$set": bson.M{
+				"removable": true,
+			},
+		},
+		ReturnNew: false,
+	}
 	var wills []will.Will
-	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).All(&wills)
+	_, err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).Apply(change, &wills)
 	if err != nil {
 		return nil, err
 	}
+
 	return wills, nil
+}
+
+func (d *Mongodb) RemoveExausted() error {
+	// build query
+	selector := bson.M{
+		"removable": bson.M{"$eq": true},
+	}
+	// perform db remove of "reovable" objects
+	_, err := d.session.DB(d.database).C(d.jobsCollection).RemoveAll(selector)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // EnsureMongodbIndexes assign mongodb indexes to the right
