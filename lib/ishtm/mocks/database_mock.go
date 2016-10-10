@@ -87,6 +87,18 @@ func (d *Mockdb) GetInDelivery(actual time.Time) ([]will.Will, error) {
 	return result, nil
 }
 
+func (d *Mockdb) RemoveExausted() error {
+	for k, v := range d.willsStorage {
+		if v.Removable == true {
+			err := d.RemoveWill(k)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (d *Mockdb) RemoveWill(id string) error {
 	if _, ok := d.willsStorage[id]; !ok {
 		return fmt.Errorf("unable to find required %s will", id)

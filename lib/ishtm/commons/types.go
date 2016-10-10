@@ -31,6 +31,7 @@ type Database interface {
 	RemoveWill(string) error           // remove a will from the db;
 	// ttd behaviour
 	GetInDelivery(time.Time) ([]w.Will, error)
+	RemoveExausted() error
 }
 
 // DbArgs is the exposed arguments

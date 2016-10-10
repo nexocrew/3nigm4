@@ -17,6 +17,7 @@ import (
 import (
 	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	ishtmdb "github.com/nexocrew/3nigm4/lib/ishtm/db"
+	wl "github.com/nexocrew/3nigm4/lib/ishtm/will"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
@@ -68,6 +69,10 @@ var errc chan error
 // as backend database system.
 var databaseStartup func(*args) (ct.Database, error) = mgoStartup
 
+// This var is used to permitt to switch between different delivery
+// systems, should be settled before proceeding invoking it.
+var deliverWill func(*wl.Will) error = nil
+
 // mgoStartup implement startup logic for a mongodb based database
 // connection.
 func mgoStartup(a *args) (ct.Database, error) {
@@ -113,7 +118,33 @@ func startupChans() {
 }
 
 func processing(args interface{}) error {
+	if deliverWill == nil {
+		return fmt.Errorf("unexpected nil deliver will function, should be pointing to avalid function")
+	}
+	if db == nil {
+		return fmt.Errorf("unexpected nil database structure, unable to proceed")
+	}
+	database := db.Copy()
+	defer database.Close()
 
+	// find deliverable wills
+	wills, err := database.GetInDelivery(time.Now())
+	if err != nil {
+		return err
+	}
+	for _, will := range wills {
+		err = deliverWill(&will)
+		if err != nil {
+			errc <- err
+			continue
+		}
+	}
+	err = database.RemoveExausted()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // run the actual main routine to start looping for the
@@ -143,9 +174,7 @@ func run(cmd *cobra.Command, args []string) error {
 		if arguments.verbose {
 			log.VerboseLog("Searching routine started %s.\n", time.Now().String())
 		}
-		// TODO query and atomically delete
-		//workingQueue.SendJob(payload, arguments)
-
+		workingQueue.SendJob(processing, nil)
 		time.Sleep(sleepingTime)
 	}
 

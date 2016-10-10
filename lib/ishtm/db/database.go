@@ -169,6 +169,8 @@ func (d *Mongodb) GetInDelivery(actual time.Time) ([]will.Will, error) {
 	return wills, nil
 }
 
+// RemoveExausted deletes all documents containing the "removable"
+// flag setted to true
 func (d *Mongodb) RemoveExausted() error {
 	// build query
 	selector := bson.M{
