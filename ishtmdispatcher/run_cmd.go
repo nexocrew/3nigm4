@@ -9,6 +9,7 @@ package main
 // Golang std pkgs
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -117,14 +118,29 @@ func startupChans() {
 	}()
 }
 
-func processing(args interface{}) error {
-	if deliverWill == nil {
+// procArgs processing func used arguments.
+type procArgs struct {
+	database     ct.Database
+	requestTime  time.Time
+	errorChan    chan error
+	deliveryFunc func(*wl.Will) error
+}
+
+// processing execute the actual async processing flow
+// it is passed to the working queue and provided with all
+// needed arguments.
+func processing(genericArgs interface{}) error {
+	args, ok := genericArgs.(*procArgs)
+	if !ok {
+		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
+	}
+	if args.deliveryFunc == nil {
 		return fmt.Errorf("unexpected nil deliver will function, should be pointing to avalid function")
 	}
-	if db == nil {
+	if args.database == nil {
 		return fmt.Errorf("unexpected nil database structure, unable to proceed")
 	}
-	database := db.Copy()
+	database := args.database.Copy()
 	defer database.Close()
 
 	// find deliverable wills
@@ -133,9 +149,9 @@ func processing(args interface{}) error {
 		return err
 	}
 	for _, will := range wills {
-		err = deliverWill(&will)
+		err = args.deliveryFunc(&will)
 		if err != nil {
-			errc <- err
+			args.errorChan <- err
 			continue
 		}
 	}
@@ -174,7 +190,12 @@ func run(cmd *cobra.Command, args []string) error {
 		if arguments.verbose {
 			log.VerboseLog("Searching routine started %s.\n", time.Now().String())
 		}
-		workingQueue.SendJob(processing, nil)
+		workingQueue.SendJob(processing, &procArgs{
+			database:     db,
+			requestTime:  time.Now(),
+			errorChan:    errc,
+			deliveryFunc: deliverWill,
+		})
 		time.Sleep(sleepingTime)
 	}
 
