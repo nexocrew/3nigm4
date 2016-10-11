@@ -18,7 +18,6 @@ import (
 import (
 	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	ishtmdb "github.com/nexocrew/3nigm4/lib/ishtm/db"
-	wl "github.com/nexocrew/3nigm4/lib/ishtm/will"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
@@ -72,7 +71,7 @@ var databaseStartup func(*args) (ct.Database, error) = mgoStartup
 
 // This var is used to permitt to switch between different delivery
 // systems, should be settled before proceeding invoking it.
-var deliverWill func(*wl.Will) error = nil
+var deliverer Sender
 
 // mgoStartup implement startup logic for a mongodb based database
 // connection.
@@ -120,10 +119,10 @@ func startupChans() {
 
 // procArgs processing func used arguments.
 type procArgs struct {
-	database     ct.Database
-	requestTime  time.Time
-	errorChan    chan error
-	deliveryFunc func(*wl.Will) error
+	database    ct.Database
+	requestTime time.Time
+	errorChan   chan error
+	deliverer   Sender
 }
 
 // processing execute the actual async processing flow
@@ -134,8 +133,8 @@ func processing(genericArgs interface{}) error {
 	if !ok {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
 	}
-	if args.deliveryFunc == nil {
-		return fmt.Errorf("unexpected nil deliver will function, should be pointing to avalid function")
+	if args.deliverer == nil {
+		return fmt.Errorf("unexpected nil deliver, should be pointing to a valid struct")
 	}
 	if args.database == nil {
 		return fmt.Errorf("unexpected nil database structure, unable to proceed")
@@ -149,7 +148,7 @@ func processing(genericArgs interface{}) error {
 		return err
 	}
 	for _, will := range wills {
-		err = args.deliveryFunc(&will)
+		err = args.deliverer.SendWill(&will)
 		if err != nil {
 			args.errorChan <- err
 			continue
@@ -191,10 +190,10 @@ func run(cmd *cobra.Command, args []string) error {
 			log.VerboseLog("Searching routine started %s.\n", time.Now().String())
 		}
 		workingQueue.SendJob(processing, &procArgs{
-			database:     db,
-			requestTime:  time.Now(),
-			errorChan:    errc,
-			deliveryFunc: deliverWill,
+			database:    db,
+			requestTime: time.Now(),
+			errorChan:   errc,
+			deliverer:   deliverer,
 		})
 		time.Sleep(sleepingTime)
 	}
