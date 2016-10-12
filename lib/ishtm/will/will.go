@@ -8,7 +8,6 @@ package will
 
 // Golang std packages
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -43,8 +42,8 @@ const (
 )
 
 type Credential struct {
-	SoftwareToken []byte `bson:"swtoken"`
-	SecondaryKey  []byte `bson:"secondarykey"`
+	SoftwareToken []byte   `bson:"swtoken"`
+	SecondaryKeys [][]byte `bson:"secondarykeys"`
 }
 
 type OwnerID struct {
@@ -107,7 +106,7 @@ func NewWill(owner *OwnerID, reference []byte, settings *Settings, recipients []
 	}
 
 	// generate basic auth methods
-	basicCredential, qrcode, err := generateCredential()
+	basicCredential, qrcode, seckeys, err := generateCredential()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -133,10 +132,11 @@ func NewWill(owner *OwnerID, reference []byte, settings *Settings, recipients []
 		DeliveryKey:    deliveryKey,
 		Removable:      false,
 	}
+
 	return will,
 		&ct.WillCredentials{
-			QRCode:       qrcode,
-			SecondaryKey: hex.EncodeToString(basicCredential.SecondaryKey),
+			QRCode:        qrcode,
+			SecondaryKeys: seckeys,
 		}, nil
 }
 
@@ -161,9 +161,11 @@ func (j *Will) VerifyOtp(idx int, otp string, secondary string) error {
 		if err != nil {
 			return fmt.Errorf("unable to decode secondary key (%s)", err.Error())
 		}
-		if bytes.Compare(secondaryKey, credential.SecondaryKey) != 0 {
-			return fmt.Errorf("secondary key is not valid")
+		updated, err := verifySecondaryKeys(secondaryKey, &credential)
+		if err != nil {
+			return err
 		}
+		j.Owner.Credentials[idx] = *updated
 	} else {
 		return fmt.Errorf("unsupported nil credentials")
 	}

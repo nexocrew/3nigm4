@@ -35,7 +35,7 @@ func TestNewWill(t *testing.T) {
 
 	now := time.Now().UTC()
 	reference := now.Add(settings.DeliveryOffset)
-	will, _, err := NewWill(owner, []byte("This is a mock reference file"), settings, recipients)
+	will, credentials, err := NewWill(owner, []byte("This is a mock reference file"), settings, recipients)
 	if err != nil {
 		t.Fatalf("Unable to create will instance: %s.\n", err.Error())
 	}
@@ -51,6 +51,16 @@ func TestNewWill(t *testing.T) {
 
 	if will.TimeToDelivery.Sub(reference)-(3000*time.Millisecond) > 1*time.Millisecond {
 		t.Fatalf("Unexpected ttd delta %d expecting %d.\n", will.TimeToDelivery.Sub(reference), 3000*time.Millisecond)
+	}
+
+	if len(credentials.SecondaryKeys) != secondaryKeysNumber {
+		t.Fatalf("Should have %d secondary keys at generation but found %d.\n", secondaryKeysNumber, len(credentials.SecondaryKeys))
+	}
+	for idx, key := range credentials.SecondaryKeys {
+		if len(key) == 0 {
+			t.Fatalf("Secondary keys must not be null.\n")
+		}
+		t.Logf("Secondary key %d: %s", idx, key)
 	}
 }
 
