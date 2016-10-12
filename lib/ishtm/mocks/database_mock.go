@@ -31,16 +31,18 @@ type Mockdb struct {
 	password  string
 	authDb    string
 	// in memory storage
-	willsStorage map[string]will.Will
+	willsStorage  map[string]will.Will
+	unsentStorage [][]byte
 }
 
 func NewMockDb(args *ct.DbArgs) *Mockdb {
 	return &Mockdb{
-		addresses:    ct.ComposeDbAddress(args),
-		user:         args.User,
-		password:     args.Password,
-		authDb:       args.AuthDb,
-		willsStorage: make(map[string]will.Will),
+		addresses:     ct.ComposeDbAddress(args),
+		user:          args.User,
+		password:      args.Password,
+		authDb:        args.AuthDb,
+		willsStorage:  make(map[string]will.Will),
+		unsentStorage: make([][]byte, 0),
 	}
 }
 
@@ -104,5 +106,10 @@ func (d *Mockdb) RemoveWill(id string) error {
 		return fmt.Errorf("unable to find required %s will", id)
 	}
 	delete(d.willsStorage, id)
+	return nil
+}
+
+func (d *Mockdb) StoreUnsentMessages(messages [][]byte) error {
+	d.unsentStorage = append(d.unsentStorage, messages...)
 	return nil
 }

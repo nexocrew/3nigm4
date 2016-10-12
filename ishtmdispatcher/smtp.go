@@ -17,16 +17,19 @@ import (
 	wl "github.com/nexocrew/3nigm4/lib/ishtm/will"
 )
 
+// SmtpSender the SMTP sender structure.
 type SmtpSender struct {
 	addr string
 	port int
 	auth smtp.Auth
 }
 
+// Sender interface represent sending objects.
 type Sender interface {
-	SendWill(*wl.Will) error
+	SendWill(*wl.Will) error // function to actually send will messages.
 }
 
+// NewSmtpSender new Sender of type SMTP.
 func NewSmtpSender(addr, usr, pwd string, port int) *SmtpSender {
 	return &SmtpSender{
 		addr: addr,
@@ -35,34 +38,42 @@ func NewSmtpSender(addr, usr, pwd string, port int) *SmtpSender {
 	}
 }
 
-func createMailBody(will *wl.Will) ([]byte, error) {
-	return nil, nil
-}
-
-func (s *SmtpSender) send(sender string, recipient []string, body []byte) error {
-	// Connect to the server, authenticate, set the sender and recipient,
-	// and send the email all in one step.
-	err := smtp.SendMail(
-		fmt.Sprintf("%s:%d", s.addr, s.port),
-		s.auth,
-		sender,
-		recipient,
-		body,
-	)
-	return err
-}
-
+// SendWill send a message using the defined Smtp
+// inteface.
 func (s *SmtpSender) SendWill(will *wl.Will) error {
-	var recipients []string
+	errorDescription := make([]string, 0)
+	unsentMessages := make([][]byte, 0)
 	for _, recipient := range will.Recipients {
-		recipients = append(recipients, recipient.Email)
+		body, err := createMailBody(recipient, will)
+		if err != nil {
+			errorDescription = append(errorDescription, err.Error())
+			continue
+		}
+		err = smtp.SendMail(
+			fmt.Sprintf("%s:%d", s.addr, s.port),
+			s.auth,
+			"en4@nexo.cloud",
+			[]string{recipient},
+			body,
+		)
+		if err != nil {
+			errorDescription = append(errorDescription, err.Error())
+			s.unsentMessages = append(s.unsentMessages, body)
+			continue
+		}
 	}
-	body, err := createMailBody(will)
-	if err != nil {
-		return err
+	if len(unsentMessages) != 0 &&
+		db != nil {
+		err := db.StoreUnsentMessages(unsentMessages)
+		if err != nil {
+			return err
+		}
 	}
-
-	s.send("en4@nexo.cloud", recipients, body)
-
+	if len(errorDescription) != 0 {
+		return fmt.Errorf("Founded %d errors while proceeding sending messages: %v",
+			len(errorDescription),
+			errorDescription,
+		)
+	}
 	return nil
 }

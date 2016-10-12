@@ -32,6 +32,8 @@ type Database interface {
 	// ttd behaviour
 	GetInDelivery(time.Time) ([]w.Will, error)
 	RemoveExausted() error
+	// backup logic
+	StoreUnsentMessages([][]byte) error
 }
 
 // DbArgs is the exposed arguments

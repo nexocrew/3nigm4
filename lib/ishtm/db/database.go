@@ -25,10 +25,12 @@ import (
 )
 
 const (
-	databaseName          = "ishtm"
-	jobsCollectionName    = "jobs"
-	envDatabaseName       = "NEXO_ISHTM_DATABASE"
-	envJobsCollectionName = "NEXO_ISHTM_USERS_COLLECTION"
+	databaseName            = "ishtm"
+	jobsCollectionName      = "jobs"
+	unsentCollectionName    = "unsent"
+	envDatabaseName         = "NEXO_ISHTM_DATABASE"
+	envJobsCollectionName   = "NEXO_ISHTM_USERS_COLLECTION"
+	envUnsentCollectionName = "NEXO_ISHTM_UNSENT_MESSAGES"
 )
 
 // Mongodb database, wrapping mgo session
@@ -36,8 +38,9 @@ const (
 type Mongodb struct {
 	session *mgo.Session
 	// target nodes
-	database       string
-	jobsCollection string
+	database         string
+	jobsCollection   string
+	unsentCollection string
 }
 
 // MgoSession get a new session starting from the standard args
@@ -63,6 +66,12 @@ func MgoSession(args *types.DbArgs) (*Mongodb, error) {
 	} else {
 		db.jobsCollection = jobsCollectionName
 	}
+	env = os.Getenv(envUnsentCollectionName)
+	if env != "" {
+		db.unsentCollection = env
+	} else {
+		db.unsentCollection = unsentCollectionName
+	}
 	// connect to db
 	return db, nil
 }
@@ -70,9 +79,10 @@ func MgoSession(args *types.DbArgs) (*Mongodb, error) {
 // Copy the internal session to permitt multi corutine usage.
 func (d *Mongodb) Copy() types.Database {
 	return &Mongodb{
-		session:        d.session.Copy(),
-		database:       d.database,
-		jobsCollection: d.jobsCollection,
+		session:          d.session.Copy(),
+		database:         d.database,
+		jobsCollection:   d.jobsCollection,
+		unsentCollection: d.unsentCollection,
 	}
 }
 
@@ -178,6 +188,14 @@ func (d *Mongodb) RemoveExausted() error {
 	}
 	// perform db remove of "reovable" objects
 	_, err := d.session.DB(d.database).C(d.jobsCollection).RemoveAll(selector)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *Mongodb) StoreUnsentMessages(messages [][]byte) error {
+	err := d.session.DB(d.database).C(d.unsentCollection).Insert(messages)
 	if err != nil {
 		return err
 	}

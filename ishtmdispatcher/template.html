@@ -1,0 +1,8 @@
+{{ template "email" }}
+<h1>Hello {{ .RecipientName }}</h1>
+<p>We are sending you a file made available from {{ .SenderName }} in case something happened to him or her, please follow the following instruction to access the shared resources:</p>
+<ul>
+<li>Download 3n4cli from 3n4.io and install it (see instructions for details)</li>
+<li>Download the attached file</li>
+<li>Pass it as agument to the 3n4cli application</li>
+{{ end }}

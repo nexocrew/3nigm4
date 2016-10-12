@@ -21,4 +21,5 @@ type args struct {
 	senderPort         int
 	senderAuthUser     string
 	senderAuthPassword string
+	htmlTemplatePath   string
 }
