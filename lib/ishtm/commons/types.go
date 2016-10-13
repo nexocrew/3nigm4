@@ -15,6 +15,7 @@ import (
 
 // Internal pkgs
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	w "github.com/nexocrew/3nigm4/lib/ishtm/will"
 )
 
@@ -32,8 +33,10 @@ type Database interface {
 	// ttd behaviour
 	GetInDelivery(time.Time) ([]w.Will, error)
 	RemoveExausted() error
-	// backup logic
-	StoreUnsentMessages([][]byte) error
+	// mailing logic
+	SetEmail(*ct.Email) error
+	GetEmails() ([]ct.Email, error)
+	RemoveSendedEmails() error
 }
 
 // DbArgs is the exposed arguments

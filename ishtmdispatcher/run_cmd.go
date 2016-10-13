@@ -16,8 +16,10 @@ import (
 
 // Internal pkgs
 import (
+	types "github.com/nexocrew/3nigm4/lib/commons"
 	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	ishtmdb "github.com/nexocrew/3nigm4/lib/ishtm/db"
+	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
@@ -119,16 +121,61 @@ func startupChans() {
 
 // procArgs processing func used arguments.
 type procArgs struct {
-	database    ct.Database
-	requestTime time.Time
-	errorChan   chan error
-	deliverer   Sender
+	database  ct.Database
+	deliverer Sender
+}
+
+// saveEmailsToDatabase save email record to the db.
+func saveEmailsToDatabase(db ct.Database, w *will.Will) error {
+	for _, recipient := range w.Recipients {
+		email := &types.Email{
+			Recipient:            recipient.Email,
+			Sender:               w.Owner.Email,
+			Creation:             w.Creation,
+			RecipientKeyID:       recipient.KeyID,
+			RecipientFingerprint: recipient.Fingerprint,
+			Attachment:           w.ReferenceFile,
+			Sended:               false,
+		}
+		err := db.SetEmail(email)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // processing execute the actual async processing flow
 // it is passed to the working queue and provided with all
 // needed arguments.
 func processing(genericArgs interface{}) error {
+	args, ok := genericArgs.(*procArgs)
+	if !ok {
+		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
+	}
+	if args.database == nil {
+		return fmt.Errorf("unexpected nil database structure, unable to proceed")
+	}
+	database := args.database.Copy()
+	defer database.Close()
+
+	// find deliverable wills
+	wills, err := database.GetInDelivery(time.Now())
+	if err != nil {
+		return err
+	}
+	for _, w := range wills {
+		err = saveEmailsToDatabase(database, &w)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// sendEmails retrieve from the db in queued emails and
+// send them using a Sender service.
+func sendEmails(genericArgs interface{}) error {
 	args, ok := genericArgs.(*procArgs)
 	if !ok {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
@@ -142,24 +189,38 @@ func processing(genericArgs interface{}) error {
 	database := args.database.Copy()
 	defer database.Close()
 
-	// find deliverable wills
-	wills, err := database.GetInDelivery(time.Now())
+	emails, err := database.GetEmails()
 	if err != nil {
 		return err
 	}
-	for _, will := range wills {
-		err = args.deliverer.SendWill(&will)
+	for _, email := range emails {
+		err = args.deliverer.SendEmail(&email)
 		if err != nil {
-			args.errorChan <- err
+			email.Sended = false
+			// restore mail status by restoring sended
+			// flag. Is done best effort so no error check
+			// is done, otherwise all mail would be lost.
+			database.SetEmail(&email)
 			continue
 		}
 	}
-	err = database.RemoveExausted()
-	if err != nil {
-		return err
-	}
-
 	return nil
+}
+
+// deleteSendedEmails is used to clean the database from already
+// sended messages.
+func deleteSendedEmails(genericArgs interface{}) error {
+	args, ok := genericArgs.(*procArgs)
+	if !ok {
+		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
+	}
+	if args.database == nil {
+		return fmt.Errorf("unexpected nil database structure, unable to proceed")
+	}
+	database := args.database.Copy()
+	defer database.Close()
+
+	return database.RemoveSendedEmails()
 }
 
 // run the actual main routine to start looping for the
@@ -186,14 +247,15 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// run loop
 	for {
+		// !!!!!!!!!!!!
+		// TODO add other routines to the queue
+		// !!!!!!!!!!!!!
 		if arguments.verbose {
 			log.VerboseLog("Searching routine started %s.\n", time.Now().String())
 		}
 		workingQueue.SendJob(processing, &procArgs{
-			database:    db,
-			requestTime: time.Now(),
-			errorChan:   errc,
-			deliverer:   deliverer,
+			database:  db,
+			deliverer: deliverer,
 		})
 		time.Sleep(sleepingTime)
 	}

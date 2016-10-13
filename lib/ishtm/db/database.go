@@ -14,6 +14,7 @@ import (
 
 // Internal packages
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	types "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 )
@@ -27,10 +28,10 @@ import (
 const (
 	databaseName            = "ishtm"
 	jobsCollectionName      = "jobs"
-	unsentCollectionName    = "unsent"
+	emailsCollectionName    = "emails"
 	envDatabaseName         = "NEXO_ISHTM_DATABASE"
 	envJobsCollectionName   = "NEXO_ISHTM_USERS_COLLECTION"
-	envUnsentCollectionName = "NEXO_ISHTM_UNSENT_MESSAGES"
+	envEmailsCollectionName = "NEXO_ISHTM_EMAILS"
 )
 
 // Mongodb database, wrapping mgo session
@@ -40,7 +41,7 @@ type Mongodb struct {
 	// target nodes
 	database         string
 	jobsCollection   string
-	unsentCollection string
+	emailsCollection string
 }
 
 // MgoSession get a new session starting from the standard args
@@ -66,11 +67,11 @@ func MgoSession(args *types.DbArgs) (*Mongodb, error) {
 	} else {
 		db.jobsCollection = jobsCollectionName
 	}
-	env = os.Getenv(envUnsentCollectionName)
+	env = os.Getenv(envEmailsCollectionName)
 	if env != "" {
-		db.unsentCollection = env
+		db.emailsCollection = env
 	} else {
-		db.unsentCollection = unsentCollectionName
+		db.emailsCollection = emailsCollectionName
 	}
 	// connect to db
 	return db, nil
@@ -82,7 +83,7 @@ func (d *Mongodb) Copy() types.Database {
 		session:          d.session.Copy(),
 		database:         d.database,
 		jobsCollection:   d.jobsCollection,
-		unsentCollection: d.unsentCollection,
+		emailsCollection: d.emailsCollection,
 	}
 }
 
@@ -175,7 +176,6 @@ func (d *Mongodb) GetInDelivery(actual time.Time) ([]will.Will, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return wills, nil
 }
 
@@ -194,8 +194,54 @@ func (d *Mongodb) RemoveExausted() error {
 	return nil
 }
 
-func (d *Mongodb) StoreUnsentMessages(messages [][]byte) error {
-	err := d.session.DB(d.database).C(d.unsentCollection).Insert(messages)
+// SetEmail upsert an email in the database to be
+// sended by the dispatcher.
+func (d *Mongodb) SetEmail(email *ct.Email) error {
+	selector := bson.M{
+		"_id": email.ObjectID,
+	}
+	update := bson.M{
+		"$set": email,
+	}
+	_, err := d.session.DB(d.database).C(d.emailsCollection).Upsert(selector, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetEmails returns non sended emails for providing
+// the dispatcher with required emails.
+func (d *Mongodb) GetEmails() ([]ct.Email, error) {
+	change := mgo.Change{
+		Update: bson.M{
+			"$set": bson.M{
+				"sended": true,
+			},
+		},
+		ReturnNew: false,
+	}
+	query := bson.M{
+		"sended": bson.M{
+			"$eq": false,
+		},
+	}
+	var emails []ct.Email
+	_, err := d.session.DB(d.database).C(d.emailsCollection).Find(query).Apply(change, &emails)
+	if err != nil {
+		return nil, err
+	}
+	return emails, nil
+}
+
+// RemoveSendedEmails remove sended emails while possible.
+func (d *Mongodb) RemoveSendedEmails() error {
+	// build query
+	selector := bson.M{
+		"sended": bson.M{"$eq": true},
+	}
+	// perform db remove
+	_, err := d.session.DB(d.database).C(d.emailsCollection).RemoveAll(selector)
 	if err != nil {
 		return err
 	}

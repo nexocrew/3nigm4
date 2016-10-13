@@ -8,13 +8,13 @@ package main
 
 // Golang std pkgs
 import (
-	"fmt"
+	_ "fmt"
 	"net/smtp"
 )
 
 // Internal pkgs
 import (
-	wl "github.com/nexocrew/3nigm4/lib/ishtm/will"
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
 // SmtpSender the SMTP sender structure.
@@ -26,7 +26,7 @@ type SmtpSender struct {
 
 // Sender interface represent sending objects.
 type Sender interface {
-	SendWill(*wl.Will) error // function to actually send will messages.
+	SendEmail(*ct.Email) error // function to actually send email messages.
 }
 
 // NewSmtpSender new Sender of type SMTP.
@@ -38,12 +38,10 @@ func NewSmtpSender(addr, usr, pwd string, port int) *SmtpSender {
 	}
 }
 
-// SendWill send a message using the defined Smtp
+// SendEmail send a message using the defined Smtp
 // inteface.
-func (s *SmtpSender) SendWill(will *wl.Will) error {
-	errorDescription := make([]string, 0)
-	unsentMessages := make([][]byte, 0)
-	for _, recipient := range will.Recipients {
+func (s *SmtpSender) SendEmail(email *ct.Email) error {
+	/*
 		body, err := createMailBody(recipient, will)
 		if err != nil {
 			errorDescription = append(errorDescription, err.Error())
@@ -61,19 +59,6 @@ func (s *SmtpSender) SendWill(will *wl.Will) error {
 			s.unsentMessages = append(s.unsentMessages, body)
 			continue
 		}
-	}
-	if len(unsentMessages) != 0 &&
-		db != nil {
-		err := db.StoreUnsentMessages(unsentMessages)
-		if err != nil {
-			return err
-		}
-	}
-	if len(errorDescription) != 0 {
-		return fmt.Errorf("Founded %d errors while proceeding sending messages: %v",
-			len(errorDescription),
-			errorDescription,
-		)
-	}
+	*/
 	return nil
 }

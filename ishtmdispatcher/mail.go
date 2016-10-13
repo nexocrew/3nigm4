@@ -6,18 +6,12 @@
 
 package main
 
+/*
 // Golang std pkgs
 import (
 	"bytes"
 	"html/template"
 )
-
-type EmailMessage struct {
-	RecipientName string
-	SenderName    string
-	ResourceLink  string
-	WillCreation  string
-}
 
 // createMailBody returns coded mail message starting
 // from the will structure.
@@ -36,3 +30,4 @@ func createMailBody(content *EmailMessage) ([]byte, error) {
 
 	return nil, nil
 }
+*/

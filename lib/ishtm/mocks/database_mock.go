@@ -19,8 +19,14 @@ import (
 	"time"
 )
 
+// Third party libs
+import (
+	"gopkg.in/mgo.v2/bson"
+)
+
 // Internal packages
 import (
+	types "github.com/nexocrew/3nigm4/lib/commons"
 	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 )
@@ -32,7 +38,7 @@ type Mockdb struct {
 	authDb    string
 	// in memory storage
 	willsStorage  map[string]will.Will
-	unsentStorage [][]byte
+	emailsStorage map[string]types.Email
 }
 
 func NewMockDb(args *ct.DbArgs) *Mockdb {
@@ -42,7 +48,7 @@ func NewMockDb(args *ct.DbArgs) *Mockdb {
 		password:      args.Password,
 		authDb:        args.AuthDb,
 		willsStorage:  make(map[string]will.Will),
-		unsentStorage: make([][]byte, 0),
+		emailsStorage: make(map[string]types.Email),
 	}
 }
 
@@ -109,7 +115,31 @@ func (d *Mockdb) RemoveWill(id string) error {
 	return nil
 }
 
-func (d *Mockdb) StoreUnsentMessages(messages [][]byte) error {
-	d.unsentStorage = append(d.unsentStorage, messages...)
+func (d *Mockdb) SetEmail(email *types.Email) error {
+	if email.ObjectID == "" {
+		email.ObjectID = bson.NewObjectId()
+	}
+	d.emailsStorage[string(email.ObjectID)] = *email
+	return nil
+}
+
+func (d *Mockdb) GetEmails() ([]types.Email, error) {
+	result := make([]types.Email, 0)
+	for _, v := range d.emailsStorage {
+		if v.Sended != true {
+			result = append(result, v)
+			v.Sended = true
+		}
+	}
+	return result, nil
+}
+
+// RemoveSendedEmails remove sended emails while possible.
+func (d *Mockdb) RemoveSendedEmails() error {
+	for k, v := range d.emailsStorage {
+		if v.Sended == true {
+			delete(d.emailsStorage, k)
+		}
+	}
 	return nil
 }
