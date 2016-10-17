@@ -1,9 +1,21 @@
 {{ template "email" }}
-<h1>Hello {{ .RecipientName }}</h1>
-<p>We are sending you a file made available from {{ .SenderName }} in case something happened to him or her, please follow the following instruction to access the shared resources:</p>
+<h1>Hello {{ .Recipient }}</h1>
+<p>We are sending you a file made available from {{ .Sender }} in case something happened to him or her on date {{ .Creation }}, please follow the following instruction to access the shared resources&#58;</p>
+
+<h3>Scenario A&#58;</h3>
 <ul>
-<li>Download 3n4cli from 3n4.io and install it (see instructions for details)</li>
-<li>Download the attached file</li>
-<li>Pass it as agument to the 3n4cli application</li>
+<li>Download 3n4cli from 3n4.io and install it (see instructions for details)&#59;</li>
+<li>Download and save locally the file attached to this email as for example resources.3rf&#59;</li>
+<li>Use the command <code>3n4cli store download -M -o /tmp/file.ext -r /home/user/resources.3rf</code>&#59;</li>
+<li>Download the actual content&#46;</li>
 </ul>
+
+<h3>Scenario B&#58;</h3>
+<ul>
+<li>Download 3n4cli from 3n4.io and install it (see instructions for details)&#59;</li>
+<li>Download the attached file using command <code>3n4cli ishtm get --id {{ .DeliveryKey }} --output /home/user/reference.3n4</code>&#59;</li>
+<li>Use the command <code>3n4cli store download -M -o /tmp/file.ext -r /home/user/resources.3rf</code>&#59;</li>
+<li>Download the actual content&#46;</li>
+</ul>
+
 {{ end }}

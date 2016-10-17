@@ -8,13 +8,19 @@ package main
 
 // Golang std pkgs
 import (
-	_ "fmt"
+	"fmt"
+	"net/mail"
 	"net/smtp"
 )
 
 // Internal pkgs
 import (
 	ct "github.com/nexocrew/3nigm4/lib/commons"
+)
+
+// Third party pkgs
+import (
+	"github.com/scorredoira/email"
 )
 
 // SmtpSender the SMTP sender structure.
@@ -40,25 +46,32 @@ func NewSmtpSender(addr, usr, pwd string, port int) *SmtpSender {
 
 // SendEmail send a message using the defined Smtp
 // inteface.
-func (s *SmtpSender) SendEmail(email *ct.Email) error {
-	/*
-		body, err := createMailBody(recipient, will)
-		if err != nil {
-			errorDescription = append(errorDescription, err.Error())
-			continue
-		}
-		err = smtp.SendMail(
-			fmt.Sprintf("%s:%d", s.addr, s.port),
-			s.auth,
-			"en4@nexo.cloud",
-			[]string{recipient},
-			body,
-		)
-		if err != nil {
-			errorDescription = append(errorDescription, err.Error())
-			s.unsentMessages = append(s.unsentMessages, body)
-			continue
-		}
-	*/
+func (s *SmtpSender) SendEmail(message *ct.Email) error {
+	body, err := createMailBody(message)
+	if err != nil {
+		return err
+	}
+
+	subject := fmt.Sprintf("Important data from %s", message.Sender)
+	m := email.NewHTMLMessage(subject, string(body))
+	m.From = mail.Address{
+		Name:    "From",
+		Address: "en4@nexo.cloud",
+	}
+	m.To = []string{message.Recipient}
+	err = m.AttachBuffer("reference.3n4", message.Attachment, false)
+	if err != nil {
+		return err
+	}
+
+	err = email.Send(
+		fmt.Sprintf("%s:%d", s.addr, s.port),
+		s.auth,
+		m,
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

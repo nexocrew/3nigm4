@@ -8,6 +8,7 @@ package main
 
 // Golang std pkgs
 import (
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strings"
@@ -139,6 +140,7 @@ func saveEmailsToDatabase(db ct.Database, w *will.Will) error {
 			RecipientKeyID:       recipient.KeyID,
 			RecipientFingerprint: recipient.Fingerprint,
 			Attachment:           w.ReferenceFile,
+			DeliveryKey:          hex.EncodeToString(w.DeliveryKey),
 			Sended:               false,
 		}
 		err := db.SetEmail(email)

@@ -192,5 +192,6 @@ type Email struct {
 	RecipientKeyID       uint64        `bson:"keyid"`
 	RecipientFingerprint []byte        `bson:"fingerprint"`
 	Attachment           []byte        `bson:"attachment"`
+	DeliveryKey          string        `bson:"deliverykey"`
 	Sended               bool          `bson:"sended"`
 }

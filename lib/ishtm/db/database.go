@@ -270,6 +270,12 @@ func (d *Mongodb) EnsureMongodbIndexes() error {
 		Background: true,
 		Sparse:     false,
 	}
+	emailIndex := mgo.Index{
+		Key:        []string{"sended"},
+		Unique:     false,
+		Background: true,
+		Sparse:     false,
+	}
 	err := d.session.DB(d.database).C(d.jobsCollection).EnsureIndex(willIndex)
 	if err != nil {
 		return err
@@ -279,6 +285,10 @@ func (d *Mongodb) EnsureMongodbIndexes() error {
 		return err
 	}
 	err = d.session.DB(d.database).C(d.jobsCollection).EnsureIndex(ownerIndex)
+	if err != nil {
+		return err
+	}
+	err = d.session.DB(d.database).C(d.emailsCollection).EnsureIndex(emailIndex)
 	if err != nil {
 		return err
 	}
