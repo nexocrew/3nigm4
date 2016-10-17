@@ -22,4 +22,8 @@ type args struct {
 	senderAuthUser     string
 	senderAuthPassword string
 	htmlTemplatePath   string
+	// schedulers
+	processScheduleMinutes  uint32
+	dispatchScheduleMinutes uint32
+	cleanupScheduleMinutes  uint32
 }

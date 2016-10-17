@@ -53,6 +53,9 @@ func init() {
 	RunCmd.PersistentFlags().IntVarP(&arguments.senderPort, "smtpport", "", 443, "the smtp service port")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthUser, "smtpuser", "", "", "the smtp service user name")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthPassword, "smtppwd", "", "", "the smtp service password")
+	RunCmd.PersistentFlags().Uint32Var(&arguments.processScheduleMinutes, "processwait", 3, "defines the wait time for the processing routine iteration")
+	RunCmd.PersistentFlags().Uint32Var(&arguments.dispatchScheduleMinutes, "dispatchtime", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine")
+	RootCmd.PersistentFlags().Uint32Var(&arguments.cleanupScheduleMinutes, "cleanuptime", 30, "run at defined intervals the cleanup function that remove email messages from the database")
 	// files parameters
 	RunCmd.RunE = run
 }
@@ -100,9 +103,9 @@ func mgoStartup(a *args) (ct.Database, error) {
 }
 
 const (
-	workersize   = 16
-	queuesize    = 300
-	sleepingTime = 3 * time.Minute
+	workersize           = 16
+	queuesize            = 300
+	minToleratedDuration = 1
 )
 
 // startupChans start error chan to manage async
@@ -121,8 +124,9 @@ func startupChans() {
 
 // procArgs processing func used arguments.
 type procArgs struct {
-	database  ct.Database
-	deliverer Sender
+	database     ct.Database
+	deliverer    Sender
+	criticalChan chan bool
 }
 
 // saveEmailsToDatabase save email record to the db.
@@ -145,10 +149,10 @@ func saveEmailsToDatabase(db ct.Database, w *will.Will) error {
 	return nil
 }
 
-// processing execute the actual async processing flow
+// processEmails execute the actual async processing flow
 // it is passed to the working queue and provided with all
 // needed arguments.
-func processing(genericArgs interface{}) error {
+func processEmails(genericArgs interface{}) error {
 	args, ok := genericArgs.(*procArgs)
 	if !ok {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
@@ -207,9 +211,9 @@ func sendEmails(genericArgs interface{}) error {
 	return nil
 }
 
-// deleteSendedEmails is used to clean the database from already
+// cleanupSendedEmails is used to clean the database from already
 // sended messages.
-func deleteSendedEmails(genericArgs interface{}) error {
+func cleanupSendedEmails(genericArgs interface{}) error {
 	args, ok := genericArgs.(*procArgs)
 	if !ok {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
@@ -221,6 +225,13 @@ func deleteSendedEmails(genericArgs interface{}) error {
 	defer database.Close()
 
 	return database.RemoveSendedEmails()
+}
+
+func validateDuration(minutes uint32) time.Duration {
+	if minutes < minToleratedDuration {
+		return time.Duration(minToleratedDuration) * time.Minute
+	}
+	return time.Duration(minutes) * time.Minute
 }
 
 // run the actual main routine to start looping for the
@@ -245,19 +256,49 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 	defer workingQueue.Close()
 
+	// timers
+	processingSchedule := time.NewTicker(validateDuration(arguments.processScheduleMinutes))
+	dispatchSchedule := time.NewTicker(validateDuration(arguments.dispatchScheduleMinutes))
+	cleanupSchedule := time.NewTicker(validateDuration(arguments.cleanupScheduleMinutes))
+	// chan used to async block schedule ops.
+	critical := make(chan bool, 0)
+
 	// run loop
 	for {
-		// !!!!!!!!!!!!
-		// TODO add other routines to the queue
-		// !!!!!!!!!!!!!
-		if arguments.verbose {
-			log.VerboseLog("Searching routine started %s.\n", time.Now().String())
+		select {
+		case <-processingSchedule.C:
+			if arguments.verbose {
+				log.VerboseLog("Deliver routine started.\n")
+			}
+			workingQueue.SendJob(processEmails, &procArgs{
+				database:     db,
+				deliverer:    deliverer,
+				criticalChan: critical,
+			})
+		case <-dispatchSchedule.C:
+			if arguments.verbose {
+				log.VerboseLog("Dispatching routine started.\n")
+			}
+			workingQueue.SendJob(sendEmails, &procArgs{
+				database:     db,
+				deliverer:    deliverer,
+				criticalChan: critical,
+			})
+		case <-cleanupSchedule.C:
+			if arguments.verbose {
+				log.VerboseLog("Deleting routine started.\n")
+			}
+			workingQueue.SendJob(cleanupSendedEmails, &procArgs{
+				database:     db,
+				deliverer:    deliverer,
+				criticalChan: critical,
+			})
+		case <-critical:
+			processingSchedule.Stop()
+			dispatchSchedule.Stop()
+			cleanupSchedule.Stop()
+			return fmt.Errorf("timers blocked cause a critical error was produced")
 		}
-		workingQueue.SendJob(processing, &procArgs{
-			database:  db,
-			deliverer: deliverer,
-		})
-		time.Sleep(sleepingTime)
 	}
 
 	return nil
