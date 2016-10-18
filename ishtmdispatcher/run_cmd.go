@@ -21,6 +21,7 @@ import (
 	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	ishtmdb "github.com/nexocrew/3nigm4/lib/ishtm/db"
 	"github.com/nexocrew/3nigm4/lib/ishtm/will"
+	"github.com/nexocrew/3nigm4/lib/smtp"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
@@ -56,7 +57,7 @@ func init() {
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthPassword, "smtppwd", "", "", "the smtp service password")
 	RunCmd.PersistentFlags().Uint32Var(&arguments.processScheduleMinutes, "processwait", 3, "defines the wait time for the processing routine iteration")
 	RunCmd.PersistentFlags().Uint32Var(&arguments.dispatchScheduleMinutes, "dispatchtime", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine")
-	RootCmd.PersistentFlags().Uint32Var(&arguments.cleanupScheduleMinutes, "cleanuptime", 30, "run at defined intervals the cleanup function that remove email messages from the database")
+	RunCmd.PersistentFlags().Uint32Var(&arguments.cleanupScheduleMinutes, "cleanuptime", 30, "run at defined intervals the cleanup function that remove email messages from the database")
 	// files parameters
 	RunCmd.RunE = run
 }
@@ -75,9 +76,23 @@ var errc chan error
 // as backend database system.
 var databaseStartup func(*args) (ct.Database, error) = mgoStartup
 
-// This var is used to permitt to switch between different delivery
-// systems, should be settled before proceeding invoking it.
-var deliverer Sender
+// This var is used to define the used function to startup the
+// sender object.
+// The default, production targeting, implementation uses SMTP
+// as server protocol.
+var senderStartup func(*args) smtpmail.Sender = smtpStartup
+
+// smtpStartup SMTP sender startup function, should not be changed
+// in production.
+func smtpStartup(a *args) smtpmail.Sender {
+	return smtpmail.NewSmtpSender(
+		a.senderAddress,
+		a.senderAuthUser,
+		a.senderAuthPassword,
+		a.htmlTemplatePath,
+		a.senderPort,
+	)
+}
 
 // mgoStartup implement startup logic for a mongodb based database
 // connection.
@@ -126,7 +141,7 @@ func startupChans() {
 // procArgs processing func used arguments.
 type procArgs struct {
 	database     ct.Database
-	deliverer    Sender
+	deliverer    smtpmail.Sender
 	criticalChan chan bool
 }
 
@@ -200,7 +215,12 @@ func sendEmails(genericArgs interface{}) error {
 		return err
 	}
 	for _, email := range emails {
-		err = args.deliverer.SendEmail(&email)
+		err = args.deliverer.SendEmail(
+			&email,
+			"3n4@nexo.cloud",
+			fmt.Sprintf("Important data from %s", email.Sender),
+			"reference.3n4",
+		)
 		if err != nil {
 			email.Sended = false
 			// restore mail status by restoring sended
@@ -249,6 +269,9 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 	defer db.Close()
 
+	// startup sender
+	sender := senderStartup(&arguments)
+
 	startupChans()
 	// create working queue
 	workingQueue = wq.NewWorkingQueue(workersize, queuesize, errc)
@@ -274,7 +297,7 @@ func run(cmd *cobra.Command, args []string) error {
 			}
 			workingQueue.SendJob(processEmails, &procArgs{
 				database:     db,
-				deliverer:    deliverer,
+				deliverer:    sender,
 				criticalChan: critical,
 			})
 		case <-dispatchSchedule.C:
@@ -283,7 +306,7 @@ func run(cmd *cobra.Command, args []string) error {
 			}
 			workingQueue.SendJob(sendEmails, &procArgs{
 				database:     db,
-				deliverer:    deliverer,
+				deliverer:    sender,
 				criticalChan: critical,
 			})
 		case <-cleanupSchedule.C:
@@ -292,7 +315,7 @@ func run(cmd *cobra.Command, args []string) error {
 			}
 			workingQueue.SendJob(cleanupSendedEmails, &procArgs{
 				database:     db,
-				deliverer:    deliverer,
+				deliverer:    sender,
 				criticalChan: critical,
 			})
 		case <-critical:

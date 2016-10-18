@@ -4,7 +4,9 @@
 // v1.0 06/10/2016
 //
 
-package main
+// Package smtpmail implements a sender compliant struct
+// managing SMTP mail servers.
+package smtpmail
 
 // Golang std pkgs
 import (
@@ -25,41 +27,41 @@ import (
 
 // SmtpSender the SMTP sender structure.
 type SmtpSender struct {
-	addr string
-	port int
-	auth smtp.Auth
+	addr         string
+	port         int
+	auth         smtp.Auth
+	templatePath string
 }
 
 // Sender interface represent sending objects.
 type Sender interface {
-	SendEmail(*ct.Email) error // function to actually send email messages.
+	SendEmail(*ct.Email, string, string, string) error // function to actually send email messages.
 }
 
 // NewSmtpSender new Sender of type SMTP.
-func NewSmtpSender(addr, usr, pwd string, port int) *SmtpSender {
+func NewSmtpSender(addr, usr, pwd, template string, port int) *SmtpSender {
 	return &SmtpSender{
-		addr: addr,
-		port: port,
-		auth: smtp.PlainAuth("", usr, pwd, addr),
+		addr:         addr,
+		port:         port,
+		auth:         smtp.PlainAuth("", usr, pwd, addr),
+		templatePath: template,
 	}
 }
 
 // SendEmail send a message using the defined Smtp
 // inteface.
-func (s *SmtpSender) SendEmail(message *ct.Email) error {
-	body, err := createMailBody(message)
+func (s *SmtpSender) SendEmail(content *ct.Email, fromAddress, subject, attachmentName string) error {
+	body, err := createMailBody(content, s.templatePath)
 	if err != nil {
 		return err
 	}
-
-	subject := fmt.Sprintf("Important data from %s", message.Sender)
 	m := email.NewHTMLMessage(subject, string(body))
 	m.From = mail.Address{
 		Name:    "From",
-		Address: "en4@nexo.cloud",
+		Address: fromAddress,
 	}
-	m.To = []string{message.Recipient}
-	err = m.AttachBuffer("reference.3n4", message.Attachment, false)
+	m.To = []string{content.Recipient}
+	err = m.AttachBuffer(attachmentName, content.Attachment, false)
 	if err != nil {
 		return err
 	}
@@ -72,6 +74,5 @@ func (s *SmtpSender) SendEmail(message *ct.Email) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

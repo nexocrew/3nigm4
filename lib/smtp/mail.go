@@ -4,12 +4,13 @@
 // v1.0 06/10/2016
 //
 
-package main
+package smtpmail
 
 // Golang std pkgs
 import (
 	"bytes"
 	"html/template"
+	"path/filepath"
 	"sync"
 )
 
@@ -19,18 +20,19 @@ import (
 )
 
 var (
-	instance  *template.Template
-	once      sync.Once
-	errorChan chan error
+	instance  *template.Template // singleton pattern instance;
+	once      sync.Once          // concurrency safety mechanism;
+	errorChan chan error         // error returning chain
 )
 
 // getTemplate implement a singleton pattern to access
 // a mail template.
-func getTemplate() *template.Template {
+func getTemplate(templatePath string) *template.Template {
 	once.Do(func() {
 		var err error
 		errorChan = make(chan error, 1)
-		instance, err = template.New("email").ParseFiles(arguments.htmlTemplatePath)
+		_, fname := filepath.Split(templatePath)
+		instance, err = template.New(fname).ParseFiles(templatePath)
 		if err != nil {
 			errorChan <- err
 		}
@@ -40,8 +42,8 @@ func getTemplate() *template.Template {
 
 // createMailBody returns coded mail message starting
 // from the will structure.
-func createMailBody(content *types.Email) ([]byte, error) {
-	thtml := getTemplate()
+func createMailBody(content *types.Email, templatePath string) ([]byte, error) {
+	thtml := getTemplate(templatePath)
 	if thtml == nil {
 		return nil, <-errorChan
 	}
