@@ -1,5 +1,5 @@
 //
-// 3nigm4 ishtmdispatcher package
+// 3nigm4 smtpmail package
 // Author: Guido Ronchetti <dyst0ni3@gmail.com>
 // v1.0 06/10/2016
 //
@@ -31,11 +31,6 @@ type SmtpSender struct {
 	port         int
 	auth         smtp.Auth
 	templatePath string
-}
-
-// Sender interface represent sending objects.
-type Sender interface {
-	SendEmail(*ct.Email, string, string, string) error // function to actually send email messages.
 }
 
 // NewSmtpSender new Sender of type SMTP.

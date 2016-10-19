@@ -8,16 +8,44 @@ package main
 
 // Golang std pkgs
 import (
+	"fmt"
+	"os"
+	"strings"
 	"testing"
+	"time"
 )
 
-/*
-// Internal dependencies.
+// Internal pkgs
 import (
-	ct "github.com/nexocrew/3nigm4/lib/commons"
-	mockdb "github.com/nexocrew/3nigm4/lib/ishtm/mocks"
+	types "github.com/nexocrew/3nigm4/lib/commons"
+	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
+	mdb "github.com/nexocrew/3nigm4/lib/ishtm/mocks"
 	"github.com/nexocrew/3nigm4/lib/itm"
 	"github.com/nexocrew/3nigm4/lib/logger"
+	"github.com/nexocrew/3nigm4/lib/sender"
+	"github.com/nexocrew/3nigm4/lib/sender/mock"
+)
+
+func mocksenderStartup(a *args) sender.Sender {
+	return sendermock.NewMockSender()
+}
+
+func mockDbStartup(arguments *args) (ct.Database, error) {
+	mockdb := mdb.NewMockDb(&ct.DbArgs{
+		Addresses: strings.Split(arguments.dbAddresses, ","),
+		User:      arguments.dbUsername,
+		Password:  arguments.dbPassword,
+		AuthDb:    arguments.dbAuth,
+	})
+
+	log.MessageLog("Mockdb %s successfully connected.\n", arguments.dbAddresses)
+	return mockdb, nil
+}
+
+var (
+	databaseInstance ct.Database
+	senderInstance   sender.Sender
+	criticalChan     chan bool
 )
 
 func TestMain(m *testing.M) {
@@ -25,69 +53,57 @@ func TestMain(m *testing.M) {
 	log = logger.NewLogFacility("ishtmdispatcher", true, true)
 
 	arguments = args{
-		verbose:     true,
-		colored:     true,
-		dbAddresses: fmt.Sprintf("%s:%d", itm.S().DbAddress(), itm.S().DbPort()),
-		dbUsername:  itm.S().DbUserName(),
-		dbPassword:  itm.S().DbPassword(),
-		dbAuth:      itm.S().DbAuth(),
-		address:     mockServiceAddress,
-		port:        mockServicePort,
+		verbose:            true,
+		colored:            true,
+		dbAddresses:        fmt.Sprintf("%s:%d", itm.S().DbAddress(), itm.S().DbPort()),
+		dbUsername:         itm.S().DbUserName(),
+		dbPassword:         itm.S().DbPassword(),
+		dbAuth:             itm.S().DbAuth(),
+		senderPort:         25,
+		senderAuthUser:     "user",
+		senderAuthPassword: "password",
+		// schedulers
+		processScheduleMinutes:  1,
+		dispatchScheduleMinutes: 2,
+		cleanupScheduleMinutes:  2,
 	}
 	databaseStartup = mockDbStartup
+	senderStartup = mocksenderStartup
 
-	var errorCounter wq.AtomicCounter
-	errorChan := make(chan error, 0)
-	var lastError error
-	go func() {
-		for {
-			select {
-			case err, _ := <-errorChan:
-				errorCounter.Add(1)
-				lastError = err
-			}
-		}
-	}()
-	// startup service
-	go func(ec chan error) {
-		err := serve(ServeCmd, nil)
-		if err != nil {
-			ec <- err
-			return
-		}
-	}(errorChan)
-	// the following timeout time is used to ensure
-	// that all goroutines have compleated their
-	// processing life (especially to verify that
-	// no error is returned by concurrent server
-	// startup). 3 seconds is an arbitrary, experimentally
-	// defined, time on some slower systems it can be not
-	// enought.
-	ticker := time.Tick(3 * time.Second)
-	timeoutCounter := wq.AtomicCounter{}
-	go func() {
-		for {
-			select {
-			case <-ticker:
-				timeoutCounter.Add(1)
-			}
-		}
-	}()
-	// infinite loop:
-	for {
-		if timeoutCounter.Value() != 0 {
-			break
-		}
-		if errorCounter.Value() != 0 {
-			log.ErrorLog("Error returned: %s.\n", lastError)
-			os.Exit(1)
-		}
-		time.Sleep(50 * time.Millisecond)
+	var err error
+	databaseInstance, err = databaseStartup(&arguments)
+	if err != nil {
+		log.CriticalLog("Unable to start mock database:%s.\n", err.Error())
+		os.Exit(1)
 	}
+	senderInstance = senderStartup(&arguments)
+	criticalChan = make(chan bool, 3)
 
 	os.Exit(m.Run())
 }
-*/
-func TestProcessingFlow(t *testing.T) {
 
+func TestSendingFlow(t *testing.T) {
+	proc := &procArgs{
+		database:     databaseInstance,
+		deliverer:    senderInstance,
+		criticalChan: criticalChan,
+	}
+
+	err := databaseInstance.SetEmail(&types.Email{
+		Recipient:            "userB",
+		Sender:               "userA",
+		Creation:             time.Now(),
+		RecipientKeyID:       2534,
+		RecipientFingerprint: []byte("a38eyr3ye72t6e3"),
+		DeliveryKey:          "01234567890",
+		Attachment:           []byte("This is a fake test attachment"),
+	})
+	if err != nil {
+		t.Fatalf("Unable to add email to db: %s.\n", err.Error())
+	}
+
+	err = sendEmails(proc)
+	if err != nil {
+		t.Fatalf("Unable to send email message: %s.\n", err.Error())
+	}
 }

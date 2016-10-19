@@ -21,7 +21,8 @@ import (
 	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	ishtmdb "github.com/nexocrew/3nigm4/lib/ishtm/db"
 	"github.com/nexocrew/3nigm4/lib/ishtm/will"
-	"github.com/nexocrew/3nigm4/lib/smtp"
+	"github.com/nexocrew/3nigm4/lib/sender"
+	"github.com/nexocrew/3nigm4/lib/sender/smtp"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
@@ -80,11 +81,11 @@ var databaseStartup func(*args) (ct.Database, error) = mgoStartup
 // sender object.
 // The default, production targeting, implementation uses SMTP
 // as server protocol.
-var senderStartup func(*args) smtpmail.Sender = smtpStartup
+var senderStartup func(*args) sender.Sender = smtpStartup
 
 // smtpStartup SMTP sender startup function, should not be changed
 // in production.
-func smtpStartup(a *args) smtpmail.Sender {
+func smtpStartup(a *args) sender.Sender {
 	return smtpmail.NewSmtpSender(
 		a.senderAddress,
 		a.senderAuthUser,
@@ -141,7 +142,7 @@ func startupChans() {
 // procArgs processing func used arguments.
 type procArgs struct {
 	database     ct.Database
-	deliverer    smtpmail.Sender
+	deliverer    sender.Sender
 	criticalChan chan bool
 }
 
@@ -175,6 +176,7 @@ func processEmails(genericArgs interface{}) error {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
 	}
 	if args.database == nil {
+		args.criticalChan <- true
 		return fmt.Errorf("unexpected nil database structure, unable to proceed")
 	}
 	database := args.database.Copy()
@@ -202,9 +204,11 @@ func sendEmails(genericArgs interface{}) error {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
 	}
 	if args.deliverer == nil {
+		args.criticalChan <- true
 		return fmt.Errorf("unexpected nil deliver, should be pointing to a valid struct")
 	}
 	if args.database == nil {
+		args.criticalChan <- true
 		return fmt.Errorf("unexpected nil database structure, unable to proceed")
 	}
 	database := args.database.Copy()
@@ -241,6 +245,7 @@ func cleanupSendedEmails(genericArgs interface{}) error {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
 	}
 	if args.database == nil {
+		args.criticalChan <- true
 		return fmt.Errorf("unexpected nil database structure, unable to proceed")
 	}
 	database := args.database.Copy()
@@ -286,7 +291,7 @@ func run(cmd *cobra.Command, args []string) error {
 	dispatchSchedule := time.NewTicker(validateDuration(arguments.dispatchScheduleMinutes))
 	cleanupSchedule := time.NewTicker(validateDuration(arguments.cleanupScheduleMinutes))
 	// chan used to async block schedule ops.
-	critical := make(chan bool, 0)
+	critical := make(chan bool, 3)
 
 	// run loop
 	for {
