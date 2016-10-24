@@ -196,6 +196,11 @@ func processEmails(genericArgs interface{}) error {
 	return nil
 }
 
+const (
+	ServiceEmail   = "3n4@nexo.cloud"
+	AttachmentName = "reference.3n4"
+)
+
 // sendEmails retrieve from the db in queued emails and
 // send them using a Sender service.
 func sendEmails(genericArgs interface{}) error {
@@ -221,9 +226,9 @@ func sendEmails(genericArgs interface{}) error {
 	for _, email := range emails {
 		err = args.deliverer.SendEmail(
 			&email,
-			"3n4@nexo.cloud",
+			ServiceEmail,
 			fmt.Sprintf("Important data from %s", email.Sender),
-			"reference.3n4",
+			AttachmentName,
 		)
 		if err != nil {
 			email.Sended = false

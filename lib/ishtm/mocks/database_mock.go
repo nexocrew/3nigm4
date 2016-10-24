@@ -125,11 +125,12 @@ func (d *Mockdb) SetEmail(email *types.Email) error {
 
 func (d *Mockdb) GetEmails() ([]types.Email, error) {
 	result := make([]types.Email, 0)
-	for _, v := range d.emailsStorage {
+	for k, v := range d.emailsStorage {
 		if v.Sended != true {
 			result = append(result, v)
 			v.Sended = true
 		}
+		d.emailsStorage[k] = v
 	}
 	return result, nil
 }
