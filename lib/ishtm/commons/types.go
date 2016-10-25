@@ -36,7 +36,7 @@ type Database interface {
 	// mailing logic
 	SetEmail(*ct.Email) error
 	GetEmails() ([]ct.Email, error)
-	RemoveSendedEmails() error
+	RemoveSendedEmails(time.Time) error
 }
 
 // DbArgs is the exposed arguments

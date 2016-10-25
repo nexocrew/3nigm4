@@ -97,6 +97,15 @@ var (
 	}
 )
 
+func cleanupMockDb(t *testing.T) {
+	var err error
+	databaseInstance = nil
+	databaseInstance, err = databaseStartup(&arguments)
+	if err != nil {
+		t.Fatalf("Unable to start mock database:%s.\n", err.Error())
+	}
+}
+
 func TestSendingFlow(t *testing.T) {
 	proc := &procArgs{
 		database:     databaseInstance,
@@ -158,12 +167,7 @@ func TestSendingFlow(t *testing.T) {
 			t.Fatalf("Unexpected subject: having %s expecting %s.\n", v.Subject, referenceSubject)
 		}
 	}
-	// cleanup
-	databaseInstance = nil
-	databaseInstance, err = databaseStartup(&arguments)
-	if err != nil {
-		t.Fatalf("Unable to start mock database:%s.\n", err.Error())
-	}
+	cleanupMockDb(t)
 }
 
 func createTestWill(t *testing.T) *will.Will {
@@ -229,5 +233,44 @@ func TestProcessingFlow(t *testing.T) {
 	}
 	if selected.Recipient != w.Recipients[0].Email {
 		t.Fatalf("Unexpected recipient, having %s expecting %s.\n", selected.Recipient, w.Recipients[0].Email)
+	}
+	if selected.Sended != false {
+		t.Fatalf("A new message should not be sender.\n")
+	}
+	if len(selected.Attachment) == 0 {
+		t.Fatalf("Attachments must not be empty.\n")
+	}
+	cleanupMockDb(t)
+}
+
+func TestRemoveFlow(t *testing.T) {
+	proc := &procArgs{
+		database:     databaseInstance,
+		deliverer:    senderInstance,
+		criticalChan: criticalChan,
+	}
+
+	referenceMail.Sended = true
+	err := databaseInstance.SetEmail(referenceMail)
+	if err != nil {
+		t.Fatalf("Unable to add email to db: %s.\n", err.Error())
+	}
+
+	mockDb, ok := databaseInstance.(*mdb.Mockdb)
+	if !ok {
+		t.Fatalf("Unexpected type of db, having %s expecting Mockdb.\n", reflect.TypeOf(mockDb))
+	}
+	_, emailsStorage := mockDb.Storages()
+	if len(emailsStorage) != 1 {
+		t.Fatalf("Unexpected number of emails in storage, having %d expecting %d.\n", len(emailsStorage), 1)
+	}
+
+	err = cleanupSendedEmails(proc)
+	if err != nil {
+		t.Fatalf("Unable to cleanup db: %s.\n", err.Error())
+	}
+	_, emailsStorage = mockDb.Storages()
+	if len(emailsStorage) != 0 {
+		t.Fatalf("Unexpected number of emails in storage, having %d expecting %d.\n", len(emailsStorage), 0)
 	}
 }

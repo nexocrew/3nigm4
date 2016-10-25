@@ -135,12 +135,21 @@ func (d *Mockdb) GetEmails() ([]types.Email, error) {
 	return result, nil
 }
 
+const (
+	MockRemoveWaitTime = 200 * time.Millisecond
+)
+
 // RemoveSendedEmails remove sended emails while possible.
-func (d *Mockdb) RemoveSendedEmails() error {
+func (d *Mockdb) RemoveSendedEmails(actual time.Time) error {
 	for k, v := range d.emailsStorage {
-		if v.Sended == true {
+		if v.Sended == true &&
+			v.DeliveryDate.Before(actual.UTC().Add(-MockRemoveWaitTime)) {
 			delete(d.emailsStorage, k)
 		}
 	}
 	return nil
+}
+
+func (d *Mockdb) Storages() (map[string]will.Will, map[string]types.Email) {
+	return d.willsStorage, d.emailsStorage
 }

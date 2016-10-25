@@ -234,11 +234,21 @@ func (d *Mongodb) GetEmails() ([]ct.Email, error) {
 	return emails, nil
 }
 
-// RemoveSendedEmails remove sended emails while possible.
-func (d *Mongodb) RemoveSendedEmails() error {
+const (
+	mailRemovingSafety = 2 * 24 * time.Hour // time used to let, in case of fault, a minimum time to retrieve messages.
+)
+
+// RemoveSendedEmails remove sended emails while possible, waiting
+// for 48 hours from ttd.
+func (d *Mongodb) RemoveSendedEmails(actual time.Time) error {
 	// build query
 	selector := bson.M{
-		"sended": bson.M{"$eq": true},
+		"sended": bson.M{
+			"$eq": true,
+		},
+		"deliverydate": bson.M{
+			"$lt": actual.UTC().Add(-mailRemovingSafety),
+		},
 	}
 	// perform db remove
 	_, err := d.session.DB(d.database).C(d.emailsCollection).RemoveAll(selector)

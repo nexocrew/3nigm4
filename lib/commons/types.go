@@ -193,5 +193,6 @@ type Email struct {
 	RecipientFingerprint []byte        `bson:"fingerprint"`
 	Attachment           []byte        `bson:"attachment"`
 	DeliveryKey          string        `bson:"deliverykey"`
+	DeliveryDate         time.Time     `bson:"deliverydate"`
 	Sended               bool          `bson:"sended"`
 }

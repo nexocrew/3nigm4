@@ -157,6 +157,7 @@ func saveEmailsToDatabase(db ct.Database, w *will.Will) error {
 			RecipientFingerprint: recipient.Fingerprint,
 			Attachment:           w.ReferenceFile,
 			DeliveryKey:          hex.EncodeToString(w.DeliveryKey),
+			DeliveryDate:         time.Now().UTC(),
 			Sended:               false,
 		}
 		err := db.SetEmail(email)
@@ -256,7 +257,7 @@ func cleanupSendedEmails(genericArgs interface{}) error {
 	database := args.database.Copy()
 	defer database.Close()
 
-	return database.RemoveSendedEmails()
+	return database.RemoveSendedEmails(time.Now())
 }
 
 func validateDuration(minutes uint32) time.Duration {
