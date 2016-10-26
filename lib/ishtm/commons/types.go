@@ -15,6 +15,7 @@ import (
 
 // Internal pkgs
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	w "github.com/nexocrew/3nigm4/lib/ishtm/will"
 )
 
@@ -31,6 +32,11 @@ type Database interface {
 	RemoveWill(string) error           // remove a will from the db;
 	// ttd behaviour
 	GetInDelivery(time.Time) ([]w.Will, error)
+	RemoveExausted() error
+	// mailing logic
+	SetEmail(*ct.Email) error
+	GetEmails() ([]ct.Email, error)
+	RemoveSendedEmails(time.Time) error
 }
 
 // DbArgs is the exposed arguments

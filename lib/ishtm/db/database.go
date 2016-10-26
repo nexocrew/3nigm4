@@ -14,6 +14,7 @@ import (
 
 // Internal packages
 import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 	types "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 )
@@ -25,10 +26,12 @@ import (
 )
 
 const (
-	databaseName          = "ishtm"
-	jobsCollectionName    = "jobs"
-	envDatabaseName       = "NEXO_ISHTM_DATABASE"
-	envJobsCollectionName = "NEXO_ISHTM_USERS_COLLECTION"
+	databaseName            = "ishtm"
+	jobsCollectionName      = "jobs"
+	emailsCollectionName    = "emails"
+	envDatabaseName         = "NEXO_ISHTM_DATABASE"
+	envJobsCollectionName   = "NEXO_ISHTM_USERS_COLLECTION"
+	envEmailsCollectionName = "NEXO_ISHTM_EMAILS"
 )
 
 // Mongodb database, wrapping mgo session
@@ -36,8 +39,9 @@ const (
 type Mongodb struct {
 	session *mgo.Session
 	// target nodes
-	database       string
-	jobsCollection string
+	database         string
+	jobsCollection   string
+	emailsCollection string
 }
 
 // MgoSession get a new session starting from the standard args
@@ -63,6 +67,12 @@ func MgoSession(args *types.DbArgs) (*Mongodb, error) {
 	} else {
 		db.jobsCollection = jobsCollectionName
 	}
+	env = os.Getenv(envEmailsCollectionName)
+	if env != "" {
+		db.emailsCollection = env
+	} else {
+		db.emailsCollection = emailsCollectionName
+	}
 	// connect to db
 	return db, nil
 }
@@ -70,9 +80,10 @@ func MgoSession(args *types.DbArgs) (*Mongodb, error) {
 // Copy the internal session to permitt multi corutine usage.
 func (d *Mongodb) Copy() types.Database {
 	return &Mongodb{
-		session:        d.session.Copy(),
-		database:       d.database,
-		jobsCollection: d.jobsCollection,
+		session:          d.session.Copy(),
+		database:         d.database,
+		jobsCollection:   d.jobsCollection,
+		emailsCollection: d.emailsCollection,
 	}
 }
 
@@ -151,13 +162,100 @@ func (d *Mongodb) GetInDelivery(actual time.Time) ([]will.Will, error) {
 			"$lt": actual.UTC(),
 		},
 	}
-	// perform db query
+
+	change := mgo.Change{
+		Update: bson.M{
+			"$set": bson.M{
+				"removable": true,
+			},
+		},
+		ReturnNew: false,
+	}
 	var wills []will.Will
-	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).All(&wills)
+	_, err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).Apply(change, &wills)
 	if err != nil {
 		return nil, err
 	}
 	return wills, nil
+}
+
+// RemoveExausted deletes all documents containing the "removable"
+// flag setted to true
+func (d *Mongodb) RemoveExausted() error {
+	// build query
+	selector := bson.M{
+		"removable": bson.M{"$eq": true},
+	}
+	// perform db remove of "reovable" objects
+	_, err := d.session.DB(d.database).C(d.jobsCollection).RemoveAll(selector)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetEmail upsert an email in the database to be
+// sended by the dispatcher.
+func (d *Mongodb) SetEmail(email *ct.Email) error {
+	selector := bson.M{
+		"_id": email.ObjectID,
+	}
+	update := bson.M{
+		"$set": email,
+	}
+	_, err := d.session.DB(d.database).C(d.emailsCollection).Upsert(selector, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetEmails returns non sended emails for providing
+// the dispatcher with required emails.
+func (d *Mongodb) GetEmails() ([]ct.Email, error) {
+	change := mgo.Change{
+		Update: bson.M{
+			"$set": bson.M{
+				"sended": true,
+			},
+		},
+		ReturnNew: false,
+	}
+	query := bson.M{
+		"sended": bson.M{
+			"$eq": false,
+		},
+	}
+	var emails []ct.Email
+	_, err := d.session.DB(d.database).C(d.emailsCollection).Find(query).Apply(change, &emails)
+	if err != nil {
+		return nil, err
+	}
+	return emails, nil
+}
+
+const (
+	mailRemovingSafety = 2 * 24 * time.Hour // time used to let, in case of fault, a minimum time to retrieve messages.
+)
+
+// RemoveSendedEmails remove sended emails while possible, waiting
+// for 48 hours from ttd.
+func (d *Mongodb) RemoveSendedEmails(actual time.Time) error {
+	// build query
+	selector := bson.M{
+		"sended": bson.M{
+			"$eq": true,
+		},
+		"deliverydate": bson.M{
+			"$lt": actual.UTC().Add(-mailRemovingSafety),
+		},
+	}
+	// perform db remove
+	_, err := d.session.DB(d.database).C(d.emailsCollection).RemoveAll(selector)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // EnsureMongodbIndexes assign mongodb indexes to the right
@@ -182,6 +280,12 @@ func (d *Mongodb) EnsureMongodbIndexes() error {
 		Background: true,
 		Sparse:     false,
 	}
+	emailIndex := mgo.Index{
+		Key:        []string{"sended"},
+		Unique:     false,
+		Background: true,
+		Sparse:     false,
+	}
 	err := d.session.DB(d.database).C(d.jobsCollection).EnsureIndex(willIndex)
 	if err != nil {
 		return err
@@ -191,6 +295,10 @@ func (d *Mongodb) EnsureMongodbIndexes() error {
 		return err
 	}
 	err = d.session.DB(d.database).C(d.jobsCollection).EnsureIndex(ownerIndex)
+	if err != nil {
+		return err
+	}
+	err = d.session.DB(d.database).C(d.emailsCollection).EnsureIndex(emailIndex)
 	if err != nil {
 		return err
 	}

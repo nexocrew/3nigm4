@@ -73,7 +73,7 @@ type Will struct {
 	Disabled       bool           `bson:"disabled"`
 	// delivery related
 	DeliveryKey []byte `bson:"deliverykey"`
-	Deliverable bool   `bson:"deliverable,omitempty"`
+	Removable   bool   `bson:"removable,omitempty"`
 }
 
 // NewWill init a new job struct with argument passed parameters
@@ -130,7 +130,7 @@ func NewWill(owner *OwnerID, reference []byte, settings *Settings, recipients []
 		TimeToDelivery: ttd,
 		Settings:       *settings,
 		DeliveryKey:    deliveryKey,
-		Deliverable:    false,
+		Removable:      false,
 	}
 
 	return will,

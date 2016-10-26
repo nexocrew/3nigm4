@@ -15,6 +15,11 @@ import (
 	"time"
 )
 
+// Third party libs
+import (
+	"gopkg.in/mgo.v2/bson"
+)
+
 // Shared key values
 const (
 	SecurityTokenKey = "3x4-Security-Token" // header key used to pass security token coded as hexadecimal.
@@ -174,4 +179,20 @@ type WillPatchRequest struct {
 	Index        int    `json:"index,omitempty"`
 	Otp          string `json:"otp"`
 	SecondaryKey string `json:"secondarykey,omitempty"`
+}
+
+// Email message sent by the ishtm
+// service to pass the reference file to selected
+// recipients.
+type Email struct {
+	ObjectID             bson.ObjectId `bson:"_id,omitempty"`
+	Recipient            string        `bson:"recipient"`
+	Sender               string        `bson:"sender"`
+	Creation             time.Time     `bson:"creation"`
+	RecipientKeyID       uint64        `bson:"keyid"`
+	RecipientFingerprint []byte        `bson:"fingerprint"`
+	Attachment           []byte        `bson:"attachment"`
+	DeliveryKey          string        `bson:"deliverykey"`
+	DeliveryDate         time.Time     `bson:"deliverydate"`
+	Sended               bool          `bson:"sended"`
 }
