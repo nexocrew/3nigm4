@@ -136,7 +136,7 @@ func (d *Mockdb) GetEmails() ([]types.Email, error) {
 }
 
 const (
-	MockRemoveWaitTime = 200 * time.Millisecond
+	MockRemoveWaitTime = 1 * time.Second
 )
 
 // RemoveSendedEmails remove sended emails while possible.

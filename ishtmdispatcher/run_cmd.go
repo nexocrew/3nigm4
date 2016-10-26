@@ -56,9 +56,9 @@ func init() {
 	RunCmd.PersistentFlags().IntVarP(&arguments.senderPort, "smtpport", "", 443, "the smtp service port")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthUser, "smtpuser", "", "", "the smtp service user name")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthPassword, "smtppwd", "", "", "the smtp service password")
-	RunCmd.PersistentFlags().Uint32Var(&arguments.processScheduleMinutes, "processwait", 3, "defines the wait time for the processing routine iteration")
-	RunCmd.PersistentFlags().Uint32Var(&arguments.dispatchScheduleMinutes, "dispatchtime", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine")
-	RunCmd.PersistentFlags().Uint32Var(&arguments.cleanupScheduleMinutes, "cleanuptime", 30, "run at defined intervals the cleanup function that remove email messages from the database")
+	RunCmd.PersistentFlags().Uint32Var(&arguments.processScheduleMinutes, "processwait", 3, "defines the wait time for the processing routine iteration in minutes")
+	RunCmd.PersistentFlags().Uint32Var(&arguments.dispatchScheduleMinutes, "dispatchtime", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine in minutes")
+	RunCmd.PersistentFlags().Uint32Var(&arguments.cleanupScheduleMinutes, "cleanuptime", 30, "run at defined intervals the cleanup function that remove email messages from the database in minutes")
 	// files parameters
 	RunCmd.RunE = run
 }

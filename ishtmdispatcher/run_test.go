@@ -251,6 +251,7 @@ func TestRemoveFlow(t *testing.T) {
 	}
 
 	referenceMail.Sended = true
+	referenceMail.DeliveryDate = time.Now()
 	err := databaseInstance.SetEmail(referenceMail)
 	if err != nil {
 		t.Fatalf("Unable to add email to db: %s.\n", err.Error())
@@ -265,6 +266,94 @@ func TestRemoveFlow(t *testing.T) {
 		t.Fatalf("Unexpected number of emails in storage, having %d expecting %d.\n", len(emailsStorage), 1)
 	}
 
+	time.Sleep(mdb.MockRemoveWaitTime)
+	err = cleanupSendedEmails(proc)
+	if err != nil {
+		t.Fatalf("Unable to cleanup db: %s.\n", err.Error())
+	}
+	_, emailsStorage = mockDb.Storages()
+	if len(emailsStorage) != 0 {
+		t.Fatalf("Unexpected number of emails in storage, having %d expecting %d.\n", len(emailsStorage), 0)
+	}
+	cleanupMockDb(t)
+}
+
+func TestRemoveFlowTooEarly(t *testing.T) {
+	proc := &procArgs{
+		database:     databaseInstance,
+		deliverer:    senderInstance,
+		criticalChan: criticalChan,
+	}
+
+	referenceMail.Sended = true
+	referenceMail.DeliveryDate = time.Now()
+	err := databaseInstance.SetEmail(referenceMail)
+	if err != nil {
+		t.Fatalf("Unable to add email to db: %s.\n", err.Error())
+	}
+
+	mockDb, ok := databaseInstance.(*mdb.Mockdb)
+	if !ok {
+		t.Fatalf("Unexpected type of db, having %s expecting Mockdb.\n", reflect.TypeOf(mockDb))
+	}
+	_, emailsStorage := mockDb.Storages()
+	if len(emailsStorage) != 1 {
+		t.Fatalf("Unexpected number of emails in storage, having %d expecting %d.\n", len(emailsStorage), 1)
+	}
+
+	time.Sleep(mdb.MockRemoveWaitTime - 100*time.Millisecond)
+	err = cleanupSendedEmails(proc)
+	if err != nil {
+		t.Fatalf("Unable to cleanup db: %s.\n", err.Error())
+	}
+	_, emailsStorage = mockDb.Storages()
+	if len(emailsStorage) != 1 {
+		t.Fatalf("Unexpected number of emails in storage, having %d expecting %d.\n", len(emailsStorage), 1)
+	}
+	cleanupMockDb(t)
+}
+
+func TestCompleteFlow(t *testing.T) {
+	proc := &procArgs{
+		database:     databaseInstance,
+		deliverer:    senderInstance,
+		criticalChan: criticalChan,
+	}
+	w := createTestWill(t)
+	err := databaseInstance.SetWill(w)
+	if err != nil {
+		t.Fatalf("Unable to add will: %s.\n", err.Error())
+	}
+	time.Sleep(1 * time.Second)
+
+	mockDb, ok := databaseInstance.(*mdb.Mockdb)
+	if !ok {
+		t.Fatalf("Unexpected type of db, having %s expecting Mockdb.\n", reflect.TypeOf(mockDb))
+	}
+	willsStorage, emailsStorage := mockDb.Storages()
+	if len(emailsStorage) != 0 {
+		t.Fatalf("Unexpected number of emails in storage, having %d expecting %d.\n", len(emailsStorage), 0)
+	}
+	if len(willsStorage) != 1 {
+		t.Fatalf("Unexpected number of wills in storage, having %d expecting %d.\n", len(willsStorage), 1)
+	}
+
+	err = processEmails(proc)
+	if err != nil {
+		t.Fatalf("Unable to process will to produce messages: %s.\n", err.Error())
+	}
+
+	_, emailsStorage = mockDb.Storages()
+	if len(emailsStorage) != 1 {
+		t.Fatalf("Unexpected number of email in queue, having %d, expecting %d.\n", len(emailsStorage), 1)
+	}
+
+	err = sendEmails(proc)
+	if err != nil {
+		t.Fatalf("Unable to send email message: %s.\n", err.Error())
+	}
+
+	time.Sleep(mdb.MockRemoveWaitTime)
 	err = cleanupSendedEmails(proc)
 	if err != nil {
 		t.Fatalf("Unable to cleanup db: %s.\n", err.Error())
