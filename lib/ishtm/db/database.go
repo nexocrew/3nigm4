@@ -173,7 +173,8 @@ func (d *Mongodb) GetInDelivery(actual time.Time) ([]will.Will, error) {
 	}
 	var wills []will.Will
 	_, err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).Apply(change, &wills)
-	if err != nil {
+	if err != nil &&
+		err != mgo.ErrNotFound {
 		return nil, err
 	}
 	return wills, nil
@@ -188,7 +189,8 @@ func (d *Mongodb) RemoveExausted() error {
 	}
 	// perform db remove of "reovable" objects
 	_, err := d.session.DB(d.database).C(d.jobsCollection).RemoveAll(selector)
-	if err != nil {
+	if err != nil &&
+		err != mgo.ErrNotFound {
 		return err
 	}
 	return nil
@@ -228,7 +230,8 @@ func (d *Mongodb) GetEmails() ([]ct.Email, error) {
 	}
 	var emails []ct.Email
 	_, err := d.session.DB(d.database).C(d.emailsCollection).Find(query).Apply(change, &emails)
-	if err != nil {
+	if err != nil &&
+		err != mgo.ErrNotFound {
 		return nil, err
 	}
 	return emails, nil
@@ -252,7 +255,8 @@ func (d *Mongodb) RemoveSendedEmails(actual time.Time) error {
 	}
 	// perform db remove
 	_, err := d.session.DB(d.database).C(d.emailsCollection).RemoveAll(selector)
-	if err != nil {
+	if err != nil &&
+		err != mgo.ErrNotFound {
 		return err
 	}
 	return nil
