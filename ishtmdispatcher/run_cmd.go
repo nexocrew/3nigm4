@@ -172,6 +172,10 @@ func saveEmailsToDatabase(db ct.Database, w *will.Will) error {
 // it is passed to the working queue and provided with all
 // needed arguments.
 func processEmails(genericArgs interface{}) error {
+	if arguments.verbose {
+		log.VerboseLog("Processing routine triggered: %s.\n", time.Now().UTC().String())
+	}
+
 	args, ok := genericArgs.(*procArgs)
 	if !ok {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
@@ -205,6 +209,10 @@ const (
 // sendEmails retrieve from the db in queued emails and
 // send them using a Sender service.
 func sendEmails(genericArgs interface{}) error {
+	if arguments.verbose {
+		log.VerboseLog("Sending routine triggered: %s.\n", time.Now().UTC().String())
+	}
+
 	args, ok := genericArgs.(*procArgs)
 	if !ok {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
@@ -246,6 +254,10 @@ func sendEmails(genericArgs interface{}) error {
 // cleanupSendedEmails is used to clean the database from already
 // sended messages.
 func cleanupSendedEmails(genericArgs interface{}) error {
+	if arguments.verbose {
+		log.VerboseLog("Cleanup routine triggered: %s.\n", time.Now().UTC().String())
+	}
+
 	args, ok := genericArgs.(*procArgs)
 	if !ok {
 		return fmt.Errorf("unexpected arguments, having %s expecting type procArgs", reflect.TypeOf(genericArgs))
@@ -303,27 +315,18 @@ func run(cmd *cobra.Command, args []string) error {
 	for {
 		select {
 		case <-processingSchedule.C:
-			if arguments.verbose {
-				log.VerboseLog("Deliver routine started.\n")
-			}
 			workingQueue.SendJob(processEmails, &procArgs{
 				database:     db,
 				deliverer:    sender,
 				criticalChan: critical,
 			})
 		case <-dispatchSchedule.C:
-			if arguments.verbose {
-				log.VerboseLog("Dispatching routine started.\n")
-			}
 			workingQueue.SendJob(sendEmails, &procArgs{
 				database:     db,
 				deliverer:    sender,
 				criticalChan: critical,
 			})
 		case <-cleanupSchedule.C:
-			if arguments.verbose {
-				log.VerboseLog("Deleting routine started.\n")
-			}
 			workingQueue.SendJob(cleanupSendedEmails, &procArgs{
 				database:     db,
 				deliverer:    sender,
