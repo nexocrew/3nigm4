@@ -124,6 +124,39 @@ func setArgumentFlags(command *cobra.Command, arg cliArguments) {
 	}
 }
 
+// viperLabel creates the right viper label for a specified
+// command.
+func viperLabel(cmd *cobra.Command, name string) string {
+	parents := make([]string, 0)
+	var lastCmd *cobra.Command = cmd
+	for {
+		if lastCmd.Parent() != nil {
+			selCmd := lastCmd.Parent()
+			parents = append(parents, selCmd.Use)
+			lastCmd = selCmd
+			continue
+		}
+		break
+	}
+	var result string
+	for idx := len(parents) - 1; idx >= 0; idx-- {
+		result += parents[idx]
+		result += "."
+	}
+	result += am[name].name
+	return result
+}
+
+// bindPFlag bind a Viper PFlag with the corresponding
+// persistent flag.
+func bindPFlag(cmd *cobra.Command, name string) {
+	label := viperLabel(cmd, name)
+	viper.BindPFlag(
+		label,
+		cmd.PersistentFlags().Lookup(am[name].name),
+	)
+}
+
 // setArgument invokes setArgumentPFlags before calling Viper config
 // manager to integrate values.
 func setArgument(command *cobra.Command, key string) {

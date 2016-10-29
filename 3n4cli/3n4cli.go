@@ -64,7 +64,10 @@ func init() {
 	// global flags
 	setArgument(RootCmd, "verbose")
 
-	viper.BindPFlag(am["verbose"].name, RootCmd.PersistentFlags().Lookup(am["verbose"].name))
+	viper.BindPFlag(
+		viperLabel(RootCmd, "verbose"),
+		RootCmd.PersistentFlags().Lookup(am["verbose"].name),
+	)
 }
 
 // checkRequestStatus check request status and if an anomalous
