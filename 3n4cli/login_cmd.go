@@ -40,22 +40,6 @@ var LoginCmd = &cobra.Command{
 	Short:   "Login a registered user and manage session",
 	Long:    "Interact with authentication server to login at the application startup.",
 	Example: "3n4cli login -u username",
-	PreRun:  verbosePreRunInfos,
-}
-
-func init() {
-	setArgument(LoginCmd, "authaddress")
-	setArgument(LoginCmd, "authport")
-	setArgument(LoginCmd, "username")
-
-	viper.BindPFlag(am["username"].name, LoginCmd.PersistentFlags().Lookup(am["username"].name))
-	viper.BindPFlag(am["authaddress"].name, LoginCmd.PersistentFlags().Lookup(am["authaddress"].name))
-	viper.BindPFlag(am["authport"].name, LoginCmd.PersistentFlags().Lookup(am["authport"].name))
-
-	RootCmd.AddCommand(LoginCmd)
-
-	// files parameters
-	LoginCmd.RunE = login
 }
 
 // hexComposedPassword compose a string and checksum
@@ -75,7 +59,9 @@ func hexComposedPassword(username string, pwd []byte) string {
 // 3nigm4 services, this function will be called before any
 // other to be able to proceed with a valid auth token.
 func login(cmd *cobra.Command, args []string) error {
-	username := viper.GetString(am["username"].name)
+	verbosePreRunInfos(cmd, args)
+
+	username := viper.GetString(viperLabel(cmd, "username"))
 	// get user password
 	fmt.Printf("Insert password: ")
 	pwd, err := gopass.GetPasswdMasked()
@@ -96,8 +82,8 @@ func login(cmd *cobra.Command, args []string) error {
 	// create http request
 	client := &http.Client{}
 	// get address and port
-	authAddress := viper.GetString(am["authaddress"].name)
-	authPort := viper.GetInt(am["authport"].name)
+	authAddress := viper.GetString(viperLabel(cmd, "authaddress"))
+	authPort := viper.GetInt(viperLabel(cmd, "authport"))
 	// prepare post request
 	req, err := http.NewRequest(
 		"POST",
@@ -139,7 +125,7 @@ func login(cmd *cobra.Command, args []string) error {
 	pss.refreshLastLogin()
 
 	// if verbose printf token
-	if viper.GetBool(am["verbose"].name) {
+	if viper.GetBool(viperLabel(RootCmd, "verbose")) {
 		log.VerboseLog("Token obtained: %s.\n", pss.Token)
 	}
 

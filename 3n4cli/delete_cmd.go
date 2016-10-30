@@ -36,36 +36,31 @@ var DeleteCmd = &cobra.Command{
 	Short:   "Removes remote resources",
 	Long:    "Removes remote resources starting from a reference, it deletes the reference file itself at the end of the process.",
 	Example: "3n4cli store delete -r /tmp/resources.3rf -v",
-	PreRun:  verbosePreRunInfos,
-}
-
-func init() {
-	StoreCmd.AddCommand(DeleteCmd)
-	// files parameters
-	DeleteCmd.RunE = deleteReference
+	RunE:    deleteReference,
 }
 
 // deleteReference uses datastorage struct to remotely delete all chunks
 // pointed by a reference file.
 func deleteReference(cmd *cobra.Command, args []string) error {
+	verbosePreRunInfos(cmd, args)
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
 	}
 
 	// prepare PGP private key
-	privateEntityList, err := checkAndLoadPgpPrivateKey(viper.GetString(am["privatekey"].name))
+	privateEntityList, err := checkAndLoadPgpPrivateKey(viper.GetString(viperLabel(StoreCmd, "privatekey")))
 	if err != nil {
 		return err
 	}
 
 	// create new store manager
 	ds, err, errc := sc.NewStorageClient(
-		viper.GetString(am["storageaddress"].name),
-		viper.GetInt(am["storageport"].name),
+		viper.GetString(viperLabel(StoreCmd, "storageaddress")),
+		viper.GetInt(viperLabel(StoreCmd, "storageport")),
 		pss.Token,
-		viper.GetInt(am["workerscount"].name),
-		viper.GetInt(am["queuesize"].name))
+		viper.GetInt(viperLabel(StoreCmd, "workerscount")),
+		viper.GetInt(viperLabel(StoreCmd, "queuesize")))
 	if err != nil {
 		return err
 	}
@@ -73,7 +68,7 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 	go manageAsyncErrors(errc)
 
 	// get reference
-	refin := viper.GetString(am["referencein"].name)
+	refin := viper.GetString(viperLabel(StoreCmd, "referencein"))
 	encBytes, err := ioutil.ReadFile(refin)
 	if err != nil {
 		return fmt.Errorf("unable to access reference file %s cause %s", refin, err.Error())

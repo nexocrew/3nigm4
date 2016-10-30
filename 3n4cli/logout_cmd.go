@@ -32,26 +32,14 @@ var LogoutCmd = &cobra.Command{
 	Short:   "Logout a previously generated session",
 	Long:    "Interact with authentication server to logout a previously generated session token.",
 	Example: "3n4cli logout",
-	PreRun:  verbosePreRunInfos,
-}
-
-func init() {
-	setArgument(LogoutCmd, "authaddress")
-	setArgument(LogoutCmd, "authport")
-
-	viper.BindPFlag(am["authaddress"].name, LogoutCmd.PersistentFlags().Lookup(am["authaddress"].name))
-	viper.BindPFlag(am["authport"].name, LogoutCmd.PersistentFlags().Lookup(am["authport"].name))
-
-	RootCmd.AddCommand(LogoutCmd)
-
-	// files parameters
-	LogoutCmd.RunE = logout
 }
 
 // logout closes the authenticated session created by the
 // login command. The global var token is set to nil after
 // requiring the server to dismiss the session.
 func logout(cmd *cobra.Command, args []string) error {
+	verbosePreRunInfos(cmd, args)
+
 	if pss.Token == "" {
 		return fmt.Errorf("no token set, unable to logout user")
 	}
@@ -59,8 +47,8 @@ func logout(cmd *cobra.Command, args []string) error {
 	// create http request
 	client := &http.Client{}
 	// get address and port
-	authAddress := viper.GetString(am["authaddress"].name)
-	authPort := viper.GetInt(am["authport"].name)
+	authAddress := viper.GetString(viperLabel(cmd, "authaddress"))
+	authPort := viper.GetInt(viperLabel(cmd, "authport"))
 	// prepare post request
 	req, err := http.NewRequest(
 		"DELETE",
@@ -99,7 +87,7 @@ func logout(cmd *cobra.Command, args []string) error {
 	pss.invalidateSessionToken()
 
 	// if verbose printf token
-	if viper.GetBool(am["verbose"].name) {
+	if viper.GetBool(viperLabel(RootCmd, "verbose")) {
 		log.VerboseLog("Invalidated token: %s.\n", token)
 	}
 

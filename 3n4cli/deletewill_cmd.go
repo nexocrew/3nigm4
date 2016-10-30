@@ -33,40 +33,28 @@ var DeleteWillCmd = &cobra.Command{
 	Short:   "Delete a \"will\" activity",
 	Long:    "Delete a \"will\" activity record.",
 	Example: "3n4cli ishtm delete --id E44AC9C25D690AF5E44AC9",
-	PreRun:  verbosePreRunInfos,
-}
-
-func init() {
-	setArgument(DeleteWillCmd, "id")
-	setArgument(DeleteWillCmd, "secondary")
-
-	viper.BindPFlag(am["id"].name, DeleteWillCmd.PersistentFlags().Lookup(am["id"].name))
-	viper.BindPFlag(am["secondary"].name, DeleteWillCmd.PersistentFlags().Lookup(am["secondary"].name))
-
-	IshtmCmd.AddCommand(DeleteWillCmd)
-
-	// files parameters
-	DeleteWillCmd.RunE = deleteWill
+	RunE:    deleteWill,
 }
 
 // deleteWill perform a DELETE request directed to ishtm APIs.
 func deleteWill(cmd *cobra.Command, args []string) error {
+	verbosePreRunInfos(cmd, args)
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
 	}
 
 	// validate arguments
-	id := viper.GetString(am["id"].name)
+	id := viper.GetString(viperLabel(cmd, "id"))
 	if id == "" {
 		return fmt.Errorf("unable to perform request with empty ID")
 	}
-	secondaryf := viper.GetBool(am["secondary"].name)
+	secondaryf := viper.GetBool(viperLabel(cmd, "secondary"))
 
 	// base url
 	urlString := fmt.Sprintf(staticServiceFormatString,
-		viper.GetString(am["ishtmeaddress"].name),
-		viper.GetInt(am["ishtmport"].name),
+		viper.GetString(viperLabel(IshtmCmd, "ishtmeaddress")),
+		viper.GetInt(viperLabel(IshtmCmd, "ishtmport")),
 	)
 	urlString = fmt.Sprintf("%s/%s", urlString, id)
 	u, err := url.Parse(urlString)

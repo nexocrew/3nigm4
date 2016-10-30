@@ -28,23 +28,7 @@ var PingCmd = &cobra.Command{
 	Short:   "Ping 3n4 services",
 	Long:    "Verify that 3n4 services are up, running and available.",
 	Example: "3n4cli ping",
-}
-
-func init() {
-	RootCmd.AddCommand(PingCmd)
-
-	setArgument(PingCmd, "authaddress")
-	setArgument(PingCmd, "authport")
-	setArgument(PingCmd, "storageaddress")
-	setArgument(PingCmd, "storageport")
-
-	viper.BindPFlag(am["authaddress"].name, PingCmd.PersistentFlags().Lookup(am["authaddress"].name))
-	viper.BindPFlag(am["authport"].name, PingCmd.PersistentFlags().Lookup(am["authport"].name))
-	viper.BindPFlag(am["storageaddress"].name, PingCmd.PersistentFlags().Lookup(am["storageaddress"].name))
-	viper.BindPFlag(am["storageport"].name, PingCmd.PersistentFlags().Lookup(am["storageport"].name))
-
-	// files parameters
-	PingCmd.RunE = ping
+	RunE:    ping,
 }
 
 // verifyService generically verify if a service ping API respond correctly.
@@ -79,7 +63,7 @@ func ping(cmd *cobra.Command, args []string) error {
 	// verify Authentication service
 	err := verifyService(
 		client,
-		fmt.Sprintf("%s:%d%s", viper.GetString(am["authaddress"].name), viper.GetInt(am["authport"].name), pingPath),
+		fmt.Sprintf("%s:%d%s", viper.GetString(viperLabel(cmd, "authaddress")), viper.GetInt(viperLabel(cmd, "authport")), pingPath),
 		"Authentication service",
 	)
 	if err != nil {
@@ -89,7 +73,17 @@ func ping(cmd *cobra.Command, args []string) error {
 	// verify Storage service
 	err = verifyService(
 		client,
-		fmt.Sprintf("%s:%d%s", viper.GetString(am["storageaddress"].name), viper.GetInt(am["storageport"].name), pingPath),
+		fmt.Sprintf("%s:%d%s", viper.GetString(viperLabel(cmd, "storageaddress")), viper.GetInt(viperLabel(cmd, "storageport")), pingPath),
+		"Storage service",
+	)
+	if err != nil {
+		return err
+	}
+
+	// verify Ishtm service
+	err = verifyService(
+		client,
+		fmt.Sprintf("%s:%d%s", viper.GetString(viperLabel(cmd, "ishtmeaddress")), viper.GetInt(viperLabel(cmd, "ishtmport")), pingPath),
 		"Storage service",
 	)
 	if err != nil {

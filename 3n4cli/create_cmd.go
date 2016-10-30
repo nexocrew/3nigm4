@@ -37,27 +37,7 @@ var CreateCmd = &cobra.Command{
 	Short:   "Creates and upload a \"will\" activity",
 	Long:    "Creates and upload a \"will\" starting from a resource file and a user defined delivery deadline.",
 	Example: "3n4cli ishtm create --input ~/reference.3n4 --output ~/qrcode.png --extension 9096 --notify true recep@mail.com:Recep:4738293:E44AC9C25D690AF5,john@mail.com:John:8674859:EFAAD0153EAE6EDE",
-	PreRun:  verbosePreRunInfos,
-}
-
-func init() {
-	// i/o paths
-	setArgument(CreateCmd, "input")
-	setArgument(CreateCmd, "output")
-	setArgument(CreateCmd, "extension")
-	setArgument(CreateCmd, "notify")
-	setArgument(CreateCmd, "recipients")
-
-	viper.BindPFlag(am["input"].name, CreateCmd.PersistentFlags().Lookup(am["input"].name))
-	viper.BindPFlag(am["output"].name, CreateCmd.PersistentFlags().Lookup(am["output"].name))
-	viper.BindPFlag(am["extension"].name, CreateCmd.PersistentFlags().Lookup(am["extension"].name))
-	viper.BindPFlag(am["notify"].name, CreateCmd.PersistentFlags().Lookup(am["notify"].name))
-	viper.BindPFlag(am["recipients"].name, CreateCmd.PersistentFlags().Lookup(am["recipients"].name))
-
-	IshtmCmd.AddCommand(CreateCmd)
-
-	// files parameters
-	CreateCmd.RunE = create
+	RunE:    create,
 }
 
 // getRecipients extract components from the recipients
@@ -99,32 +79,33 @@ const (
 // create create a new "will" resource that will be delivered
 // in case something happens to the user.
 func create(cmd *cobra.Command, args []string) error {
+	verbosePreRunInfos(cmd, args)
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
 	}
 
 	// load reference file
-	reference, err := ioutil.ReadFile(viper.GetString(am["input"].name))
+	reference, err := ioutil.ReadFile(viper.GetString(viperLabel(cmd, "input")))
 	if err != nil {
 		return fmt.Errorf("unable to open reference file cause %s", err.Error())
 	}
 
 	// check for output path
-	qrcodePath := viper.GetString(am["output"].name)
+	qrcodePath := viper.GetString(viperLabel(cmd, "output"))
 	err = ct.VerifyDestinationPath(qrcodePath)
 	if err != nil {
 		return err
 	}
 
 	// extract recipients
-	recipients := getRecipients(viper.GetString(am["recipients"].name))
+	recipients := getRecipients(viper.GetString(viperLabel(cmd, "recipients")))
 	if len(recipients) == 0 {
 		return fmt.Errorf("unable to create a \"will\" with no recipients")
 	}
 
 	// get extension time
-	extension := viper.GetInt(am["extension"].name)
+	extension := viper.GetInt(viperLabel(cmd, "extension"))
 	if extension == 0 {
 		return fmt.Errorf("unable to create a \"will\" with no extension time")
 	}
@@ -133,7 +114,7 @@ func create(cmd *cobra.Command, args []string) error {
 		Reference:      reference,
 		Recipients:     recipients,
 		ExtensionUnit:  time.Duration(extension) * time.Minute,
-		NotifyDeadline: viper.GetBool("notify"),
+		NotifyDeadline: viper.GetBool(viperLabel(cmd, "notify")),
 	}
 
 	body, err := json.Marshal(willPost)
@@ -144,8 +125,8 @@ func create(cmd *cobra.Command, args []string) error {
 	client := &http.Client{}
 	// build request URL
 	url := fmt.Sprintf(staticServiceFormatString,
-		viper.GetString(am["ishtmeaddress"].name),
-		viper.GetInt(am["ishtmport"].name),
+		viper.GetString(viperLabel(IshtmCmd, "ishtmeaddress")),
+		viper.GetInt(viperLabel(IshtmCmd, "ishtmport")),
 	)
 	// create will
 	req, err := http.NewRequest(

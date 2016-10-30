@@ -35,13 +35,7 @@ var InfoCmd = &cobra.Command{
 	Short:   "Returns reference file infos",
 	Long:    "Retrieves file infos from a locally stored reference file (no interaction with the backend).",
 	Example: "3n4cli store info -r /tmp/resources.3rf",
-	PreRun:  verbosePreRunInfos,
-}
-
-func init() {
-	StoreCmd.AddCommand(InfoCmd)
-	// files parameters
-	InfoCmd.RunE = infoReference
+	RunE:    infoReference,
 }
 
 const (
@@ -55,14 +49,15 @@ const (
 // infoReference retrieve and shows infos decrypted from the argument
 // reference file.
 func infoReference(cmd *cobra.Command, args []string) error {
+	verbosePreRunInfos(cmd, args)
 	// prepare PGP private key
-	privateEntityList, err := checkAndLoadPgpPrivateKey(viper.GetString(am["privatekey"].name))
+	privateEntityList, err := checkAndLoadPgpPrivateKey(viper.GetString(viperLabel(StoreCmd, "privatekey")))
 	if err != nil {
 		return err
 	}
 
 	// get reference
-	refin := viper.GetString(am["referencein"].name)
+	refin := viper.GetString(viperLabel(StoreCmd, "referencein"))
 	encBytes, err := ioutil.ReadFile(refin)
 	if err != nil {
 		return fmt.Errorf("unable to access reference file %s cause %s", refin, err.Error())
