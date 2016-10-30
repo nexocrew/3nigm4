@@ -58,18 +58,6 @@ var RootCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	// global flags
-	setArgument(RootCmd, "verbose")
-
-	viper.BindPFlag(
-		viperLabel(RootCmd, "verbose"),
-		RootCmd.PersistentFlags().Lookup(am["verbose"].name),
-	)
-}
-
 // checkRequestStatus check request status and if an anomalous
 // response status code is present check for the StandardResponse
 // error property.

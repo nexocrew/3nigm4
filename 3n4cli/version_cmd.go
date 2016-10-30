@@ -30,13 +30,7 @@ var VersionCmd = &cobra.Command{
 	Short:   "Show client version",
 	Long:    "Show client version and 3n4 logo.",
 	Example: "3n4cli version",
-}
-
-func init() {
-	RootCmd.AddCommand(VersionCmd)
-
-	// files parameters
-	VersionCmd.Run = version
+	Run:     version,
 }
 
 func printLogo() {

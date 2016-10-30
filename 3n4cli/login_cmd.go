@@ -40,22 +40,6 @@ var LoginCmd = &cobra.Command{
 	Short:   "Login a registered user and manage session",
 	Long:    "Interact with authentication server to login at the application startup.",
 	Example: "3n4cli login -u username",
-	PreRun:  verbosePreRunInfos,
-}
-
-func init() {
-	RootCmd.AddCommand(LoginCmd)
-
-	setArgument(LoginCmd, "authaddress")
-	setArgument(LoginCmd, "authport")
-	setArgument(LoginCmd, "username")
-
-	bindPFlag(LoginCmd, "username")
-	bindPFlag(LoginCmd, "authaddress")
-	bindPFlag(LoginCmd, "authport")
-
-	// files parameters
-	LoginCmd.RunE = login
 }
 
 // hexComposedPassword compose a string and checksum
@@ -75,6 +59,8 @@ func hexComposedPassword(username string, pwd []byte) string {
 // 3nigm4 services, this function will be called before any
 // other to be able to proceed with a valid auth token.
 func login(cmd *cobra.Command, args []string) error {
+	verbosePreRunInfos(cmd, args)
+
 	username := viper.GetString(viperLabel(cmd, "username"))
 	// get user password
 	fmt.Printf("Insert password: ")

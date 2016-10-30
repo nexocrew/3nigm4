@@ -34,20 +34,7 @@ var GetCmd = &cobra.Command{
 	Short:   "Get and download a \"will\" activity",
 	Long:    "Get infos and download a \"will\" activity record.",
 	Example: "3n4cli ishtm get --id E44AC9C25D690AF5E44AC9 --output ~/reference.3n4",
-	PreRun:  verbosePreRunInfos,
-}
-
-func init() {
-	setArgument(GetCmd, "output")
-	setArgument(GetCmd, "id")
-
-	viper.BindPFlag(am["output"].name, GetCmd.PersistentFlags().Lookup(am["output"].name))
-	viper.BindPFlag(am["id"].name, GetCmd.PersistentFlags().Lookup(am["id"].name))
-
-	IshtmCmd.AddCommand(GetCmd)
-
-	// files parameters
-	GetCmd.RunE = get
+	RunE:    get,
 }
 
 // formatWillReference creates a printable string from the
@@ -76,17 +63,18 @@ func formatWillReference(w *ct.WillGetResponse) string {
 
 // get perform a GET request directed to ishtm APIs.
 func get(cmd *cobra.Command, args []string) error {
+	verbosePreRunInfos(cmd, args)
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
 	}
 
 	// validate arguments
-	id := viper.GetString(am["id"].name)
+	id := viper.GetString(viperLabel(cmd, "id"))
 	if id == "" {
 		return fmt.Errorf("unable to perform request with empty ID")
 	}
-	output := viper.GetString(am["output"].name)
+	output := viper.GetString(viperLabel(cmd, "output"))
 	if output == "" {
 		log.WarningLog("Output file is nil retrieved reference file will be returned in stdout.\n")
 	} else {
@@ -99,8 +87,8 @@ func get(cmd *cobra.Command, args []string) error {
 	client := &http.Client{}
 	// base url
 	url := fmt.Sprintf(staticServiceFormatString,
-		viper.GetString(am["ishtmeaddress"].name),
-		viper.GetInt(am["ishtmport"].name),
+		viper.GetString(viperLabel(IshtmCmd, "ishtmeaddress")),
+		viper.GetInt(viperLabel(IshtmCmd, "ishtmport")),
 	)
 	// get will
 	req, err := http.NewRequest(

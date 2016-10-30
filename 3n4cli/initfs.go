@@ -20,25 +20,67 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// configFile is usable to create the default config
-// file on disk
-type configFile struct {
-	Verbose        bool   `yaml:"verbose,omitempty"`
-	MasterKey      bool   `yaml:"masterkey,omitempty"`
-	ChunkSize      uint   `yaml:"chunksize,omitempty"`
-	PrivateKeyPath string `yaml:"privatekey,omitempty"`
-	PublicKeyPath  string `yaml:"publickey,omitempty"`
-	Compressed     bool   `yaml:"compressed,omitempty"`
-	// services
-	StorageServiceAddress string `yaml:"storageaddress,omitempty"`
-	StorageServicePort    int    `yaml:"storageport,omitempty"`
-	AuthServiceAddress    string `yaml:"authaddress,omitempty"`
-	AuthServicePort       int    `yaml:"authport,omitempty"`
+// uploadSettings deines storage upload settings.
+type uploadSettings struct {
+	ChunkSize  uint `yaml:"chunksize,omitempty"`
+	Compressed bool `yaml:"compressed,omitempty"`
+}
+
+// storageSettings used to define basic storage
+// configuration.
+type storageSettings struct {
+	StorageServiceAddress string         `yaml:"storageaddress,omitempty"`
+	StorageServicePort    int            `yaml:"storageport,omitempty"`
+	MasterKey             bool           `yaml:"masterkey,omitempty"`
+	PrivateKeyPath        string         `yaml:"privatekey,omitempty"`
+	PublicKeyPath         string         `yaml:"publickey,omitempty"`
+	Upload                uploadSettings `yaml:"upload,omitempty"`
 	// workers and queues
 	Workers int `yaml:"workerscount,omitempty"`
 	Queue   int `yaml:"queuesize,omitempty"`
+}
+
+// ishtmSettings basic ishtm settings.
+type ishtmSettings struct {
+	IshtmServiceAddress string `yaml:"ishtmeaddress,omitempty"`
+	IshtmServicePort    int    `yaml:"ishtmport,omitempty"`
+}
+
+// loginSettings login function settings.
+type loginSettings struct {
+	AuthServiceAddress string `yaml:"authaddress,omitempty"`
+	AuthServicePort    int    `yaml:"authport,omitempty"`
 	// identity
 	Username string `yaml:"username,omitempty"`
+}
+
+// logoutSettings addresses used for
+// logout.
+type logoutSettings struct {
+	AuthServiceAddress string `yaml:"authaddress,omitempty"`
+	AuthServicePort    int    `yaml:"authport,omitempty"`
+}
+
+// pingSettings ping used addresses.
+type pingSettings struct {
+	AuthServiceAddress    string `yaml:"authaddress,omitempty"`
+	AuthServicePort       int    `yaml:"authport,omitempty"`
+	StorageServiceAddress string `yaml:"storageaddress,omitempty"`
+	StorageServicePort    int    `yaml:"storageport,omitempty"`
+	IshtmServiceAddress   string `yaml:"ishtmeaddress,omitempty"`
+	IshtmServicePort      int    `yaml:"ishtmport,omitempty"`
+}
+
+// configFile is usable to create the default config
+// file on disk
+type configFile struct {
+	Verbose bool `yaml:"verbose,omitempty"`
+	// services
+	Store  storageSettings `yaml:"store,omitempty"`
+	Ishtm  ishtmSettings   `yaml:"ishtm,omitempty"`
+	Login  loginSettings   `yaml:"login,omitempty"`
+	Logout logoutSettings  `yaml:"logout,omitempty"`
+	Ping   pingSettings    `yaml:"ping,omitempty"`
 }
 
 // createPgpKeyPair manage key creation tooltip.
@@ -99,9 +141,9 @@ func initfs(user, rootDir string) error {
 		return fmt.Errorf("unable to read username input cause %s", err.Error())
 	}
 	if username != "" {
-		cf.Username = username
+		cf.Login.Username = username
 	} else {
-		cf.Username = user
+		cf.Login.Username = user
 	}
 
 	// make user choose a pgp key
@@ -115,12 +157,12 @@ func initfs(user, rootDir string) error {
 	// use an existing key pair passing reference paths
 	case 'y':
 		fmt.Printf("Insert private pgp key path: ")
-		_, err = fmt.Scanln(&cf.PrivateKeyPath)
+		_, err = fmt.Scanln(&cf.Store.PrivateKeyPath)
 		if err != nil {
 			return fmt.Errorf("unable to read private key path input cause %s", err.Error())
 		}
 		fmt.Printf("Insert public pgp key path: ")
-		_, err = fmt.Scanln(&cf.PublicKeyPath)
+		_, err = fmt.Scanln(&cf.Store.PublicKeyPath)
 		if err != nil {
 			return fmt.Errorf("unable to read public key path input cause %s", err.Error())
 		}

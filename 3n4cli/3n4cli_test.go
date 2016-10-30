@@ -50,7 +50,13 @@ func TestViperLabel(t *testing.T) {
 	thirdCmd.AddCommand(fourthCmd)
 
 	label := viperLabel(fourthCmd, "verbose")
-	reference := "root.secondary.third.verbose"
+	reference := "secondary.third.fourth.verbose"
+	if label != reference {
+		t.Fatalf("Unexpected result, having %s expecting %s.\n", label, reference)
+	}
+
+	label = viperLabel(secondaryCmd, "verbose")
+	reference = "secondary.verbose"
 	if label != reference {
 		t.Fatalf("Unexpected result, having %s expecting %s.\n", label, reference)
 	}

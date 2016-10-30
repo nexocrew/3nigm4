@@ -128,10 +128,11 @@ func setArgumentFlags(command *cobra.Command, arg cliArguments) {
 // command.
 func viperLabel(cmd *cobra.Command, name string) string {
 	parents := make([]string, 0)
+	parents = append(parents, cmd.Use)
 	var lastCmd *cobra.Command = cmd
 	for {
-		if lastCmd.Parent() != nil {
-			selCmd := lastCmd.Parent()
+		selCmd := lastCmd.Parent()
+		if selCmd != nil {
 			parents = append(parents, selCmd.Use)
 			lastCmd = selCmd
 			continue
@@ -139,11 +140,12 @@ func viperLabel(cmd *cobra.Command, name string) string {
 		break
 	}
 	var result string
-	for idx := len(parents) - 1; idx >= 0; idx-- {
+	for idx := len(parents) - 2; idx >= 0; idx-- {
 		result += parents[idx]
 		result += "."
 	}
 	result += am[name].name
+
 	return result
 }
 
@@ -441,26 +443,62 @@ func loadRecipientsPublicKeys(keys []string) (openpgp.EntityList, error) {
 	return entityList, nil
 }
 
+// storageSettingsDescription helper function to print storage
+// settings in verbose mode.
+func storageSettingsDescription() string {
+	return fmt.Sprintf(
+		"\tStorage:\n"+
+			"\t\tAddress:%s:%d\n"+
+			"\t\tInternal parameters: working queue size %d, queue %d\n"+
+			"\t\tChunk parameters: size %d compressed %v\n",
+		viper.GetString(viperLabel(StoreCmd, "storageaddress")),
+		viper.GetInt(viperLabel(StoreCmd, "storageport")),
+		viper.GetInt(viperLabel(StoreCmd, "workerscount")),
+		viper.GetInt(viperLabel(StoreCmd, "queuesize")),
+		viper.GetInt(viperLabel(StoreCmd, "chunksize")),
+		viper.GetBool(viperLabel(StoreCmd, "compressed")),
+	)
+}
+
+// ishtmSettingsDescription helper function to print ishtm
+// settings in verbose mode.
+func ishtmSettingsDescription() string {
+	return fmt.Sprintf(
+		"\tIshtm:\n"+
+			"\t\tAddress:%s:%d\n",
+		viper.GetString(viperLabel(IshtmCmd, "ishtmeaddress")),
+		viper.GetInt(viperLabel(IshtmCmd, "ishtmport")),
+	)
+}
+
+// authSettingsDescription helper function to print auth
+// settings in verbose mode.
+func authSettingsDescription() string {
+	return fmt.Sprintf(
+		"\tAuthentication service:\n"+
+			"\t\tLogin:%s:%d username %s\n"+
+			"\t\tLogout:%s:%d\n",
+		viper.GetString(viperLabel(LoginCmd, "authaddress")),
+		viper.GetInt(viperLabel(LoginCmd, "authport")),
+		viper.GetString(viperLabel(LoginCmd, "username")),
+		viper.GetString(viperLabel(LogoutCmd, "authaddress")),
+		viper.GetInt(viperLabel(LogoutCmd, "authport")),
+	)
+}
+
 // verbosePreRunInfos prints out verbose infos before executing
 // commands.
 func verbosePreRunInfos(cmd *cobra.Command, args []string) {
-	if viper.GetBool(am["verbose"].name) == true {
+	if viper.GetBool(viperLabel(RootCmd, "verbose")) == true {
 		log.VerboseLog("Using config file: %s.\n", viper.ConfigFileUsed())
 		log.VerboseLog(
 			"Context:\n"+
 				"\tVersion: %s\n"+
-				"\tStorage service: %s:%d\n"+
-				"\tAuthentication service: %s:%d\n"+
-				"\tInternal parameters: working queue size %d, queue %d\n"+
-				"\tChunk parameters: size %d compressed %v\n",
+				"%s%s%s\n",
 			ver.V().VersionString(),
-			viper.GetString(am["storageaddress"].name),
-			viper.GetInt(am["storageport"].name),
-			viper.GetString(am["authaddress"].name),
-			viper.GetInt(am["authport"].name),
-			viper.GetInt(am["workerscount"].name),
-			viper.GetInt(am["queuesize"].name),
-			viper.GetInt(am["chunksize"].name),
-			viper.GetBool(am["compressed"].name))
+			authSettingsDescription(),
+			storageSettingsDescription(),
+			ishtmSettingsDescription(),
+		)
 	}
 }

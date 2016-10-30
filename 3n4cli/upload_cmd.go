@@ -40,35 +40,7 @@ var UploadCmd = &cobra.Command{
 	Short:   "Uploads a file to secure storage",
 	Long:    "Uploads a local file to the cloud storage returning a resource file usable to retrieve or share data.",
 	Example: "3n4cli store upload --destkeys /tmp/userA.asc,/tmp/userB.asc -M -O /tmp/resources.3rf -i ~/file.ext -p 2 -v",
-	PreRun:  verbosePreRunInfos,
-}
-
-func init() {
-	// encryption
-	setArgument(UploadCmd, "destkeys")
-	// i/o paths
-	setArgument(UploadCmd, "input")
-	setArgument(UploadCmd, "referenceout")
-	setArgument(UploadCmd, "chunksize")
-	setArgument(UploadCmd, "compressed")
-	// resource properties
-	setArgument(UploadCmd, "timetolive")
-	setArgument(UploadCmd, "permission")
-	setArgument(UploadCmd, "sharingusers")
-
-	viper.BindPFlag(am["destkeys"].name, UploadCmd.PersistentFlags().Lookup(am["destkeys"].name))
-	viper.BindPFlag(am["input"].name, UploadCmd.PersistentFlags().Lookup(am["input"].name))
-	viper.BindPFlag(am["referenceout"].name, UploadCmd.PersistentFlags().Lookup(am["referenceout"].name))
-	viper.BindPFlag(am["chunksize"].name, UploadCmd.PersistentFlags().Lookup(am["chunksize"].name))
-	viper.BindPFlag(am["compressed"].name, UploadCmd.PersistentFlags().Lookup(am["compressed"].name))
-	viper.BindPFlag(am["timetolive"].name, UploadCmd.PersistentFlags().Lookup(am["timetolive"].name))
-	viper.BindPFlag(am["permission"].name, UploadCmd.PersistentFlags().Lookup(am["permission"].name))
-	viper.BindPFlag(am["sharingusers"].name, UploadCmd.PersistentFlags().Lookup(am["sharingusers"].name))
-
-	StoreCmd.AddCommand(UploadCmd)
-
-	// files parameters
-	UploadCmd.RunE = upload
+	RunE:    upload,
 }
 
 // upload send a local file to remote storage after encrypting,
@@ -77,6 +49,7 @@ func init() {
 // are sent to the server. PGP is used to secure generated reference
 // file.
 func upload(cmd *cobra.Command, args []string) error {
+	verbosePreRunInfos(cmd, args)
 	// check for token presence
 	if pss.Token == "" {
 		return fmt.Errorf("you are not logged in, please call \"login\" command before invoking any other functionality")
@@ -84,7 +57,7 @@ func upload(cmd *cobra.Command, args []string) error {
 
 	// prepare PGP keys
 	var entityList openpgp.EntityList
-	usersPublicKeys, err := checkAndLoadPgpPublicKey(viper.GetString(am["publickey"].name))
+	usersPublicKeys, err := checkAndLoadPgpPublicKey(viper.GetString(viperLabel(StoreCmd, "publickey")))
 	if err != nil {
 		return err
 	}
@@ -93,7 +66,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	// as a workaround the bug (issue #112
 	// https://github.com/spf13/viper/issues/112) of the Cobra
 	// project.
-	destkeys := viper.GetString(am["destkeys"].name)
+	destkeys := viper.GetString(viperLabel(cmd, "destkeys"))
 	if destkeys != "" {
 		destinationKeys := strings.Split(destkeys, ",")
 		recipientsKeys, err := loadRecipientsPublicKeys(destinationKeys)
@@ -104,7 +77,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// get private key
-	signerEntityList, err := checkAndLoadPgpPrivateKey(viper.GetString(am["privatekey"].name))
+	signerEntityList, err := checkAndLoadPgpPrivateKey(viper.GetString(viperLabel(StoreCmd, "privatekey")))
 	if err != nil {
 		return err
 	}
@@ -116,7 +89,7 @@ func upload(cmd *cobra.Command, args []string) error {
 
 	// set master key if any passed
 	var masterkey []byte
-	if viper.GetBool(am["masterkey"].name) {
+	if viper.GetBool(viperLabel(StoreCmd, "masterkey")) {
 		fmt.Printf("Insert master key: ")
 		masterkey, err = gopass.GetPasswdMasked()
 		if err != nil {
@@ -126,11 +99,12 @@ func upload(cmd *cobra.Command, args []string) error {
 
 	// create new store manager
 	ds, err, errc := sc.NewStorageClient(
-		viper.GetString(am["storageaddress"].name),
-		viper.GetInt(am["storageport"].name),
+		viper.GetString(viperLabel(StoreCmd, "storageaddress")),
+		viper.GetInt(viperLabel(StoreCmd, "storageport")),
 		pss.Token,
-		viper.GetInt(am["workerscount"].name),
-		viper.GetInt(am["queuesize"].name))
+		viper.GetInt(viperLabel(StoreCmd, "workerscount")),
+		viper.GetInt(viperLabel(StoreCmd, "queuesize")),
+	)
 	if err != nil {
 		return err
 	}
@@ -140,9 +114,10 @@ func upload(cmd *cobra.Command, args []string) error {
 	// create new encryption chunks
 	ec, err := fm.NewEncryptedChunks(
 		masterkey,
-		viper.GetString(am["input"].name),
-		uint64(viper.GetInt(am["chunksize"].name)),
-		viper.GetBool(am["compressed"].name))
+		viper.GetString(viperLabel(cmd, "input")),
+		uint64(viper.GetInt(viperLabel(cmd, "chunksize"))),
+		viper.GetBool(viperLabel(cmd, "compressed")),
+	)
 	if err != nil {
 		return err
 	}
@@ -164,12 +139,12 @@ func upload(cmd *cobra.Command, args []string) error {
 	// as a workaround the bug (issue #112
 	// https://github.com/spf13/viper/issues/112) of the Cobra
 	// project.
-	sharingUsers := strings.Split(viper.GetString(am["sharingusers"].name), ",")
+	sharingUsers := strings.Split(viper.GetString(viperLabel(cmd, "sharingusers")), ",")
 	rf, err := ec.SaveChunks(
 		ds,
-		viper.GetDuration(am["timetolive"].name),
+		viper.GetDuration(viperLabel(cmd, "timetolive")),
 		&fm.Permission{
-			Permission:   ct.Permission(viper.GetInt(am["permission"].name)),
+			Permission:   ct.Permission(viper.GetInt(viperLabel(cmd, "permission"))),
 			SharingUsers: sharingUsers,
 		},
 		&context,
@@ -191,7 +166,7 @@ func upload(cmd *cobra.Command, args []string) error {
 	}
 
 	// save tp output file
-	destinationPath := viper.GetString(am["referenceout"].name)
+	destinationPath := viper.GetString(viperLabel(cmd, "referenceout"))
 	err = ioutil.WriteFile(
 		destinationPath,
 		encryptedData,
