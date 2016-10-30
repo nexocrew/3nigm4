@@ -93,6 +93,7 @@ func initStorage() {
 	bindPFlag(UploadCmd, "timetolive")
 	bindPFlag(UploadCmd, "permission")
 	bindPFlag(UploadCmd, "sharingusers")
+	UploadCmd.RunE = upload
 
 	StoreCmd.AddCommand(DownloadCmd)
 	// i/o paths

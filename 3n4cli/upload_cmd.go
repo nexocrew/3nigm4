@@ -40,7 +40,6 @@ var UploadCmd = &cobra.Command{
 	Short:   "Uploads a file to secure storage",
 	Long:    "Uploads a local file to the cloud storage returning a resource file usable to retrieve or share data.",
 	Example: "3n4cli store upload --destkeys /tmp/userA.asc,/tmp/userB.asc -M -O /tmp/resources.3rf -i ~/file.ext -p 2 -v",
-	RunE:    upload,
 }
 
 // upload send a local file to remote storage after encrypting,
