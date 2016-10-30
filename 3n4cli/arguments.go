@@ -455,8 +455,8 @@ func storageSettingsDescription() string {
 		viper.GetInt(viperLabel(StoreCmd, "storageport")),
 		viper.GetInt(viperLabel(StoreCmd, "workerscount")),
 		viper.GetInt(viperLabel(StoreCmd, "queuesize")),
-		viper.GetInt(viperLabel(StoreCmd, "chunksize")),
-		viper.GetBool(viperLabel(StoreCmd, "compressed")),
+		viper.GetInt(viperLabel(UploadCmd, "chunksize")),
+		viper.GetBool(viperLabel(UploadCmd, "compressed")),
 	)
 }
 
