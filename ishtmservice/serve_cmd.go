@@ -8,6 +8,7 @@ package main
 
 // Golang std pkgs
 import (
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"strings"
@@ -17,6 +18,7 @@ import (
 import (
 	ct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	ishtmdb "github.com/nexocrew/3nigm4/lib/ishtm/db"
+	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 )
 
 // Third party pkgs
@@ -119,6 +121,13 @@ func rpcClientStartup(a *args) (AuthClient, error) {
 // serve command expose a REST API.
 func serve(cmd *cobra.Command, args []string) error {
 	printLogo()
+
+	// set global vars
+	if len(arguments.encryptionKey) < 1 {
+		return fmt.Errorf("invalid global keys passed as argument, unable to proceed")
+	}
+	hashedKey := sha256.Sum256([]byte(arguments.encryptionKey))
+	will.GlobalEncryptionKey = hashedKey[:]
 
 	// startup db
 	var err error
