@@ -48,7 +48,6 @@ func init() {
 	RootCmd.PersistentFlags().BoolVarP(&arguments.verbose, "verbose", "v", false, "activate logging verbosity")
 	RootCmd.PersistentFlags().BoolVarP(&arguments.colored, "colored", "C", true, "activate colored logs")
 	RootCmd.PersistentFlags().StringVarP(&arguments.encryptionKey, "key", "", "", "set global encryption key for db storage")
-	RootCmd.PersistentFlags().StringVarP(&arguments.encryptionSalt, "salt", "", "", "set global encryption salt for db storage")
 }
 
 // Execute parsing and execute selected

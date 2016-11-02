@@ -26,6 +26,5 @@ type args struct {
 	authServiceAddress string
 	authServicePort    int
 	// encryption keys
-	encryptionKey  string
-	encryptionSalt string
+	encryptionKey string
 }

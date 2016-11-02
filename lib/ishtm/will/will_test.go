@@ -31,7 +31,6 @@ func TestNewWill(t *testing.T) {
 	recipients := make([]ct.Recipient, 0)
 
 	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
-	GlobalEncryptionSalt = []byte("thisissa")
 
 	now := time.Now().UTC()
 	reference := now.Add(settings.DeliveryOffset)
@@ -78,7 +77,6 @@ func TestRefresTtd(t *testing.T) {
 	recipients := make([]ct.Recipient, 0)
 
 	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
-	GlobalEncryptionSalt = []byte("thisissa")
 
 	now := time.Now().UTC()
 	reference := now.Add(settings.DeliveryOffset)

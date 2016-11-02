@@ -29,8 +29,9 @@ var (
 	// to encrypt data in the database.
 	GlobalEncryptionKey []byte
 	// GlobalEncryptionSalt setted by the lib including service is used
-	// to salt PBKDF2 derivation.
-	GlobalEncryptionSalt []byte
+	// to salt PBKDF2 derivation. In this case is never used cause no PBKDF2
+	// is done for db credentials.
+	GlobalEncryptionSalt []byte = []byte("00000111")
 )
 
 func encryptHotp(token *hotp.HOTP) ([]byte, error) {

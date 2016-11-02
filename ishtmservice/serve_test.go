@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -25,7 +26,6 @@ import (
 	crypto3n4 "github.com/nexocrew/3nigm4/lib/crypto"
 	ishtmct "github.com/nexocrew/3nigm4/lib/ishtm/commons"
 	mockdb "github.com/nexocrew/3nigm4/lib/ishtm/mocks"
-	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 	"github.com/nexocrew/3nigm4/lib/itm"
 	"github.com/nexocrew/3nigm4/lib/logger"
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
@@ -37,16 +37,15 @@ import (
 )
 
 var (
-	mockServiceAddress   = "127.0.0.1"
-	mockServicePort      = 17973
-	GlobalEncryptionKey  = []byte("thisisatesttempkeyiroeofod090877")
-	GlobalEncryptionSalt = []byte("thisissa")
-	willID               string
-	otp                  *hotp.HOTP
-	secondaryKeys        []string
-	deliveryKey          string
-	lastPing             time.Time
-	referenceData        = []byte("test reference data")
+	mockServiceAddress  = "127.0.0.1"
+	mockServicePort     = 17973
+	GlobalEncryptionKey = "thisisatesttempkeyiroeofod090877"
+	willID              string
+	otp                 *hotp.HOTP
+	secondaryKeys       []string
+	deliveryKey         string
+	lastPing            time.Time
+	referenceData       = []byte("test reference data")
 )
 
 const (
@@ -55,9 +54,10 @@ const (
 )
 
 func decryptHotp(encryptedToken []byte) (*hotp.HOTP, error) {
+	hashedKey := sha256.Sum256([]byte(GlobalEncryptionKey))
 	// decrypt token content
 	plaintext, err := crypto3n4.AesDecrypt(
-		GlobalEncryptionKey,
+		hashedKey[:],
 		encryptedToken,
 		crypto3n4.CBC,
 	)
@@ -73,9 +73,10 @@ func decryptHotp(encryptedToken []byte) (*hotp.HOTP, error) {
 }
 
 func decryptSecondaryKey(key []byte) ([]byte, error) {
+	hashedKey := sha256.Sum256([]byte(GlobalEncryptionKey))
 	// decrypt token content
 	plaintext, err := crypto3n4.AesDecrypt(
-		GlobalEncryptionKey,
+		hashedKey[:],
 		key,
 		crypto3n4.CBC,
 	)
@@ -91,20 +92,18 @@ func TestMain(m *testing.M) {
 	log = logger.NewLogFacility("ishtmservice", true, true)
 
 	arguments = args{
-		verbose:     true,
-		colored:     true,
-		dbAddresses: fmt.Sprintf("%s:%d", itm.S().DbAddress(), itm.S().DbPort()),
-		dbUsername:  itm.S().DbUserName(),
-		dbPassword:  itm.S().DbPassword(),
-		dbAuth:      itm.S().DbAuth(),
-		address:     mockServiceAddress,
-		port:        mockServicePort,
+		verbose:       true,
+		colored:       true,
+		dbAddresses:   fmt.Sprintf("%s:%d", itm.S().DbAddress(), itm.S().DbPort()),
+		dbUsername:    itm.S().DbUserName(),
+		dbPassword:    itm.S().DbPassword(),
+		dbAuth:        itm.S().DbAuth(),
+		address:       mockServiceAddress,
+		port:          mockServicePort,
+		encryptionKey: GlobalEncryptionKey,
 	}
 	databaseStartup = mockDbStartup
 	authClientStartup = mockAuthStartup
-
-	will.GlobalEncryptionKey = GlobalEncryptionKey
-	will.GlobalEncryptionSalt = GlobalEncryptionSalt
 
 	var errorCounter wq.AtomicCounter
 	errorChan := make(chan error, 0)

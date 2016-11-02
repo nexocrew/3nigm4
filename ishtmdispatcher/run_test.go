@@ -189,7 +189,6 @@ func createTestWill(t *testing.T) *will.Will {
 	}
 
 	will.GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
-	will.GlobalEncryptionSalt = []byte("thisissa")
 
 	w, _, err := will.NewWill(owner, []byte("This is a mock reference file"), settings, recipients)
 	if err != nil {

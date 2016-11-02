@@ -123,13 +123,11 @@ func serve(cmd *cobra.Command, args []string) error {
 	printLogo()
 
 	// set global vars
-	if len(arguments.encryptionKey) < 1 ||
-		len(arguments.encryptionSalt) != saltSize {
+	if len(arguments.encryptionKey) < 1 {
 		return fmt.Errorf("invalid global keys passed as argument, unable to proceed")
 	}
 	hashedKey := sha256.Sum256([]byte(arguments.encryptionKey))
 	will.GlobalEncryptionKey = hashedKey[:]
-	will.GlobalEncryptionSalt = []byte(arguments.encryptionSalt)
 
 	// startup db
 	var err error

@@ -34,7 +34,6 @@ func getSwToken(credentials *Credential) (*hotp.HOTP, error) {
 
 func TestOTPVerification(t *testing.T) {
 	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
-	GlobalEncryptionSalt = []byte("thisissa")
 
 	creds, _, _, err := generateCredential()
 	if err != nil {
@@ -75,7 +74,6 @@ func TestOTPVerification(t *testing.T) {
 
 func TestOTPOutRange(t *testing.T) {
 	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
-	GlobalEncryptionSalt = []byte("thisissa")
 
 	creds, _, _, err := generateCredential()
 	if err != nil {
@@ -108,7 +106,6 @@ func TestOTPOutRange(t *testing.T) {
 
 func TestSecondaryKeys(t *testing.T) {
 	GlobalEncryptionKey = []byte("thisisatesttempkeyiroeofod090877")
-	GlobalEncryptionSalt = []byte("thisissa")
 
 	creds, _, keys, err := generateCredential()
 	if err != nil {
