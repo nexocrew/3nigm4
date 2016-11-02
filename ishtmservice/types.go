@@ -25,4 +25,7 @@ type args struct {
 	// auth rpc service
 	authServiceAddress string
 	authServicePort    int
+	// encryption keys
+	encryptionKey  string
+	encryptionSalt string
 }

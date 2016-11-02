@@ -84,7 +84,7 @@ func ping(cmd *cobra.Command, args []string) error {
 	err = verifyService(
 		client,
 		fmt.Sprintf("%s:%d%s", viper.GetString(viperLabel(cmd, "ishtmeaddress")), viper.GetInt(viperLabel(cmd, "ishtmport")), pingPath),
-		"Storage service",
+		"Ishtm service",
 	)
 	if err != nil {
 		return err
