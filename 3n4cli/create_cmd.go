@@ -36,7 +36,7 @@ var CreateCmd = &cobra.Command{
 	Use:     "create",
 	Short:   "Creates and upload a \"will\" activity",
 	Long:    "Creates and upload a \"will\" starting from a resource file and a user defined delivery deadline.",
-	Example: "3n4cli ishtm create --input ~/reference.3n4 --output ~/qrcode.png --extension 9096 --notify true recep@mail.com:Recep:4738293:E44AC9C25D690AF5,john@mail.com:John:8674859:EFAAD0153EAE6EDE",
+	Example: "3n4cli ishtm create --input ~/reference.3n4 --output ~/qrcode.png --extension 9096 --notify true --recipients recep@mail.com:Recep:4738293:E44AC9C25D690AF5,john@mail.com:John:8674859:EFAAD0153EAE6EDE",
 	RunE:    create,
 }
 

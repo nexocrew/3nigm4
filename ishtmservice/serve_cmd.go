@@ -38,7 +38,7 @@ var ServeCmd = &cobra.Command{
 	Use:     "serve",
 	Short:   "Serve trougth http/https",
 	Long:    "Launch http service to expose ISHTM API services.",
-	Example: "ishtmservice serve -d 127.0.0.1:27017 -u dbuser -w dbpwd -a 0.0.0.0 -p 443 -s /tmp/cert.pem -S /tmp/pvkey.pem -v",
+	Example: "ishtmservice serve -d 127.0.0.1:27017 -u dbuser -w dbpwd -a 0.0.0.0 -p 443 -s /tmp/cert.pem -S /tmp/pvkey.pem --key ausefulpassword -v",
 }
 
 func init() {
