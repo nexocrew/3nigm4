@@ -45,9 +45,9 @@ func formatWillReference(w *ct.WillGetResponse) string {
 	result += fmt.Sprintf("Creation date: %s\n", w.Creation.String())
 	result += fmt.Sprintf("Last ping: %s\n", w.LastPing.String())
 	result += fmt.Sprintf("Time to delivery: %s\n", w.TimeToDelivery.String())
-	result += fmt.Sprintf("Extension unit: %d min\n", w.ExtensionUnit*time.Minute)
+	result += fmt.Sprintf("Extension unit: %d min\n", w.ExtensionUnit/time.Minute)
 	result += fmt.Sprintf("Notify deadline: %v\n", w.NotifyDeadline)
-	result += fmt.Sprintf("Delivery offset: %d min\n", w.DeliveryOffset*time.Minute)
+	result += fmt.Sprintf("Delivery offset: %d min\n", w.DeliveryOffset/time.Minute)
 	result += fmt.Sprintf("Disabled: %v\n", w.Disabled)
 	for idx, recipient := range w.Recipients {
 		result += fmt.Sprintf("Recipien %02d: %s %s %d %s\n",
