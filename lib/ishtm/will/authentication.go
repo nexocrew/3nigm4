@@ -79,7 +79,7 @@ const (
 
 func generateCredential() (*Credential, []byte, []string, error) {
 	// first create
-	token, err := hotp.GenerateHOTP(8, true)
+	token, err := hotp.GenerateHOTP(6, true)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("unable to create hotp cause %s", err.Error())
 	}
