@@ -105,17 +105,18 @@ func get(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unable to perform GET request, cause %s", err.Error())
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code having %d but expected %d",
-			resp.StatusCode,
-			http.StatusOK,
-		)
-	}
-
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("unable to read response body, %s", err.Error())
 	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code having %d but expected %d: %s",
+			resp.StatusCode,
+			http.StatusOK,
+			string(respBody),
+		)
+	}
+
 	var willResponse ct.WillGetResponse
 	err = json.Unmarshal(respBody, &willResponse)
 	if err != nil {
