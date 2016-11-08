@@ -61,6 +61,8 @@ func (s *SmtpSender) SendEmail(content *ct.Email, fromAddress, subject, attachme
 		return err
 	}
 
+	fmt.Printf("Sending %#v.\n", m)
+
 	err = email.Send(
 		fmt.Sprintf("%s:%d", s.addr, s.port),
 		s.auth,

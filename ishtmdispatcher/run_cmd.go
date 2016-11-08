@@ -10,6 +10,7 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ import (
 // Third party pkgs
 import (
 	"github.com/spf13/cobra"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func init() {
@@ -42,7 +44,7 @@ var RunCmd = &cobra.Command{
 	Use:     "run",
 	Short:   "Run dispatcher routine",
 	Long:    "Launch dispatching routine to loop on the db and send expired \"will\"",
-	Example: "ishtmdispatcher run -d 127.0.0.1:27017 -u dbuser -w dbpwd --smtpaddress 192.168.0.1 --smtpport 443 --smtpuser username --smtppwd pwd -v",
+	Example: "ishtmdispatcher run -d 127.0.0.1:27017 -u dbuser -w dbpwd --smtpaddress 192.168.0.1 --smtpport 443 --smtpuser username --smtppwd pwd --template /home/user/template.html -v",
 }
 
 func init() {
@@ -56,6 +58,7 @@ func init() {
 	RunCmd.PersistentFlags().IntVarP(&arguments.senderPort, "smtpport", "", 443, "the smtp service port")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthUser, "smtpuser", "", "", "the smtp service user name")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthPassword, "smtppwd", "", "", "the smtp service password")
+	RunCmd.PersistentFlags().StringVarP(&arguments.htmlTemplatePath, "template", "", "", "specify the email template to be used for notification")
 	RunCmd.PersistentFlags().Uint32Var(&arguments.processScheduleMinutes, "processwait", 3, "defines the wait time for the processing routine iteration in minutes")
 	RunCmd.PersistentFlags().Uint32Var(&arguments.dispatchScheduleMinutes, "dispatchtime", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine in minutes")
 	RunCmd.PersistentFlags().Uint32Var(&arguments.cleanupScheduleMinutes, "cleanuptime", 30, "run at defined intervals the cleanup function that remove email messages from the database in minutes")
@@ -150,6 +153,7 @@ type procArgs struct {
 func saveEmailsToDatabase(db ct.Database, w *will.Will) error {
 	for _, recipient := range w.Recipients {
 		email := &types.Email{
+			ObjectID:             bson.NewObjectId(),
 			Recipient:            recipient.Email,
 			Sender:               w.Owner.Email,
 			Creation:             w.Creation,
@@ -232,6 +236,7 @@ func sendEmails(genericArgs interface{}) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Sended emails: %#v.\n", emails)
 	for _, email := range emails {
 		err = args.deliverer.SendEmail(
 			&email,
@@ -291,6 +296,14 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer db.Close()
+
+	if arguments.htmlTemplatePath == "" {
+		return fmt.Errorf("unable to access mail template, unable to start dispatching routine")
+	}
+	_, err = os.Stat(arguments.htmlTemplatePath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("template file do not exist")
+	}
 
 	// startup sender
 	sender := senderStartup(&arguments)

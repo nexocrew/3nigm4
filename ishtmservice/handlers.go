@@ -193,7 +193,7 @@ func postWill(w http.ResponseWriter, r *http.Request) {
 		willRequest.Reference,
 		&wl.Settings{
 			DeliveryOffset: additionalExpiration,
-			DisableOffset:  false,
+			DisableOffset:  true,
 			NotifyDeadline: willRequest.NotifyDeadline,
 			ExtensionUnit:  willRequest.ExtensionUnit,
 		},
