@@ -26,4 +26,6 @@ type args struct {
 	processScheduleMinutes  uint32
 	dispatchScheduleMinutes uint32
 	cleanupScheduleMinutes  uint32
+	// debugging
+	now bool
 }

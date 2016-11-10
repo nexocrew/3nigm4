@@ -59,9 +59,10 @@ func init() {
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthUser, "smtpuser", "", "", "the smtp service user name")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthPassword, "smtppwd", "", "", "the smtp service password")
 	RunCmd.PersistentFlags().StringVarP(&arguments.htmlTemplatePath, "template", "", "", "specify the email template to be used for notification")
-	RunCmd.PersistentFlags().Uint32Var(&arguments.processScheduleMinutes, "processwait", 3, "defines the wait time for the processing routine iteration in minutes")
-	RunCmd.PersistentFlags().Uint32Var(&arguments.dispatchScheduleMinutes, "dispatchtime", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine in minutes")
-	RunCmd.PersistentFlags().Uint32Var(&arguments.cleanupScheduleMinutes, "cleanuptime", 30, "run at defined intervals the cleanup function that remove email messages from the database in minutes")
+	RunCmd.PersistentFlags().Uint32VarP(&arguments.processScheduleMinutes, "processwait", "", 3, "defines the wait time for the processing routine iteration in minutes")
+	RunCmd.PersistentFlags().Uint32VarP(&arguments.dispatchScheduleMinutes, "dispatchtime", "", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine in minutes")
+	RunCmd.PersistentFlags().Uint32VarP(&arguments.cleanupScheduleMinutes, "cleanuptime", "", 30, "run at defined intervals the cleanup function that remove email messages from the database in minutes")
+	RunCmd.PersistentFlags().BoolVarP(&arguments.now, "now", "", false, "for debugging execute routine every 10 seconds")
 	// files parameters
 	RunCmd.RunE = run
 }
@@ -72,7 +73,6 @@ var db ct.Database
 
 // Global working queue
 var workingQueue *wq.WorkingQueue
-var errc chan error
 
 // This var is used to permitt to switch to mock db implementation
 // in unit-tests, do not mess with it for other reasons.
@@ -128,25 +128,12 @@ const (
 	minToleratedDuration = 1
 )
 
-// startupChans start error chan to manage async
-// errors.
-func startupChans() {
-	errc = make(chan error, workersize)
-	go func() {
-		for {
-			select {
-			case err := <-errc:
-				log.ErrorLog("Async error: %s.\n", err)
-			}
-		}
-	}()
-}
-
 // procArgs processing func used arguments.
 type procArgs struct {
 	database     ct.Database
 	deliverer    sender.Sender
 	criticalChan chan bool
+	errorChan    chan error
 }
 
 // saveEmailsToDatabase save email record to the db.
@@ -236,15 +223,15 @@ func sendEmails(genericArgs interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Sended emails: %#v.\n", emails)
 	for _, email := range emails {
-		err = args.deliverer.SendEmail(
+		err := args.deliverer.SendEmail(
 			&email,
 			ServiceEmail,
 			fmt.Sprintf("Important data from %s", email.Sender),
 			AttachmentName,
 		)
 		if err != nil {
+			args.errorChan <- fmt.Errorf("error sending email: %s", err.Error())
 			email.Sended = false
 			// restore mail status by restoring sended
 			// flag. Is done best effort so no error check
@@ -308,8 +295,16 @@ func run(cmd *cobra.Command, args []string) error {
 	// startup sender
 	sender := senderStartup(&arguments)
 
-	startupChans()
 	// create working queue
+	errc := make(chan error, workersize)
+	go func() {
+		for {
+			select {
+			case err := <-errc:
+				log.ErrorLog("Async error: %s.\n", err.Error())
+			}
+		}
+	}()
 	workingQueue = wq.NewWorkingQueue(workersize, queuesize, errc)
 	// start working queue
 	if err := workingQueue.Run(); err != nil {
@@ -318,38 +313,66 @@ func run(cmd *cobra.Command, args []string) error {
 	defer workingQueue.Close()
 
 	// timers
-	processingSchedule := time.NewTicker(validateDuration(arguments.processScheduleMinutes))
-	dispatchSchedule := time.NewTicker(validateDuration(arguments.dispatchScheduleMinutes))
-	cleanupSchedule := time.NewTicker(validateDuration(arguments.cleanupScheduleMinutes))
+	var processingSchedule, dispatchSchedule, cleanupSchedule *time.Ticker
 	// chan used to async block schedule ops.
 	critical := make(chan bool, 3)
+	if arguments.now {
+		workingQueue.SendJob(processEmails, &procArgs{
+			database:     db,
+			deliverer:    sender,
+			criticalChan: critical,
+			errorChan:    errc,
+		})
+		time.Sleep(1 * time.Second)
+		workingQueue.SendJob(sendEmails, &procArgs{
+			database:     db,
+			deliverer:    sender,
+			criticalChan: critical,
+			errorChan:    errc,
+		})
+		time.Sleep(1 * time.Second)
+		workingQueue.SendJob(cleanupSendedEmails, &procArgs{
+			database:     db,
+			deliverer:    sender,
+			criticalChan: critical,
+			errorChan:    errc,
+		})
+		log.MessageLog("Completed jobs with critical signals: %d.\n", len(critical))
+	} else {
+		processingSchedule = time.NewTicker(validateDuration(arguments.processScheduleMinutes))
+		dispatchSchedule = time.NewTicker(validateDuration(arguments.dispatchScheduleMinutes))
+		cleanupSchedule = time.NewTicker(validateDuration(arguments.cleanupScheduleMinutes))
 
-	// run loop
-	for {
-		select {
-		case <-processingSchedule.C:
-			workingQueue.SendJob(processEmails, &procArgs{
-				database:     db,
-				deliverer:    sender,
-				criticalChan: critical,
-			})
-		case <-dispatchSchedule.C:
-			workingQueue.SendJob(sendEmails, &procArgs{
-				database:     db,
-				deliverer:    sender,
-				criticalChan: critical,
-			})
-		case <-cleanupSchedule.C:
-			workingQueue.SendJob(cleanupSendedEmails, &procArgs{
-				database:     db,
-				deliverer:    sender,
-				criticalChan: critical,
-			})
-		case <-critical:
-			processingSchedule.Stop()
-			dispatchSchedule.Stop()
-			cleanupSchedule.Stop()
-			return fmt.Errorf("timers blocked cause a critical error was produced")
+		// run loop
+		for {
+			select {
+			case <-processingSchedule.C:
+				workingQueue.SendJob(processEmails, &procArgs{
+					database:     db,
+					deliverer:    sender,
+					criticalChan: critical,
+					errorChan:    errc,
+				})
+			case <-dispatchSchedule.C:
+				workingQueue.SendJob(sendEmails, &procArgs{
+					database:     db,
+					deliverer:    sender,
+					criticalChan: critical,
+					errorChan:    errc,
+				})
+			case <-cleanupSchedule.C:
+				workingQueue.SendJob(cleanupSendedEmails, &procArgs{
+					database:     db,
+					deliverer:    sender,
+					criticalChan: critical,
+					errorChan:    errc,
+				})
+			case <-critical:
+				processingSchedule.Stop()
+				dispatchSchedule.Stop()
+				cleanupSchedule.Stop()
+				return fmt.Errorf("timers blocked cause a critical error was produced")
+			}
 		}
 	}
 

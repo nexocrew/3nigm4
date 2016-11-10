@@ -62,8 +62,8 @@ func getRecipients(argument string) []ct.Recipient {
 			signature = nil
 		}
 		r := &ct.Recipient{
-			Name:        components[0],
-			Email:       components[1],
+			Name:        components[1],
+			Email:       components[0],
 			KeyID:       uint64(keyid),
 			Fingerprint: signature,
 		}

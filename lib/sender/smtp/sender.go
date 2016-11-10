@@ -46,7 +46,7 @@ func NewSmtpSender(addr, usr, pwd, template string, port int) *SmtpSender {
 // SendEmail send a message using the defined Smtp
 // inteface.
 func (s *SmtpSender) SendEmail(content *ct.Email, fromAddress, subject, attachmentName string) error {
-	body, err := createMailBody(content, s.templatePath)
+	body, err := factory(s.templatePath).createMailBody(content)
 	if err != nil {
 		return err
 	}
@@ -60,8 +60,6 @@ func (s *SmtpSender) SendEmail(content *ct.Email, fromAddress, subject, attachme
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("Sending %#v.\n", m)
 
 	err = email.Send(
 		fmt.Sprintf("%s:%d", s.addr, s.port),
