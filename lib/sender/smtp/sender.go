@@ -61,13 +61,9 @@ func (s *SmtpSender) SendEmail(content *ct.Email, fromAddress, subject, attachme
 		return err
 	}
 
-	err = email.Send(
+	return email.Send(
 		fmt.Sprintf("%s:%d", s.addr, s.port),
 		s.auth,
 		m,
 	)
-	if err != nil {
-		return err
-	}
-	return nil
 }
