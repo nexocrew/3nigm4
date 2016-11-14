@@ -22,7 +22,38 @@ import (
 	"github.com/nexocrew/3nigm4/lib/itm"
 )
 
+func cleanMailBox(t *testing.T) {
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"PATCH",
+		"https://mailtrap.io/api/v1/inboxes/155088/clean",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("Unable to connect the mailtrap.io backend: %s.\n", err.Error())
+	}
+	req.Header.Set("Api-Token", itm.S().SmtpApiKey())
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Unable to perform GET request, cause %s.\n", err.Error())
+	}
+	defer resp.Body.Close()
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Unable to read response body, %s.\n", err.Error())
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unexpected status code having %d but expected %d: %s",
+			resp.StatusCode,
+			http.StatusOK,
+			string(respBody),
+		)
+	}
+}
+
 func TestSmtpSending(t *testing.T) {
+	cleanMailBox(t)
+
 	once = sync.Once{}
 	sender := NewSmtpSender(
 		itm.S().SmtpAddress(),
@@ -48,6 +79,7 @@ func TestSmtpSending(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to send test email (template %s): %s.\n", tmpFilePath, err.Error())
 	}
+	defer cleanMailBox(t)
 
 	client := &http.Client{}
 	req, err := http.NewRequest(
@@ -84,31 +116,7 @@ func TestSmtpSending(t *testing.T) {
 	if len(emailsRetrieved) != 1 {
 		t.Fatalf("Unexpected number of emails, having %d expecting %d.\n", len(emailsRetrieved), 1)
 	}
-
-	req, err = http.NewRequest(
-		"PATCH",
-		"https://mailtrap.io/api/v1/inboxes/155088/clean",
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("Unable to connect the mailtrap.io backend: %s.\n", err.Error())
+	if emailsRetrieved[0]["to_email"] != email.Recipient {
+		t.Fatalf("Unexpected recipient, having %s expecting %s.\n", emailsRetrieved[0]["to_email"], email.Recipient)
 	}
-	req.Header.Set("Api-Token", itm.S().SmtpApiKey())
-	resp, err = client.Do(req)
-	if err != nil {
-		t.Fatalf("Unable to perform GET request, cause %s.\n", err.Error())
-	}
-	defer resp.Body.Close()
-	respBody, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("Unable to read response body, %s.\n", err.Error())
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("Unexpected status code having %d but expected %d: %s",
-			resp.StatusCode,
-			http.StatusOK,
-			string(respBody),
-		)
-	}
-
 }
