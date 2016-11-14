@@ -119,7 +119,6 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Unable to write data to file %s, cause %s.\n", wrongFilePath, err.Error())
 		os.Exit(1)
 	}
-
 	os.Exit(m.Run())
 }
 
