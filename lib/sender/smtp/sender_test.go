@@ -9,6 +9,7 @@ package smtpmail
 // Golang std pkgs
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -26,7 +27,7 @@ func cleanMailBox(t *testing.T) {
 	client := &http.Client{}
 	req, err := http.NewRequest(
 		"PATCH",
-		"https://mailtrap.io/api/v1/inboxes/155088/clean",
+		fmt.Sprintf("https://mailtrap.io/api/v1/inboxes/%s/clean", itm.S().SmtpMailbox()),
 		nil,
 	)
 	if err != nil {
@@ -84,7 +85,7 @@ func TestSmtpSending(t *testing.T) {
 	client := &http.Client{}
 	req, err := http.NewRequest(
 		"GET",
-		"https://mailtrap.io/api/v1/inboxes/155088/messages",
+		fmt.Sprintf("https://mailtrap.io/api/v1/inboxes/%s/messages", itm.S().SmtpMailbox()),
 		nil,
 	)
 	if err != nil {

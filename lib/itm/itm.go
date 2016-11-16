@@ -40,7 +40,8 @@ type IntegrationTestsDataSource struct {
 	smtpPort     int    // the smtp port;
 	smtpUsername string // the authentication username;
 	smtpPassword string // the authentication password;
-	smtpApiKey   string // Smtp service API key to match email recived.
+	smtpApiKey   string // Smtp service API key to match email recived;
+	smtpMailbox  string // Smtp reference to the API exposed mailbox.
 }
 
 // Constant db values (usable in local contexts).
@@ -62,6 +63,7 @@ const (
 	kSmtpUsername     = ""
 	kSmtpPassword     = ""
 	kSmtpApiKey       = ""
+	kSmtpMailbox      = "155088"
 )
 
 // Environment defined keys: should be used
@@ -85,6 +87,7 @@ const (
 	kEnvSmtpUsername = "ENIGM4_SMTP_USERNAME"
 	kEnvSmtpPassword = "ENIGM4_SMTP_PASSWORD"
 	kEnvSmtpApiKey   = "ENIGM4_SMTP_APIKEY"
+	kEnvSmtpMailbox  = "ENIGM4_SMTP_MAILBOX"
 )
 
 // S returns an IntegrationTestsDataSource instance
@@ -193,6 +196,12 @@ func S() *IntegrationTestsDataSource {
 		} else {
 			itm.smtpApiKey = kSmtpApiKey
 		}
+		env = os.Getenv(kEnvSmtpMailbox)
+		if env != "" {
+			itm.smtpMailbox = env
+		} else {
+			itm.smtpMailbox = kSmtpMailbox
+		}
 		// assign singleton
 		ds = &itm
 	}
@@ -294,4 +303,9 @@ func (i *IntegrationTestsDataSource) SmtpPassword() string {
 // SmtpApiKey test smtp API credentials.
 func (i *IntegrationTestsDataSource) SmtpApiKey() string {
 	return i.smtpApiKey
+}
+
+// SmtpApiKey test smtp mailbox reference.
+func (i *IntegrationTestsDataSource) SmtpMailbox() string {
+	return i.smtpMailbox
 }
