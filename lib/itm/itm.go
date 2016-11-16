@@ -34,7 +34,14 @@ type IntegrationTestsDataSource struct {
 	s3Token    string // s3 token;
 	s3Endpoint string // s3 endpoint;
 	s3Region   string // s3 region;
-	s3Bucket   string // s3 bucket name.
+	s3Bucket   string // s3 bucket name;
+	// email server credentials
+	smtpAddress  string // the smtp address to be used for integration tests;
+	smtpPort     int    // the smtp port;
+	smtpUsername string // the authentication username;
+	smtpPassword string // the authentication password;
+	smtpApiKey   string // Smtp service API key to match email recived;
+	smtpMailbox  string // Smtp reference to the API exposed mailbox.
 }
 
 // Constant db values (usable in local contexts).
@@ -51,6 +58,12 @@ const (
 	kS3Endpoint       = "s3.amazonaws.com"
 	kS3Region         = "eu-central-1"
 	kS3BucketName     = "3nigm4"
+	kSmtpAddress      = "smtp.mailtrap.io"
+	kSmtpPort         = 2525
+	kSmtpUsername     = ""
+	kSmtpPassword     = ""
+	kSmtpApiKey       = ""
+	kSmtpMailbox      = "155088"
 )
 
 // Environment defined keys: should be used
@@ -58,17 +71,23 @@ const (
 // refer to dedicated db server created on the
 // fly.
 const (
-	kEnvDbAddr     = "ENIGM4_DB_ADDR"
-	kEnvDbPort     = "ENIGM4_DB_PORT"
-	kEnvDbUsr      = "ENIGM4_DB_USR"
-	kEnvDbPwd      = "ENIGM4_DB_PWD"
-	kEnvDbAuth     = "ENIGM4_DB_AUTH"
-	kEnvS3ID       = "ENIGM4_S3_ID"
-	kEnvS3Secret   = "ENIGM4_S3_SECRET"
-	kEnvS3Token    = "ENIGM4_S3_TOKEN"
-	kEnvS3Endpoint = "ENIGM4_S3_ENDPOINT"
-	kEnvS3Region   = "ENIGM4_S3_REGION"
-	kEnvS3Bucket   = "ENIGM4_S3_BUCKET"
+	kEnvDbAddr       = "ENIGM4_DB_ADDR"
+	kEnvDbPort       = "ENIGM4_DB_PORT"
+	kEnvDbUsr        = "ENIGM4_DB_USR"
+	kEnvDbPwd        = "ENIGM4_DB_PWD"
+	kEnvDbAuth       = "ENIGM4_DB_AUTH"
+	kEnvS3ID         = "ENIGM4_S3_ID"
+	kEnvS3Secret     = "ENIGM4_S3_SECRET"
+	kEnvS3Token      = "ENIGM4_S3_TOKEN"
+	kEnvS3Endpoint   = "ENIGM4_S3_ENDPOINT"
+	kEnvS3Region     = "ENIGM4_S3_REGION"
+	kEnvS3Bucket     = "ENIGM4_S3_BUCKET"
+	kEnvSmtpAddress  = "ENIGM4_SMTP_ADDRESS"
+	kEnvSmtpPort     = "ENIGM4_SMTP_PORT"
+	kEnvSmtpUsername = "ENIGM4_SMTP_USERNAME"
+	kEnvSmtpPassword = "ENIGM4_SMTP_PASSWORD"
+	kEnvSmtpApiKey   = "ENIGM4_SMTP_APIKEY"
+	kEnvSmtpMailbox  = "ENIGM4_SMTP_MAILBOX"
 )
 
 // S returns an IntegrationTestsDataSource instance
@@ -147,6 +166,42 @@ func S() *IntegrationTestsDataSource {
 		} else {
 			itm.s3Bucket = kS3BucketName
 		}
+		env = os.Getenv(kEnvSmtpAddress)
+		if env != "" {
+			itm.smtpAddress = env
+		} else {
+			itm.smtpAddress = kSmtpAddress
+		}
+		env = os.Getenv(kEnvSmtpPort)
+		if env != "" {
+			itm.smtpPort, _ = strconv.Atoi(env)
+		} else {
+			itm.smtpPort = kSmtpPort
+		}
+		env = os.Getenv(kEnvSmtpUsername)
+		if env != "" {
+			itm.smtpUsername = env
+		} else {
+			itm.smtpUsername = kSmtpUsername
+		}
+		env = os.Getenv(kEnvSmtpPassword)
+		if env != "" {
+			itm.smtpPassword = env
+		} else {
+			itm.smtpPassword = kSmtpPassword
+		}
+		env = os.Getenv(kEnvSmtpApiKey)
+		if env != "" {
+			itm.smtpApiKey = env
+		} else {
+			itm.smtpApiKey = kSmtpApiKey
+		}
+		env = os.Getenv(kEnvSmtpMailbox)
+		if env != "" {
+			itm.smtpMailbox = env
+		} else {
+			itm.smtpMailbox = kSmtpMailbox
+		}
 		// assign singleton
 		ds = &itm
 	}
@@ -223,4 +278,34 @@ func (i *IntegrationTestsDataSource) S3Region() string {
 // S3Bucket the S3 bucket name.
 func (i *IntegrationTestsDataSource) S3Bucket() string {
 	return i.s3Bucket
+}
+
+// SmtpAddress test smtp server.
+func (i *IntegrationTestsDataSource) SmtpAddress() string {
+	return i.smtpAddress
+}
+
+// SmtpPort test smtp ports.
+func (i *IntegrationTestsDataSource) SmtpPort() int {
+	return i.smtpPort
+}
+
+// SmtpUsername test smtp credentials.
+func (i *IntegrationTestsDataSource) SmtpUsername() string {
+	return i.smtpUsername
+}
+
+// SmtpPassword test smtp credentials.
+func (i *IntegrationTestsDataSource) SmtpPassword() string {
+	return i.smtpPassword
+}
+
+// SmtpApiKey test smtp API credentials.
+func (i *IntegrationTestsDataSource) SmtpApiKey() string {
+	return i.smtpApiKey
+}
+
+// SmtpApiKey test smtp mailbox reference.
+func (i *IntegrationTestsDataSource) SmtpMailbox() string {
+	return i.smtpMailbox
 }

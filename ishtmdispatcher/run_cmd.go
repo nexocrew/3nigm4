@@ -10,6 +10,7 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -23,12 +24,12 @@ import (
 	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 	"github.com/nexocrew/3nigm4/lib/sender"
 	"github.com/nexocrew/3nigm4/lib/sender/smtp"
-	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
 // Third party pkgs
 import (
 	"github.com/spf13/cobra"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func init() {
@@ -42,7 +43,7 @@ var RunCmd = &cobra.Command{
 	Use:     "run",
 	Short:   "Run dispatcher routine",
 	Long:    "Launch dispatching routine to loop on the db and send expired \"will\"",
-	Example: "ishtmdispatcher run -d 127.0.0.1:27017 -u dbuser -w dbpwd --smtpaddress 192.168.0.1 --smtpport 443 --smtpuser username --smtppwd pwd -v",
+	Example: "ishtmdispatcher run -d 127.0.0.1:27017 -u dbuser -w dbpwd --smtpaddress 192.168.0.1 --smtpport 443 --smtpuser username --smtppwd pwd --template /home/user/template.html -v",
 }
 
 func init() {
@@ -56,9 +57,11 @@ func init() {
 	RunCmd.PersistentFlags().IntVarP(&arguments.senderPort, "smtpport", "", 443, "the smtp service port")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthUser, "smtpuser", "", "", "the smtp service user name")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthPassword, "smtppwd", "", "", "the smtp service password")
-	RunCmd.PersistentFlags().Uint32Var(&arguments.processScheduleMinutes, "processwait", 3, "defines the wait time for the processing routine iteration in minutes")
-	RunCmd.PersistentFlags().Uint32Var(&arguments.dispatchScheduleMinutes, "dispatchtime", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine in minutes")
-	RunCmd.PersistentFlags().Uint32Var(&arguments.cleanupScheduleMinutes, "cleanuptime", 30, "run at defined intervals the cleanup function that remove email messages from the database in minutes")
+	RunCmd.PersistentFlags().StringVarP(&arguments.htmlTemplatePath, "template", "", "", "specify the email template to be used for notification")
+	RunCmd.PersistentFlags().Uint32VarP(&arguments.processScheduleMinutes, "processwait", "", 3, "defines the wait time for the processing routine iteration in minutes")
+	RunCmd.PersistentFlags().Uint32VarP(&arguments.dispatchScheduleMinutes, "dispatchtime", "", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine in minutes")
+	RunCmd.PersistentFlags().Uint32VarP(&arguments.cleanupScheduleMinutes, "cleanuptime", "", 30, "run at defined intervals the cleanup function that remove email messages from the database in minutes")
+	RunCmd.PersistentFlags().BoolVarP(&arguments.now, "now", "", false, "for debugging execute routine every 10 seconds")
 	// files parameters
 	RunCmd.RunE = run
 }
@@ -66,10 +69,6 @@ func init() {
 // Global database referring variable to be copied and released by
 // each goroutine.
 var db ct.Database
-
-// Global working queue
-var workingQueue *wq.WorkingQueue
-var errc chan error
 
 // This var is used to permitt to switch to mock db implementation
 // in unit-tests, do not mess with it for other reasons.
@@ -120,36 +119,30 @@ func mgoStartup(a *args) (ct.Database, error) {
 }
 
 const (
-	workersize           = 16
-	queuesize            = 300
 	minToleratedDuration = 1
 )
-
-// startupChans start error chan to manage async
-// errors.
-func startupChans() {
-	errc = make(chan error, workersize)
-	go func() {
-		for {
-			select {
-			case err := <-errc:
-				log.ErrorLog("Async error: %s.\n", err)
-			}
-		}
-	}()
-}
 
 // procArgs processing func used arguments.
 type procArgs struct {
 	database     ct.Database
 	deliverer    sender.Sender
 	criticalChan chan bool
+	errorChan    chan error
+}
+
+type sendingArgs struct {
+	message      types.Email
+	database     ct.Database
+	deliverer    sender.Sender
+	criticalChan chan bool
+	errorChan    chan error
 }
 
 // saveEmailsToDatabase save email record to the db.
 func saveEmailsToDatabase(db ct.Database, w *will.Will) error {
 	for _, recipient := range w.Recipients {
 		email := &types.Email{
+			ObjectID:             bson.NewObjectId(),
 			Recipient:            recipient.Email,
 			Sender:               w.Owner.Email,
 			Creation:             w.Creation,
@@ -206,6 +199,43 @@ const (
 	AttachmentName = "reference.3n4"
 )
 
+// sendingAsync working queue ready function to actually
+// send messages using a Sender interface.
+func sendingAsync(genericArgs interface{}) error {
+	args, ok := genericArgs.(*sendingArgs)
+	if !ok {
+		return fmt.Errorf("unexpected arguments, having %s expecting type sendingArgs", reflect.TypeOf(genericArgs))
+	}
+	if args.deliverer == nil {
+		args.criticalChan <- true
+		return fmt.Errorf("unexpected nil deliver, should be pointing to a valid struct")
+	}
+	if args.database == nil {
+		args.criticalChan <- true
+		return fmt.Errorf("unexpected nil database structure, unable to proceed")
+	}
+	database := args.database.Copy()
+	defer database.Close()
+
+	err := args.deliverer.SendEmail(
+		&args.message,
+		ServiceEmail,
+		fmt.Sprintf("Important data from %s", args.message.Sender),
+		AttachmentName,
+	)
+	if err != nil {
+		args.errorChan <- fmt.Errorf("error sending email: %s", err.Error())
+		args.message.Sended = false
+		// restore mail status by restoring sended
+		// flag.
+		err = database.SetEmail(&args.message)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // sendEmails retrieve from the db in queued emails and
 // send them using a Sender service.
 func sendEmails(genericArgs interface{}) error {
@@ -233,20 +263,15 @@ func sendEmails(genericArgs interface{}) error {
 		return err
 	}
 	for _, email := range emails {
-		err = args.deliverer.SendEmail(
-			&email,
-			ServiceEmail,
-			fmt.Sprintf("Important data from %s", email.Sender),
-			AttachmentName,
-		)
-		if err != nil {
-			email.Sended = false
-			// restore mail status by restoring sended
-			// flag. Is done best effort so no error check
-			// is done, otherwise all mail would be lost.
-			database.SetEmail(&email)
-			continue
-		}
+		// mail sending is done using the workingqueue
+		// to distribute processing pressure.
+		workingQueue.SendJob(sendingAsync, &sendingArgs{
+			message:      email,
+			deliverer:    args.deliverer,
+			database:     args.database,
+			errorChan:    args.errorChan,
+			criticalChan: args.criticalChan,
+		})
 	}
 	return nil
 }
@@ -292,51 +317,78 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 	defer db.Close()
 
+	if arguments.htmlTemplatePath == "" {
+		return fmt.Errorf("unable to access mail template, unable to start dispatching routine")
+	}
+	_, err = os.Stat(arguments.htmlTemplatePath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("template file do not exist")
+	}
+
 	// startup sender
 	sender := senderStartup(&arguments)
 
-	startupChans()
-	// create working queue
-	workingQueue = wq.NewWorkingQueue(workersize, queuesize, errc)
-	// start working queue
-	if err := workingQueue.Run(); err != nil {
-		return err
-	}
-	defer workingQueue.Close()
-
 	// timers
-	processingSchedule := time.NewTicker(validateDuration(arguments.processScheduleMinutes))
-	dispatchSchedule := time.NewTicker(validateDuration(arguments.dispatchScheduleMinutes))
-	cleanupSchedule := time.NewTicker(validateDuration(arguments.cleanupScheduleMinutes))
+	var processingSchedule, dispatchSchedule, cleanupSchedule *time.Ticker
 	// chan used to async block schedule ops.
 	critical := make(chan bool, 3)
+	if arguments.now {
+		workingQueue.SendJob(processEmails, &procArgs{
+			database:     db,
+			deliverer:    sender,
+			criticalChan: critical,
+			errorChan:    errc,
+		})
+		time.Sleep(1 * time.Second)
+		workingQueue.SendJob(sendEmails, &procArgs{
+			database:     db,
+			deliverer:    sender,
+			criticalChan: critical,
+			errorChan:    errc,
+		})
+		time.Sleep(1 * time.Second)
+		workingQueue.SendJob(cleanupSendedEmails, &procArgs{
+			database:     db,
+			deliverer:    sender,
+			criticalChan: critical,
+			errorChan:    errc,
+		})
+		log.MessageLog("Completed jobs with critical signals: %d.\n", len(critical))
+	} else {
+		processingSchedule = time.NewTicker(validateDuration(arguments.processScheduleMinutes))
+		dispatchSchedule = time.NewTicker(validateDuration(arguments.dispatchScheduleMinutes))
+		cleanupSchedule = time.NewTicker(validateDuration(arguments.cleanupScheduleMinutes))
 
-	// run loop
-	for {
-		select {
-		case <-processingSchedule.C:
-			workingQueue.SendJob(processEmails, &procArgs{
-				database:     db,
-				deliverer:    sender,
-				criticalChan: critical,
-			})
-		case <-dispatchSchedule.C:
-			workingQueue.SendJob(sendEmails, &procArgs{
-				database:     db,
-				deliverer:    sender,
-				criticalChan: critical,
-			})
-		case <-cleanupSchedule.C:
-			workingQueue.SendJob(cleanupSendedEmails, &procArgs{
-				database:     db,
-				deliverer:    sender,
-				criticalChan: critical,
-			})
-		case <-critical:
-			processingSchedule.Stop()
-			dispatchSchedule.Stop()
-			cleanupSchedule.Stop()
-			return fmt.Errorf("timers blocked cause a critical error was produced")
+		// run loop
+		for {
+			select {
+			case <-processingSchedule.C:
+				workingQueue.SendJob(processEmails, &procArgs{
+					database:     db,
+					deliverer:    sender,
+					criticalChan: critical,
+					errorChan:    errc,
+				})
+			case <-dispatchSchedule.C:
+				workingQueue.SendJob(sendEmails, &procArgs{
+					database:     db,
+					deliverer:    sender,
+					criticalChan: critical,
+					errorChan:    errc,
+				})
+			case <-cleanupSchedule.C:
+				workingQueue.SendJob(cleanupSendedEmails, &procArgs{
+					database:     db,
+					deliverer:    sender,
+					criticalChan: critical,
+					errorChan:    errc,
+				})
+			case <-critical:
+				processingSchedule.Stop()
+				dispatchSchedule.Stop()
+				cleanupSchedule.Stop()
+				return fmt.Errorf("timers blocked cause a critical error was produced")
+			}
 		}
 	}
 

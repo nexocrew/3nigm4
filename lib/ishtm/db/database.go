@@ -34,6 +34,11 @@ const (
 	envEmailsCollectionName = "NEXO_ISHTM_EMAILS"
 )
 
+const (
+	maxWillQuerySize  = 1000 // max number of retrieved wills from an iteration;
+	maxEmailQuerySize = 1000 // max number of retrieved emails from an iteration.
+)
+
 // Mongodb database, wrapping mgo session
 // structure.
 type Mongodb struct {
@@ -154,13 +159,23 @@ func (d *Mongodb) RemoveWill(id string) error {
 }
 
 // GetInDelivery returns wills having passed by the actual
-// time stamp.
+// time stamp. Implements a DCLP (double-checked lock pattern)
+// to achieve atomicity on multiple docs.
 func (d *Mongodb) GetInDelivery(actual time.Time) ([]will.Will, error) {
 	// build query
 	selector := bson.M{
 		"ttd": bson.M{
 			"$lt": actual.UTC(),
 		},
+		"removable": bson.M{
+			"$eq": false,
+		},
+	}
+	var wills []will.Will
+	err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).Limit(maxWillQuerySize).All(&wills)
+	if err != nil &&
+		err != mgo.ErrNotFound {
+		return nil, err
 	}
 
 	change := mgo.Change{
@@ -171,13 +186,25 @@ func (d *Mongodb) GetInDelivery(actual time.Time) ([]will.Will, error) {
 		},
 		ReturnNew: false,
 	}
-	var wills []will.Will
-	_, err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).Apply(change, &wills)
-	if err != nil &&
-		err != mgo.ErrNotFound {
-		return nil, err
+	locked := make([]will.Will, 0)
+	for _, sel := range wills {
+		selector = bson.M{
+			"id": bson.M{
+				"$eq": sel.ID,
+			},
+			"removable": bson.M{
+				"$eq": false,
+			},
+		}
+		var confirmed will.Will
+		_, err := d.session.DB(d.database).C(d.jobsCollection).Find(selector).Apply(change, &confirmed)
+		if err != nil {
+			continue
+		}
+		locked = append(locked, confirmed)
 	}
-	return wills, nil
+
+	return locked, nil
 }
 
 // RemoveExausted deletes all documents containing the "removable"
@@ -213,8 +240,22 @@ func (d *Mongodb) SetEmail(email *ct.Email) error {
 }
 
 // GetEmails returns non sended emails for providing
-// the dispatcher with required emails.
+// the dispatcher with required emails. Implements a DCLP
+// (double-checked lock pattern) to achieve atomicity on
+// multiple docs.
 func (d *Mongodb) GetEmails() ([]ct.Email, error) {
+	selector := bson.M{
+		"sended": bson.M{
+			"$eq": false,
+		},
+	}
+	var emails []ct.Email
+	err := d.session.DB(d.database).C(d.emailsCollection).Find(selector).Limit(maxEmailQuerySize).All(&emails)
+	if err != nil &&
+		err != mgo.ErrNotFound {
+		return nil, err
+	}
+
 	change := mgo.Change{
 		Update: bson.M{
 			"$set": bson.M{
@@ -223,18 +264,24 @@ func (d *Mongodb) GetEmails() ([]ct.Email, error) {
 		},
 		ReturnNew: false,
 	}
-	query := bson.M{
-		"sended": bson.M{
-			"$eq": false,
-		},
+	locked := make([]ct.Email, 0)
+	for _, sel := range emails {
+		selector = bson.M{
+			"_id": bson.M{
+				"$eq": sel.ObjectID,
+			},
+			"sended": bson.M{
+				"$eq": false,
+			},
+		}
+		var confirmed ct.Email
+		_, err := d.session.DB(d.database).C(d.emailsCollection).Find(selector).Apply(change, &confirmed)
+		if err != nil {
+			continue
+		}
+		locked = append(locked, confirmed)
 	}
-	var emails []ct.Email
-	_, err := d.session.DB(d.database).C(d.emailsCollection).Find(query).Apply(change, &emails)
-	if err != nil &&
-		err != mgo.ErrNotFound {
-		return nil, err
-	}
-	return emails, nil
+	return locked, nil
 }
 
 const (

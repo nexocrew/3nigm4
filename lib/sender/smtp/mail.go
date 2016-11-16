@@ -9,6 +9,7 @@ package smtpmail
 // Golang std pkgs
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"path/filepath"
 	"sync"
@@ -20,40 +21,43 @@ import (
 )
 
 var (
-	instance  *template.Template // singleton pattern instance;
-	once      sync.Once          // concurrency safety mechanism;
-	errorChan chan error         // error returning chain
+	singleton *templateFactory // singleton instance;
+	once      sync.Once        // concurrency safety mechanism;
 )
 
-// getTemplate implement a singleton pattern to access
-// a mail template.
-func getTemplate(templatePath string) *template.Template {
+type templateFactory struct {
+	mailTemplate *template.Template // singleton pattern instance.
+}
+
+func initTemplate(templatePath string) *templateFactory {
+	_, fname := filepath.Split(templatePath)
+	tml, err := template.New(fname).ParseFiles(templatePath)
+	if err != nil {
+		return &templateFactory{}
+	}
+	return &templateFactory{
+		mailTemplate: tml,
+	}
+}
+
+func factory(templatePath string) *templateFactory {
 	once.Do(func() {
-		var err error
-		errorChan = make(chan error, 1)
-		_, fname := filepath.Split(templatePath)
-		instance, err = template.New(fname).ParseFiles(templatePath)
-		if err != nil {
-			errorChan <- err
-		}
+		singleton = initTemplate(templatePath)
 	})
-	return instance
+	return singleton
 }
 
 // createMailBody returns coded mail message starting
 // from the will structure.
-func createMailBody(content *types.Email, templatePath string) ([]byte, error) {
-	thtml := getTemplate(templatePath)
-	if thtml == nil {
-		return nil, <-errorChan
+func (t *templateFactory) createMailBody(content *types.Email) ([]byte, error) {
+	if t.mailTemplate == nil {
+		return nil, fmt.Errorf("invalid template must not be nil: an error occurred while parsing")
 	}
-
 	// https://dinosaurscode.xyz/go/2016/06/21/sending-email-using-golang/
 	var buff bytes.Buffer
-	err := thtml.Execute(&buff, content)
+	err := t.mailTemplate.Execute(&buff, content)
 	if err != nil {
 		return nil, err
 	}
-
 	return buff.Bytes(), nil
 }

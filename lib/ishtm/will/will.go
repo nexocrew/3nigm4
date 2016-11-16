@@ -73,7 +73,7 @@ type Will struct {
 	Disabled       bool           `bson:"disabled"`
 	// delivery related
 	DeliveryKey []byte `bson:"deliverykey"`
-	Removable   bool   `bson:"removable,omitempty"`
+	Removable   bool   `bson:"removable"`
 }
 
 // NewWill init a new job struct with argument passed parameters
