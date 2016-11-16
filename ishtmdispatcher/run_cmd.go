@@ -24,7 +24,6 @@ import (
 	"github.com/nexocrew/3nigm4/lib/ishtm/will"
 	"github.com/nexocrew/3nigm4/lib/sender"
 	"github.com/nexocrew/3nigm4/lib/sender/smtp"
-	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
 // Third party pkgs
@@ -70,9 +69,6 @@ func init() {
 // Global database referring variable to be copied and released by
 // each goroutine.
 var db ct.Database
-
-// Global working queue
-var workingQueue *wq.WorkingQueue
 
 // This var is used to permitt to switch to mock db implementation
 // in unit-tests, do not mess with it for other reasons.
@@ -123,13 +119,19 @@ func mgoStartup(a *args) (ct.Database, error) {
 }
 
 const (
-	workersize           = 16
-	queuesize            = 300
 	minToleratedDuration = 1
 )
 
 // procArgs processing func used arguments.
 type procArgs struct {
+	database     ct.Database
+	deliverer    sender.Sender
+	criticalChan chan bool
+	errorChan    chan error
+}
+
+type sendingArgs struct {
+	message      types.Email
 	database     ct.Database
 	deliverer    sender.Sender
 	criticalChan chan bool
@@ -197,6 +199,43 @@ const (
 	AttachmentName = "reference.3n4"
 )
 
+// sendingAsync working queue ready function to actually
+// send messages using a Sender interface.
+func sendingAsync(genericArgs interface{}) error {
+	args, ok := genericArgs.(*sendingArgs)
+	if !ok {
+		return fmt.Errorf("unexpected arguments, having %s expecting type sendingArgs", reflect.TypeOf(genericArgs))
+	}
+	if args.deliverer == nil {
+		args.criticalChan <- true
+		return fmt.Errorf("unexpected nil deliver, should be pointing to a valid struct")
+	}
+	if args.database == nil {
+		args.criticalChan <- true
+		return fmt.Errorf("unexpected nil database structure, unable to proceed")
+	}
+	database := args.database.Copy()
+	defer database.Close()
+
+	err := args.deliverer.SendEmail(
+		&args.message,
+		ServiceEmail,
+		fmt.Sprintf("Important data from %s", args.message.Sender),
+		AttachmentName,
+	)
+	if err != nil {
+		args.errorChan <- fmt.Errorf("error sending email: %s", err.Error())
+		args.message.Sended = false
+		// restore mail status by restoring sended
+		// flag.
+		err = database.SetEmail(&args.message)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // sendEmails retrieve from the db in queued emails and
 // send them using a Sender service.
 func sendEmails(genericArgs interface{}) error {
@@ -224,21 +263,15 @@ func sendEmails(genericArgs interface{}) error {
 		return err
 	}
 	for _, email := range emails {
-		err := args.deliverer.SendEmail(
-			&email,
-			ServiceEmail,
-			fmt.Sprintf("Important data from %s", email.Sender),
-			AttachmentName,
-		)
-		if err != nil {
-			args.errorChan <- fmt.Errorf("error sending email: %s", err.Error())
-			email.Sended = false
-			// restore mail status by restoring sended
-			// flag. Is done best effort so no error check
-			// is done, otherwise all mail would be lost.
-			database.SetEmail(&email)
-			continue
-		}
+		// mail sending is done using the workingqueue
+		// to distribute processing pressure.
+		workingQueue.SendJob(sendingAsync, &sendingArgs{
+			message:      email,
+			deliverer:    args.deliverer,
+			database:     args.database,
+			errorChan:    args.errorChan,
+			criticalChan: args.criticalChan,
+		})
 	}
 	return nil
 }
@@ -294,23 +327,6 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// startup sender
 	sender := senderStartup(&arguments)
-
-	// create working queue
-	errc := make(chan error, workersize)
-	go func() {
-		for {
-			select {
-			case err := <-errc:
-				log.ErrorLog("Async error: %s.\n", err.Error())
-			}
-		}
-	}()
-	workingQueue = wq.NewWorkingQueue(workersize, queuesize, errc)
-	// start working queue
-	if err := workingQueue.Run(); err != nil {
-		return err
-	}
-	defer workingQueue.Close()
 
 	// timers
 	var processingSchedule, dispatchSchedule, cleanupSchedule *time.Ticker

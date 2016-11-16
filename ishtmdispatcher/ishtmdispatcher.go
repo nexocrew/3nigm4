@@ -17,6 +17,7 @@ import (
 	"github.com/nexocrew/3nigm4/lib/logger"
 	"github.com/nexocrew/3nigm4/lib/logo"
 	ver "github.com/nexocrew/3nigm4/lib/version"
+	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
 // Third party pkgs
@@ -26,6 +27,15 @@ import (
 
 // Logger global instance
 var log *logger.LogFacility
+
+// Global working queue
+var workingQueue *wq.WorkingQueue
+var errc chan error
+
+const (
+	workersize = 32
+	queuesize  = 300
+)
 
 // Cobra parsed arguments
 var arguments args
@@ -68,6 +78,24 @@ func printLogo() {
 func main() {
 	// start up logging facility
 	log = logger.NewLogFacility("ishtmdispatcher", true, true)
+
+	// create working queue
+	errc = make(chan error, workersize)
+	go func() {
+		for {
+			select {
+			case err := <-errc:
+				log.ErrorLog("Async error: %s.\n", err.Error())
+			}
+		}
+	}()
+	workingQueue = wq.NewWorkingQueue(workersize, queuesize, errc)
+	// start working queue
+	if err := workingQueue.Run(); err != nil {
+		log.CriticalLog("%s.\n", err.Error())
+		os.Exit(1)
+	}
+	defer workingQueue.Close()
 
 	err := Execute()
 	if err != nil {

@@ -26,6 +26,7 @@ import (
 	"github.com/nexocrew/3nigm4/lib/logger"
 	"github.com/nexocrew/3nigm4/lib/sender"
 	"github.com/nexocrew/3nigm4/lib/sender/mock"
+	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
 func mocksenderStartup(a *args) sender.Sender {
@@ -81,6 +82,24 @@ func TestMain(m *testing.M) {
 	senderInstance = senderStartup(&arguments)
 	criticalChan = make(chan bool, 3)
 
+	// create working queue
+	errc = make(chan error, workersize)
+	go func() {
+		for {
+			select {
+			case err := <-errc:
+				log.ErrorLog("Async error: %s.\n", err.Error())
+			}
+		}
+	}()
+	workingQueue = wq.NewWorkingQueue(workersize, queuesize, errc)
+	// start working queue
+	if err := workingQueue.Run(); err != nil {
+		log.CriticalLog("%s.\n", err.Error())
+		os.Exit(1)
+	}
+	defer workingQueue.Close()
+
 	os.Exit(m.Run())
 }
 
@@ -135,6 +154,9 @@ func TestSendingFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to send email message: %s.\n", err.Error())
 	}
+	// sleeping is required to wait working queue activate on mail
+	// sending operations.
+	time.Sleep(100 * time.Microsecond)
 
 	emails, err = databaseInstance.GetEmails()
 	if err != nil {
