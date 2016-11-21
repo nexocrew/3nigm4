@@ -42,7 +42,7 @@ var v *VersionManager // Singleton pattern static variable
 const (
 	majorVersion = 0
 	minorVersion = 1
-	patchVersion = 0
+	patchVersion = 8
 	releaseType  = "beta"
 )
 

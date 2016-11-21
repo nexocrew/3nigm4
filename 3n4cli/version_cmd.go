@@ -43,5 +43,5 @@ func version(cmd *cobra.Command, args []string) {
 	printLogo()
 	fmt.Printf("Command line client to access 3nigm4 services.\n")
 	lg := logger.NewLogger(color.New(color.BgBlack, color.FgYellow, color.Underline), "", "", false, true)
-	fmt.Printf("Take a look at %s for project details and docs.", lg.Color("www.3n4.io"))
+	fmt.Printf("Take a look at %s for project details and docs.\n", lg.Color("www.3n4.io"))
 }

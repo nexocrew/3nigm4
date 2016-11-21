@@ -41,10 +41,10 @@ GOLANG_IMAGE=nexo/golang:latest
 # $4 architecture type
 #
 function clean()	 {
-	docker run --rm -v ${1}/src/:/usr/src/:Z \
-	-w /usr/src/${2} -e GOPATH=/usr/:${GOPATH} \
+	docker run --rm -v ${1}/src/:/usr/gopath/src/:rw \
+	-w /usr/gopath/src/${2} -e GOPATH=/usr/gopath \
 	-e GOARCH=${4} -e GOOS=${3} ${GOLANG_IMAGE} \
-	bash -c make clean
+	bash -c "make clean"
 	if [ $? -ne 0 ]
 	then
 		return 1
@@ -69,12 +69,14 @@ function build() {
 		rm -Rf ${1}/src/${2}/${BUILD_PATH}/*
 	fi
 
+	# -e GOBIN=/usr/src/${2}/${BUILD_PATH} 
 	# install it!
-	docker run --rm -v ${1}/src/:/usr/src/:Z \
-	-w /usr/src/${2} -e GOPATH=/usr/:${GOPATH} \
-	-e GOBIN=/usr/src/${2}/${BUILD_PATH} -e GOARCH=${4} \
-	-e GOOS=${3} --name golangbuild ${GOLANG_IMAGE} \
-	bash -c make install
+	docker run --rm -v ${1}/src/:/usr/gopath/src/:rw \
+	-v ${1}/src/${2}/${BUILD_PATH}:/usr/gopath/bin/:rw \
+	-w /usr/gopath/src/${2} -e GOPATH=/usr/gopath \
+	-e GOARCH=${4} -e GOOS=${3} \
+	--name golangbuild ${GOLANG_IMAGE} \
+	bash -c "make install"
 	if [ $? -ne 0 ]
 	then
 		return 1
