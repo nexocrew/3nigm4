@@ -4,6 +4,8 @@ _“if something happens to me” let the computer act on my behalf..._
 
 3n4 is an open source project aimed at offering a secure storage solution to sharing information with selected recipients even if  the original data owner were to lose the files. 3n4 is mainly developed in [Go](https://golang.org/).
 
+[![asciicast](https://asciinema.org/a/07pxxtloh42kdygx7jz8sbuen.png)](https://asciinema.org/a/07pxxtloh42kdygx7jz8sbuen)
+
 ## Status
 [![Build Status](https://travis-ci.org/nexocrew/3nigm4.svg?branch=develop)](https://travis-ci.org/nexocrew/3nigm4)
 [![GoDoc](https://godoc.org/github.com/nexocrew/3nigm4?status.svg)](https://godoc.org/github.com/nexocrew/3nigm4)

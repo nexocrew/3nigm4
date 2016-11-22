@@ -267,7 +267,7 @@ var am map[string]cliArguments = map[string]cliArguments{
 		name:      "destkeys",
 		shorthand: "",
 		value:     "",
-		usage:     "path for the PGP public keys of message or resource recipients",
+		usage:     "path for the PGP public keys of message or resource recipients, comma separated",
 		kind:      String,
 	},
 	"workerscount": cliArguments{
