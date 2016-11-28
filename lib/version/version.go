@@ -43,7 +43,7 @@ const (
 	majorVersion = 0
 	minorVersion = 1
 	patchVersion = 8
-	releaseType  = "beta"
+	releaseType  = "gm"
 )
 
 // V returns a version manager instance using a

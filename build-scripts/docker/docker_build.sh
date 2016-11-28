@@ -8,7 +8,7 @@
 #
 # Base image name
 #
-GOLANG_IMAGE=nexo/golang:latest
+GOLANG_DEFAULT_IMAGE=nexo/golang:latest
 
 #
 #
@@ -39,11 +39,12 @@ GOLANG_IMAGE=nexo/golang:latest
 # $2 project path
 # $3 target os
 # $4 architecture type
+# $5 golang image
 #
 function clean()	 {
 	docker run --rm -v ${1}/src/:/usr/gopath/src/:rw \
 	-w /usr/gopath/src/${2} -e GOPATH=/usr/gopath \
-	-e GOARCH=${4} -e GOOS=${3} ${GOLANG_IMAGE} \
+	-e GOARCH=${4} -e GOOS=${3} ${5} \
 	bash -c "make clean"
 	if [ $? -ne 0 ]
 	then
@@ -58,6 +59,7 @@ function clean()	 {
 # $2 project path
 # $3 target os
 # $4 architecture type
+# $5 golang image
 #
 function build() {
 	BUILD_PATH=build/${3}-${4}
@@ -75,7 +77,7 @@ function build() {
 	-v ${1}/src/${2}/${BUILD_PATH}:/usr/gopath/bin/:rw \
 	-w /usr/gopath/src/${2} -e GOPATH=/usr/gopath \
 	-e GOARCH=${4} -e GOOS=${3} \
-	--name golangbuild ${GOLANG_IMAGE} \
+	--name golangbuild ${5} \
 	bash -c "make install"
 	if [ $? -ne 0 ]
 	then
@@ -132,10 +134,17 @@ then
 			exit 1
 		fi
 
+		GOLANG=${GOLANG_DEFAULT_IMAGE}
+		if [ ! -z ${ALT_GOLANG_IMAGE} ]
+		then
+			echo "Choose a different golang image: ${ALT_GOLANG_IMAGE}"
+			GOLANG=${ALT_GOLANG_IMAGE}
+		fi
+
 		#
 		# Execute clean
 		#
-		clean ${GO_PATH} ${PROJ_PATH} ${PLATFORM} ${ARCH}
+		clean ${GO_PATH} ${PROJ_PATH} ${PLATFORM} ${ARCH} ${GOLANG}
 		if [ $? -ne 0 ]
 		then
 			echo "Unable to clean the app."
@@ -145,7 +154,7 @@ then
 		#
 		# Execute build
 		#
-		build ${GO_PATH} ${PROJ_PATH} ${PLATFORM} ${ARCH}
+		build ${GO_PATH} ${PROJ_PATH} ${PLATFORM} ${ARCH} ${GOLANG}
 		if [ $? -ne 0 ]
 		then
 			echo "Unable to install the app."
