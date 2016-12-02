@@ -57,6 +57,7 @@ func init() {
 	RunCmd.PersistentFlags().IntVarP(&arguments.senderPort, "smtpport", "", 443, "the smtp service port")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthUser, "smtpuser", "", "", "the smtp service user name")
 	RunCmd.PersistentFlags().StringVarP(&arguments.senderAuthPassword, "smtppwd", "", "", "the smtp service password")
+	RunCmd.PersistentFlags().StringVarP(&arguments.senderEmailAddress, "senderemail", "m", "ishtm@3n4.io", "the email address to be used as sender in email messages")
 	RunCmd.PersistentFlags().StringVarP(&arguments.htmlTemplatePath, "template", "", "", "specify the email template to be used for notification")
 	RunCmd.PersistentFlags().Uint32VarP(&arguments.processScheduleMinutes, "processwait", "", 3, "defines the wait time for the processing routine iteration in minutes")
 	RunCmd.PersistentFlags().Uint32VarP(&arguments.dispatchScheduleMinutes, "dispatchtime", "", 5, "defines the wait time in looping for dispatching email messages produced by the processing routine in minutes")
@@ -126,6 +127,7 @@ const (
 type procArgs struct {
 	database     ct.Database
 	deliverer    sender.Sender
+	senderEmail  string
 	criticalChan chan bool
 	errorChan    chan error
 }
@@ -134,6 +136,7 @@ type sendingArgs struct {
 	message      types.Email
 	database     ct.Database
 	deliverer    sender.Sender
+	senderEmail  string
 	criticalChan chan bool
 	errorChan    chan error
 }
@@ -195,7 +198,6 @@ func processEmails(genericArgs interface{}) error {
 }
 
 const (
-	ServiceEmail   = "3n4@nexo.cloud"
 	AttachmentName = "reference.3n4"
 )
 
@@ -219,7 +221,7 @@ func sendingAsync(genericArgs interface{}) error {
 
 	err := args.deliverer.SendEmail(
 		&args.message,
-		ServiceEmail,
+		args.senderEmail,
 		fmt.Sprintf("Important data from %s", args.message.Sender),
 		AttachmentName,
 	)
@@ -268,6 +270,7 @@ func sendEmails(genericArgs interface{}) error {
 		workingQueue.SendJob(sendingAsync, &sendingArgs{
 			message:      email,
 			deliverer:    args.deliverer,
+			senderEmail:  args.senderEmail,
 			database:     args.database,
 			errorChan:    args.errorChan,
 			criticalChan: args.criticalChan,
@@ -336,6 +339,7 @@ func run(cmd *cobra.Command, args []string) error {
 		workingQueue.SendJob(processEmails, &procArgs{
 			database:     db,
 			deliverer:    sender,
+			senderEmail:  arguments.senderEmailAddress,
 			criticalChan: critical,
 			errorChan:    errc,
 		})
@@ -343,6 +347,7 @@ func run(cmd *cobra.Command, args []string) error {
 		workingQueue.SendJob(sendEmails, &procArgs{
 			database:     db,
 			deliverer:    sender,
+			senderEmail:  arguments.senderEmailAddress,
 			criticalChan: critical,
 			errorChan:    errc,
 		})
@@ -350,6 +355,7 @@ func run(cmd *cobra.Command, args []string) error {
 		workingQueue.SendJob(cleanupSendedEmails, &procArgs{
 			database:     db,
 			deliverer:    sender,
+			senderEmail:  arguments.senderEmailAddress,
 			criticalChan: critical,
 			errorChan:    errc,
 		})
@@ -366,6 +372,7 @@ func run(cmd *cobra.Command, args []string) error {
 				workingQueue.SendJob(processEmails, &procArgs{
 					database:     db,
 					deliverer:    sender,
+					senderEmail:  arguments.senderEmailAddress,
 					criticalChan: critical,
 					errorChan:    errc,
 				})
@@ -373,6 +380,7 @@ func run(cmd *cobra.Command, args []string) error {
 				workingQueue.SendJob(sendEmails, &procArgs{
 					database:     db,
 					deliverer:    sender,
+					senderEmail:  arguments.senderEmailAddress,
 					criticalChan: critical,
 					errorChan:    errc,
 				})
@@ -380,6 +388,7 @@ func run(cmd *cobra.Command, args []string) error {
 				workingQueue.SendJob(cleanupSendedEmails, &procArgs{
 					database:     db,
 					deliverer:    sender,
+					senderEmail:  arguments.senderEmailAddress,
 					criticalChan: critical,
 					errorChan:    errc,
 				})
