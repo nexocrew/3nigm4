@@ -29,6 +29,10 @@ import (
 	wq "github.com/nexocrew/3nigm4/lib/workingqueue"
 )
 
+const (
+	ServiceEmail = "ishtm@3n4.io"
+)
+
 func mocksenderStartup(a *args) sender.Sender {
 	return sendermock.NewMockSender()
 }
@@ -65,6 +69,7 @@ func TestMain(m *testing.M) {
 		senderPort:         25,
 		senderAuthUser:     "user",
 		senderAuthPassword: "password",
+		senderEmailAddress: ServiceEmail,
 		// schedulers
 		processScheduleMinutes:  1,
 		dispatchScheduleMinutes: 2,
@@ -129,6 +134,7 @@ func TestSendingFlow(t *testing.T) {
 	proc := &procArgs{
 		database:     databaseInstance,
 		deliverer:    senderInstance,
+		senderEmail:  ServiceEmail,
 		criticalChan: criticalChan,
 	}
 
@@ -225,6 +231,7 @@ func TestProcessingFlow(t *testing.T) {
 	proc := &procArgs{
 		database:     databaseInstance,
 		deliverer:    senderInstance,
+		senderEmail:  ServiceEmail,
 		criticalChan: criticalChan,
 	}
 	w := createTestWill(t)
@@ -268,6 +275,7 @@ func TestRemoveFlow(t *testing.T) {
 	proc := &procArgs{
 		database:     databaseInstance,
 		deliverer:    senderInstance,
+		senderEmail:  ServiceEmail,
 		criticalChan: criticalChan,
 	}
 
@@ -303,6 +311,7 @@ func TestRemoveFlowTooEarly(t *testing.T) {
 	proc := &procArgs{
 		database:     databaseInstance,
 		deliverer:    senderInstance,
+		senderEmail:  ServiceEmail,
 		criticalChan: criticalChan,
 	}
 
@@ -338,6 +347,7 @@ func TestCompleteFlow(t *testing.T) {
 	proc := &procArgs{
 		database:     databaseInstance,
 		deliverer:    senderInstance,
+		senderEmail:  ServiceEmail,
 		criticalChan: criticalChan,
 	}
 	w := createTestWill(t)

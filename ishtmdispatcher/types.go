@@ -21,6 +21,7 @@ type args struct {
 	senderPort         int
 	senderAuthUser     string
 	senderAuthPassword string
+	senderEmailAddress string
 	htmlTemplatePath   string
 	// schedulers
 	processScheduleMinutes  uint32
