@@ -121,6 +121,9 @@ func initAuth() {
 	bindPFlag(LogoutCmd, "authaddress")
 	bindPFlag(LogoutCmd, "authport")
 	LogoutCmd.RunE = logout
+
+	RootCmd.AddCommand(CreateUserCmd)
+	CreateUserCmd.RunE = createuser
 }
 
 func init() {
