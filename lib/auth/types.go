@@ -25,8 +25,8 @@ const (
 // on a service basis, if the user is a sper-admin
 // a special bool flag will be setted.
 type Permissions struct {
-	SuperAdmin bool             `bson:"superadmin,omitempty"` // special user that have all permissions on all services;
-	Services   map[string]Level `bson:"services"`             // permissions organised per service, the "all" can be used for generalised behaviour.
+	SuperAdmin bool             `bson:"superadmin,omitempty" json:"superadmin,omitempty"` // special user that have all permissions on all services;
+	Services   map[string]Level `bson:"services" json:"services"`                         // permissions organised per service, the "all" can be used for generalised behaviour.
 }
 
 // User struct identify a registered

@@ -63,7 +63,6 @@ func initStorage() {
 	setArgument(StoreCmd, "workerscount")
 	setArgument(StoreCmd, "queuesize")
 	// i/o paths
-	setArgument(StoreCmd, "referencein")
 	bindPFlag(StoreCmd, "storageaddress")
 	bindPFlag(StoreCmd, "storageport")
 	bindPFlag(StoreCmd, "privatekey")
@@ -71,7 +70,6 @@ func initStorage() {
 	bindPFlag(StoreCmd, "masterkey")
 	bindPFlag(StoreCmd, "workerscount")
 	bindPFlag(StoreCmd, "queuesize")
-	bindPFlag(StoreCmd, "referencein")
 
 	StoreCmd.AddCommand(UploadCmd)
 	// encryption
@@ -97,12 +95,18 @@ func initStorage() {
 
 	StoreCmd.AddCommand(DownloadCmd)
 	// i/o paths
+	setArgument(DownloadCmd, "referencein")
 	setArgument(DownloadCmd, "output")
 	bindPFlag(DownloadCmd, "output")
+	bindPFlag(DownloadCmd, "referencein")
 
 	StoreCmd.AddCommand(InfoCmd)
+	setArgument(InfoCmd, "referencein")
+	bindPFlag(InfoCmd, "referencein")
 
 	StoreCmd.AddCommand(DeleteCmd)
+	setArgument(DeleteCmd, "referencein")
+	bindPFlag(DeleteCmd, "referencein")
 }
 
 func initAuth() {

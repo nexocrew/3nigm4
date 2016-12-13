@@ -9,6 +9,7 @@ package main
 // Golang std libs
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,6 +44,15 @@ func TrimLastChar(s string) string {
 		s = s[:len(s)-1]
 	}
 	return s
+}
+
+type userJson struct {
+	Username       string         `json:"username"`           // user name;
+	FullName       string         `json:"fullname,omitempty"` // complete full name;
+	HashedPassword string         `json:"pwdhash"`            // hashed password;
+	Email          string         `json:"email,omitempty"`    // user's verified email;
+	Permissions    al.Permissions `json:"permissions"`        // the permissions associated to the user;
+	IsDisabled     bool           `json:"disabled"`           // user active (true) or not (false).
 }
 
 // createuser generate a new user's record starting from the provided
@@ -82,6 +92,7 @@ func createuser(cmd *cobra.Command, args []string) error {
 	service := "all"
 	fmt.Printf("Insert service label [all]: ")
 	label, err := reader.ReadString('\n')
+	label = TrimLastChar(label)
 	if err == nil &&
 		label != "" {
 		service = TrimLastChar(label)
@@ -114,19 +125,31 @@ func createuser(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	b64Pwd := base64.StdEncoding.EncodeToString(bcryptedPwd)
 
-	user := &al.User{
+	user := &userJson{
 		Username:       username,
 		FullName:       fullname,
 		Email:          email,
 		Permissions:    permStruct,
-		HashedPassword: bcryptedPwd,
+		HashedPassword: b64Pwd,
 	}
-	encoded, err := json.Marshal(user)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Prepared user:\n%s\n", string(encoded))
+	fmt.Printf("Prepared user:\n%s\n", printBSONLikeDocument(user))
 
 	return nil
+}
+
+func printBSONLikeDocument(user *userJson) string {
+	var result string
+	result += "{"
+	result += fmt.Sprintf("\"username\":\"%s\",", user.Username)
+	result += fmt.Sprintf("\"fullname\":\"%s\",", user.FullName)
+	result += fmt.Sprintf("\"email\":\"%s\",\n", user.Email)
+	result += fmt.Sprintf("\"pwdhash\":BinData(0,\"%s\"),", user.HashedPassword)
+	result += fmt.Sprintf("\"disabled\":%v,", user.IsDisabled)
+	encodedPermissions, _ := json.Marshal(user.Permissions)
+	result += fmt.Sprintf("\"permissions\":%s", string(encodedPermissions))
+	result += "}\n"
+	return result
+
 }
