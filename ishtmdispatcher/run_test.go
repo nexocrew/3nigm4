@@ -162,7 +162,7 @@ func TestSendingFlow(t *testing.T) {
 	}
 	// sleeping is required to wait working queue activate on mail
 	// sending operations.
-	time.Sleep(100 * time.Microsecond)
+	time.Sleep(200 * time.Microsecond)
 
 	emails, err = databaseInstance.GetEmails()
 	if err != nil {
