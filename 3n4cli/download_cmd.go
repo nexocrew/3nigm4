@@ -79,7 +79,7 @@ func download(cmd *cobra.Command, args []string) error {
 	go manageAsyncErrors(errc)
 
 	// get reference
-	encBytes, err := ioutil.ReadFile(viper.GetString(viperLabel(StoreCmd, "referencein")))
+	encBytes, err := ioutil.ReadFile(viper.GetString(viperLabel(cmd, "referencein")))
 	if err != nil {
 		return fmt.Errorf("unable to access reference file: %s", err.Error())
 	}

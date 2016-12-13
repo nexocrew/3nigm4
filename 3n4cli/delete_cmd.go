@@ -68,7 +68,7 @@ func deleteReference(cmd *cobra.Command, args []string) error {
 	go manageAsyncErrors(errc)
 
 	// get reference
-	refin := viper.GetString(viperLabel(StoreCmd, "referencein"))
+	refin := viper.GetString(viperLabel(cmd, "referencein"))
 	encBytes, err := ioutil.ReadFile(refin)
 	if err != nil {
 		return fmt.Errorf("unable to access reference file %s cause %s", refin, err.Error())
