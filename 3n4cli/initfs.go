@@ -121,6 +121,37 @@ func createDirectories(rootDir string) error {
 	return nil
 }
 
+// TrimLastChar remove the last character for ReadString function
+// that ususally habe '\n' as terminator.
+func TrimLastChar(s string) string {
+	if len(s) > 0 {
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
+var pgpCommand = "%%echo Generating standard configured 4096 pgp key pair" +
+	"Key-Type: RSA\n" +
+	"Key-Length: 4096\n" +
+	"Subkey-Type: RSA\n" +
+	"Subkey-Length: 4096\n" +
+	"Name-Real: %s\n" +
+	"Name-Comment: %s\n" +
+	"Name-Email: %s\n" +
+	"Expire-Date: 0\n" +
+	"Passphrase: %s\n" +
+	"%%pubring foo.pub\n" +
+	"%%secring foo.sec\n" +
+	"%%commit\n" +
+	"%%echo done\n"
+
+// https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
+func createPgpKey(name, email, comment, passphrase string) (string, string, error) {
+	fileContent := fmt.Sprintf(pgpCommand, name, comment, email, passphrase)
+	fmt.Printf("%s.\n", fileContent)
+	return "", "", nil
+}
+
 // initcmd implements initialisation logic.
 func initfs(user, rootDir string) error {
 	// check for directory presence
@@ -132,14 +163,16 @@ func initfs(user, rootDir string) error {
 
 	// create final structure
 	cf := &configFile{}
+	// init reader
+	reader := bufio.NewReader(os.Stdin)
 
 	// make user set username
 	fmt.Printf("Please insert your ususal username (return empty for %s): ", user)
-	var username string
-	_, err = fmt.Scanln(&username)
+	username, err := reader.ReadString('\n')
 	if err != nil {
 		return fmt.Errorf("unable to read username input cause %s", err.Error())
 	}
+	username = TrimLastChar(username)
 	if username != "" {
 		cf.Login.Username = username
 	} else {
@@ -148,7 +181,6 @@ func initfs(user, rootDir string) error {
 
 	// make user choose a pgp key
 	fmt.Printf("Do you want to use an existing pgp key pair [y,n]: ")
-	reader := bufio.NewReader(os.Stdin)
 	selection, _, err := reader.ReadRune()
 	if err != nil {
 		return fmt.Errorf("unable to read selection input cause %s", err.Error())

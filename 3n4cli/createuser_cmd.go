@@ -39,13 +39,6 @@ var CreateUserCmd = &cobra.Command{
 	Hidden:  true,
 }
 
-func TrimLastChar(s string) string {
-	if len(s) > 0 {
-		s = s[:len(s)-1]
-	}
-	return s
-}
-
 type userJson struct {
 	Username       string         `json:"username"`           // user name;
 	FullName       string         `json:"fullname,omitempty"` // complete full name;
