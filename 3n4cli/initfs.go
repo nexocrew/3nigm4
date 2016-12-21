@@ -12,7 +12,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
+)
+
+// Internal dependencies
+import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
 // Third party libs
@@ -147,8 +153,22 @@ var pgpCommand = "%%echo Generating standard configured 4096 pgp key pair" +
 
 // https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
 func createPgpKey(name, email, comment, passphrase string) (string, string, error) {
+	// create openpgp command file and save to tmp file
 	fileContent := fmt.Sprintf(pgpCommand, name, comment, email, passphrase)
-	fmt.Printf("%s.\n", fileContent)
+
+	tmpfile, err := ioutil.TempFile("", "gpgtmp")
+	if err != nil {
+		return "", "", err
+	}
+	defer ct.SecureFileWipe(tmpfile)
+	defer tmpfile.Close()
+
+	if _, err := tmpfile.WriteString(fileContent); err != nil {
+		return "", "", err
+	}
+
+	// call gpg cli to create the key pair
+
 	return "", "", nil
 }
 
