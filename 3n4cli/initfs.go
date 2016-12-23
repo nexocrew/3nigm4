@@ -92,27 +92,6 @@ type configFile struct {
 	Ping   pingSettings    `yaml:"ping,omitempty"`
 }
 
-// createPgpKeyPair manage key creation tooltip.
-// Golang openpgp library seems not yet provided with a function
-// to create encrypted pgp private key files. To maintain the maximum
-// level of security is better to delegate the key creation to gpg tool.
-// TODO: eventually a command wrapper can be created using golang exec
-// package and "gpg --gen-key --openpgp --batch" command.
-/*
-func createPgpKeyPair() {
-	fmt.Printf("***************************************************\n" +
-		"Use gpg command to create a new pgp key pair:\n" +
-		"\t1. \"gpg --gen-key --openpgp\" to create a new key (use RSA algorith and 4096 bit lenght);\n" +
-		"\t2. \"gpg -K\" to list available private keys;\n" +
-		"\t3. \"gpg --armor --output ~/.3nigm4/pgp/pvkey.asc --export-secret-keys <key_id>\" to export private key;\n" +
-		"\t4. \"gpg --armor --output ~/.3nigm4/pgp/pbkey.asc --export <key_id>\" to export public key.\n" +
-		"After exporting the key files verify that ~/.3nigm4/config.yaml have the right reference to key pair files.\n" +
-		"\n" +
-		"You can also export existing pgp keys from third party services (for ex. Keybase) to be used by 3n4cli. Copy" +
-		"them in the ~/.3nigm4/pgp directory.\n" +
-		"***************************************************\n")
-}*/
-
 // createDirectories create 3n4cli required dirs.
 func createDirectories(rootDir string) error {
 	// create it! permission is drwx------
@@ -140,6 +119,8 @@ func TrimLastChar(s string) string {
 	return s
 }
 
+// pgpCommand prototype for the configuration file used
+// to generate PGP keys in a unsupervised flow.
 var pgpCommand = "Key-Type: RSA\n" +
 	"Key-Length: 4096\n" +
 	"Subkey-Type: RSA\n" +
@@ -147,13 +128,17 @@ var pgpCommand = "Key-Type: RSA\n" +
 	"Name-Real: %s\n" +
 	"Name-Comment: %s\n" +
 	"Name-Email: %s\n" +
-	"Expire-Date: 0\n" +
+	"Expire-Date: 3y\n" +
 	"Passphrase: %s\n" +
-	"%%pubring %s/.3nigm4/pgp/public.pub\n" +
-	"%%secring %s/.3nigm4/pgp/key.sec\n" +
+	"%%pubring %s/.3nigm4/pgp/public.asc\n" +
+	"%%secring %s/.3nigm4/pgp/key.asc\n" +
 	"%%commit\n" +
 	"%%echo done\n"
 
+// createPgpKeyPair creates a new PGP key pair using the gpg command
+// to avoid user interaction generates an configuration file before
+// proceeding.
+// See the following link for details:
 // https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
 func createPgpKeyPair(name, email, comment, passphrase string) (string, string, error) {
 	usr, err := user.Current()
@@ -176,7 +161,7 @@ func createPgpKeyPair(name, email, comment, passphrase string) (string, string, 
 	}
 
 	// call gpg cli to create the key pair
-	cmd := exec.Command("gpg", "--batch", "--gen-key", tmpfile.Name())
+	cmd := exec.Command("gpg", "--batch", "--armor", "--gen-key", tmpfile.Name())
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -185,7 +170,6 @@ func createPgpKeyPair(name, email, comment, passphrase string) (string, string, 
 	if err != nil {
 		return "", "", fmt.Errorf("unable to run gpg command: %s (%s)", err.Error(), stderr.String())
 	}
-	fmt.Printf("%s\n", stdout.String())
 
 	return "", "", nil
 }
