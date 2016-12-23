@@ -9,10 +9,12 @@ package main
 // Std golang libs
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 )
 
@@ -23,6 +25,7 @@ import (
 
 // Third party libs
 import (
+	"github.com/howeyc/gopass"
 	"gopkg.in/yaml.v2"
 )
 
@@ -95,6 +98,7 @@ type configFile struct {
 // level of security is better to delegate the key creation to gpg tool.
 // TODO: eventually a command wrapper can be created using golang exec
 // package and "gpg --gen-key --openpgp --batch" command.
+/*
 func createPgpKeyPair() {
 	fmt.Printf("***************************************************\n" +
 		"Use gpg command to create a new pgp key pair:\n" +
@@ -107,7 +111,7 @@ func createPgpKeyPair() {
 		"You can also export existing pgp keys from third party services (for ex. Keybase) to be used by 3n4cli. Copy" +
 		"them in the ~/.3nigm4/pgp directory.\n" +
 		"***************************************************\n")
-}
+}*/
 
 // createDirectories create 3n4cli required dirs.
 func createDirectories(rootDir string) error {
@@ -136,8 +140,7 @@ func TrimLastChar(s string) string {
 	return s
 }
 
-var pgpCommand = "%%echo Generating standard configured 4096 pgp key pair" +
-	"Key-Type: RSA\n" +
+var pgpCommand = "Key-Type: RSA\n" +
 	"Key-Length: 4096\n" +
 	"Subkey-Type: RSA\n" +
 	"Subkey-Length: 4096\n" +
@@ -146,15 +149,20 @@ var pgpCommand = "%%echo Generating standard configured 4096 pgp key pair" +
 	"Name-Email: %s\n" +
 	"Expire-Date: 0\n" +
 	"Passphrase: %s\n" +
-	"%%pubring foo.pub\n" +
-	"%%secring foo.sec\n" +
+	"%%pubring %s/.3nigm4/pgp/public.pub\n" +
+	"%%secring %s/.3nigm4/pgp/key.sec\n" +
 	"%%commit\n" +
 	"%%echo done\n"
 
 // https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
-func createPgpKey(name, email, comment, passphrase string) (string, string, error) {
+func createPgpKeyPair(name, email, comment, passphrase string) (string, string, error) {
+	usr, err := user.Current()
+	if err != nil {
+		return "", "", err
+	}
+
 	// create openpgp command file and save to tmp file
-	fileContent := fmt.Sprintf(pgpCommand, name, comment, email, passphrase)
+	fileContent := fmt.Sprintf(pgpCommand, name, comment, email, passphrase, usr.HomeDir, usr.HomeDir)
 
 	tmpfile, err := ioutil.TempFile("", "gpgtmp")
 	if err != nil {
@@ -168,6 +176,16 @@ func createPgpKey(name, email, comment, passphrase string) (string, string, erro
 	}
 
 	// call gpg cli to create the key pair
+	cmd := exec.Command("gpg", "--batch", "--gen-key", tmpfile.Name())
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if err != nil {
+		return "", "", fmt.Errorf("unable to run gpg command: %s (%s)", err.Error(), stderr.String())
+	}
+	fmt.Printf("%s\n", stdout.String())
 
 	return "", "", nil
 }
@@ -199,6 +217,11 @@ func initfs(user, rootDir string) error {
 		cf.Login.Username = user
 	}
 
+	err = createDirectories(rootDir)
+	if err != nil {
+		return nil
+	}
+
 	// make user choose a pgp key
 	fmt.Printf("Do you want to use an existing pgp key pair [y,n]: ")
 	selection, _, err := reader.ReadRune()
@@ -220,14 +243,26 @@ func initfs(user, rootDir string) error {
 		}
 	// create a new key pair
 	case 'n':
-		createPgpKeyPair()
+		// get pgp key password
+		fmt.Printf("Insert a new pgp password: ")
+		pwd, err := gopass.GetPasswdMasked()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Verify pgp password: ")
+		cmpPwd, err := gopass.GetPasswdMasked()
+		if err != nil {
+			return err
+		}
+		if bytes.Compare(pwd, cmpPwd) != 0 {
+			return fmt.Errorf("inserted password do not match with verified one")
+		}
+		cf.Store.PrivateKeyPath, cf.Store.PublicKeyPath, err = createPgpKeyPair(username, "n.a.", "n.a.", string(pwd))
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown selection %s expecting \"y\" or \"n\"", selection)
-	}
-
-	err = createDirectories(rootDir)
-	if err != nil {
-		return nil
 	}
 
 	// encode the file
