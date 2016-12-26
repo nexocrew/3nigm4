@@ -9,14 +9,23 @@ package main
 // Std golang libs
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
+	"os/user"
 	"path"
+)
+
+// Internal dependencies
+import (
+	ct "github.com/nexocrew/3nigm4/lib/commons"
 )
 
 // Third party libs
 import (
+	"github.com/howeyc/gopass"
 	"gopkg.in/yaml.v2"
 )
 
@@ -83,26 +92,6 @@ type configFile struct {
 	Ping   pingSettings    `yaml:"ping,omitempty"`
 }
 
-// createPgpKeyPair manage key creation tooltip.
-// Golang openpgp library seems not yet provided with a function
-// to create encrypted pgp private key files. To maintain the maximum
-// level of security is better to delegate the key creation to gpg tool.
-// TODO: eventually a command wrapper can be created using golang exec
-// package and "gpg --gen-key --openpgp --batch" command.
-func createPgpKeyPair() {
-	fmt.Printf("***************************************************\n" +
-		"Use gpg command to create a new pgp key pair:\n" +
-		"\t1. \"gpg --gen-key --openpgp\" to create a new key (use RSA algorith and 4096 bit lenght);\n" +
-		"\t2. \"gpg -K\" to list available private keys;\n" +
-		"\t3. \"gpg --armor --output ~/.3nigm4/pgp/pvkey.asc --export-secret-keys <key_id>\" to export private key;\n" +
-		"\t4. \"gpg --armor --output ~/.3nigm4/pgp/pbkey.asc --export <key_id>\" to export public key.\n" +
-		"After exporting the key files verify that ~/.3nigm4/config.yaml have the right reference to key pair files.\n" +
-		"\n" +
-		"You can also export existing pgp keys from third party services (for ex. Keybase) to be used by 3n4cli. Copy" +
-		"them in the ~/.3nigm4/pgp directory.\n" +
-		"***************************************************\n")
-}
-
 // createDirectories create 3n4cli required dirs.
 func createDirectories(rootDir string) error {
 	// create it! permission is drwx------
@@ -121,6 +110,70 @@ func createDirectories(rootDir string) error {
 	return nil
 }
 
+// TrimLastChar remove the last character for ReadString function
+// that ususally habe '\n' as terminator.
+func TrimLastChar(s string) string {
+	if len(s) > 0 {
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
+// pgpCommand prototype for the configuration file used
+// to generate PGP keys in a unsupervised flow.
+var pgpCommand = "Key-Type: RSA\n" +
+	"Key-Length: 4096\n" +
+	"Subkey-Type: RSA\n" +
+	"Subkey-Length: 4096\n" +
+	"Name-Real: %s\n" +
+	"Name-Comment: %s\n" +
+	"Name-Email: %s\n" +
+	"Expire-Date: 3y\n" +
+	"Passphrase: %s\n" +
+	"%%pubring %s/.3nigm4/pgp/public.asc\n" +
+	"%%secring %s/.3nigm4/pgp/key.asc\n" +
+	"%%commit\n" +
+	"%%echo done\n"
+
+// createPgpKeyPair creates a new PGP key pair using the gpg command
+// to avoid user interaction generates an configuration file before
+// proceeding.
+// See the following link for details:
+// https://www.gnupg.org/documentation/manuals/gnupg/Unattended-GPG-key-generation.html
+func createPgpKeyPair(name, email, comment, passphrase string) (string, string, error) {
+	usr, err := user.Current()
+	if err != nil {
+		return "", "", err
+	}
+
+	// create openpgp command file and save to tmp file
+	fileContent := fmt.Sprintf(pgpCommand, name, comment, email, passphrase, usr.HomeDir, usr.HomeDir)
+
+	tmpfile, err := ioutil.TempFile("", "gpgtmp")
+	if err != nil {
+		return "", "", err
+	}
+	defer ct.SecureFileWipe(tmpfile)
+	defer tmpfile.Close()
+
+	if _, err := tmpfile.WriteString(fileContent); err != nil {
+		return "", "", err
+	}
+
+	// call gpg cli to create the key pair
+	cmd := exec.Command("gpg", "--batch", "--armor", "--gen-key", tmpfile.Name())
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if err != nil {
+		return "", "", fmt.Errorf("unable to run gpg command: %s (%s)", err.Error(), stderr.String())
+	}
+
+	return "", "", nil
+}
+
 // initcmd implements initialisation logic.
 func initfs(user, rootDir string) error {
 	// check for directory presence
@@ -132,23 +185,29 @@ func initfs(user, rootDir string) error {
 
 	// create final structure
 	cf := &configFile{}
+	// init reader
+	reader := bufio.NewReader(os.Stdin)
 
 	// make user set username
 	fmt.Printf("Please insert your ususal username (return empty for %s): ", user)
-	var username string
-	_, err = fmt.Scanln(&username)
+	username, err := reader.ReadString('\n')
 	if err != nil {
 		return fmt.Errorf("unable to read username input cause %s", err.Error())
 	}
+	username = TrimLastChar(username)
 	if username != "" {
 		cf.Login.Username = username
 	} else {
 		cf.Login.Username = user
 	}
 
+	err = createDirectories(rootDir)
+	if err != nil {
+		return nil
+	}
+
 	// make user choose a pgp key
 	fmt.Printf("Do you want to use an existing pgp key pair [y,n]: ")
-	reader := bufio.NewReader(os.Stdin)
 	selection, _, err := reader.ReadRune()
 	if err != nil {
 		return fmt.Errorf("unable to read selection input cause %s", err.Error())
@@ -168,14 +227,26 @@ func initfs(user, rootDir string) error {
 		}
 	// create a new key pair
 	case 'n':
-		createPgpKeyPair()
+		// get pgp key password
+		fmt.Printf("Insert a new pgp password: ")
+		pwd, err := gopass.GetPasswdMasked()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Verify pgp password: ")
+		cmpPwd, err := gopass.GetPasswdMasked()
+		if err != nil {
+			return err
+		}
+		if bytes.Compare(pwd, cmpPwd) != 0 {
+			return fmt.Errorf("inserted password do not match with verified one")
+		}
+		cf.Store.PrivateKeyPath, cf.Store.PublicKeyPath, err = createPgpKeyPair(username, "n.a.", "n.a.", string(pwd))
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown selection %s expecting \"y\" or \"n\"", selection)
-	}
-
-	err = createDirectories(rootDir)
-	if err != nil {
-		return nil
 	}
 
 	// encode the file
