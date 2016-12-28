@@ -9,6 +9,7 @@
 # Base image name
 #
 GOLANG_DEFAULT_IMAGE=nexo/golang:latest
+#GOLANG_DEFAULT_IMAGE=golang:latest
 
 #
 #
